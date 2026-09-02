@@ -48,6 +48,30 @@ class Decision:
     cached: bool = False
 
 
+# Small models need scaffolding that large ones do not. Sending the same words
+# to every tier is what makes routing down feel like a downgrade: the model is
+# not only weaker, it is also being asked in a way that suits a stronger one.
+_ADAPT = {
+    "cheap": (
+        "Answer the request directly and stop. Short sentences. No preamble, no "
+        "restating the question, no closing offer of further help. If the "
+        "request has several parts, answer them in order.\n\n"
+    ),
+    "mid": "",
+    "heavy": "",
+    "max": (
+        "This answer may be acted on and may be difficult to undo. State the "
+        "assumptions you are relying on, and say plainly what would change your "
+        "answer if it turned out to be false.\n\n"
+    ),
+}
+
+
+def adapt(prompt, tier):
+    """Prepend the scaffolding that tier needs. Same request, fitted wording."""
+    return _ADAPT.get(tier, "") + prompt
+
+
 def normalise(text):
     return re.sub(r"\s+", " ", _FILLER.sub("", text)).strip()
 

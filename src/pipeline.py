@@ -54,7 +54,8 @@ def run(text, user="demo", approve=None):
         return Result("", decision, None, approved=False)
 
     ran = config.runnable(tier)
-    completion = provider.complete(config.MODELS[ran], decision.prompt)
+    prompt = router.adapt(decision.prompt, tier)
+    completion = provider.complete(config.MODELS[ran], prompt)
 
     record = memory.save(
         memory.build(request_id, user, decision, ran, router_completion, completion)

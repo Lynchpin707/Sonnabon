@@ -19,15 +19,16 @@ class Model:
 USE_AWS = os.getenv("USE_AWS", "false").lower() == "true"
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 
-# Hackathon ladder. Deliberately not the newest models: these are cheap,
-# broadly enabled on Bedrock, and a 50 dollar budget covers heavy testing.
-# Confirm all three against the AWS Bedrock pricing page, which is priced
-# separately from the Anthropic first party API.
+# Bedrock on-demand rates, USD per 1M tokens, checked 2026-09-02.
+# Sonnet 5 ran a promotional 2.00/10.00 that ended 2026-08-31, so it is now
+# 3.00/15.00. Opus 4.8 is the top tier rather than Fable 5, because Opus is
+# confirmed on Bedrock and Fable is not. Confirm in your own console: model
+# access on Bedrock is granted per model and is a gate, not a cost.
 BEDROCK = {
     "cheap": Model("amazon.nova-micro-v1:0", 0.035, 0.14),
     "mid": Model("anthropic.claude-haiku-4-5", 1.00, 5.00),
-    "heavy": Model("anthropic.claude-sonnet-5", 2.00, 10.00),
-    "max": Model("anthropic.claude-fable-5", 10.00, 50.00),
+    "heavy": Model("anthropic.claude-sonnet-5", 3.00, 15.00),
+    "max": Model("anthropic.claude-opus-4-8", 5.00, 25.00),
 }
 
 OLLAMA = {

@@ -90,7 +90,7 @@ def execution_agent(tier: str, request: str, user: str) -> str:
     if tier not in config.TIER_ORDER:
         tier = "mid"
     ran = config.runnable(tier)
-    completion = provider.complete(config.MODELS[ran], request)
+    completion = provider.complete(config.MODELS[ran], router.adapt(request, tier))
     decision = router.Decision(tier, "unclassified", "low", request)
     record = memory.save(
         memory.build(uuid.uuid4().hex, user, decision, ran, None, completion)
