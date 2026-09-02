@@ -9,3 +9,7 @@ wheels/
 # Virtual environments
 .venv
 .env
+
+# Runtime output
+ledger.jsonl
+feedback.jsonl

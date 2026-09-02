@@ -1,7 +1,7 @@
 [project]
-name = "xob"
+name = "tbi"
 version = "0.1.0"
-description = "Add your description here"
+description = "Token routing gateway with measured cost accounting"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
