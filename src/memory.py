@@ -87,16 +87,8 @@ def _put(entry, sort_key, path):
     return entry
 
 
-def _query(prefix, cls, path):
-    if not TABLE:
-        try:
-            with open(path, encoding="utf-8") as handle:
-                return [cls(**json.loads(line)) for line in handle if line.strip()]
-        except FileNotFoundError:
-            return []
-
+def _rows(cls, items, prefix):
     fields = cls.__dataclass_fields__
-    items = _table().scan().get("Items", [])
     return [
         cls(**{k: float(v) if isinstance(v, Decimal) else v
                for k, v in item.items() if k in fields})
@@ -105,21 +97,29 @@ def _query(prefix, cls, path):
     ]
 
 
-def history(user):
-    """One partition read. The whole reason for the single table layout."""
+def _query(prefix, cls, path, user=None):
+    """Reads one user's partition when a user is given. Only a report over
+    every user falls back to a scan, and that is not on the request path."""
     if not TABLE:
-        return [r for r in records() if r.user == user]
+        try:
+            with open(path, encoding="utf-8") as handle:
+                rows = [cls(**json.loads(line)) for line in handle if line.strip()]
+        except FileNotFoundError:
+            return []
+        return [r for r in rows if user is None or r.user == user]
+
+    if user is None:
+        return _rows(cls, _table().scan().get("Items", []), prefix)
 
     from boto3.dynamodb.conditions import Key
 
     response = _table().query(KeyConditionExpression=Key("pk").eq(f"USER#{user}"))
-    fields = Record.__dataclass_fields__
-    return [
-        Record(**{k: float(v) if isinstance(v, Decimal) else v
-                  for k, v in item.items() if k in fields})
-        for item in response.get("Items", [])
-        if str(item.get("sk", "")).startswith("CASE#")
-    ]
+    return _rows(cls, response.get("Items", []), prefix)
+
+
+def history(user):
+    """One partition read. The whole reason for the single table layout."""
+    return _query("CASE#", Record, LEDGER, user=user)
 
 
 def save(record):
@@ -135,8 +135,8 @@ def records():
     return _query("CASE#", Record, LEDGER)
 
 
-def ratings():
-    return _query("RATE#", Feedback, FEEDBACK)
+def ratings(user=None):
+    return _query("RATE#", Feedback, FEEDBACK, user=user)
 
 
 # -------------------------------------------------------------------- queries
@@ -162,13 +162,22 @@ def build(request_id, user, decision, ran_tier, router_completion, task_completi
     )
 
 
+RECENT = 10
+
+
 def prior(user, domain):
-    """What happened last time this user asked something like this."""
+    """What happened recently when this user asked something like this.
+
+    Only the last RECENT rated requests count. Without a window one bad rating
+    from months ago pins a domain to an expensive tier permanently, and the
+    cost model inverts over time.
+    """
     past = [r for r in history(user) if r.domain == domain]
     if not past:
         return None
-    scored = {f.request_id: f.rating for f in ratings()}
-    marks = [scored[r.request_id] for r in past if r.request_id in scored]
+    past.sort(key=lambda r: r.at)
+    scored = {f.request_id: f.rating for f in ratings(user)}
+    marks = [scored[r.request_id] for r in past if r.request_id in scored][-RECENT:]
     return {
         "n": len(past),
         "tier": statistics.mode(r.tier for r in past),

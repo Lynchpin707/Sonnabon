@@ -7,6 +7,8 @@ them as tools, which is how a team is assembled in Strands.
 Names say the job. Nothing here is called a prosecutor.
 """
 
+import uuid
+
 from strands import Agent, tool
 
 from . import config, forensics, memory, provider, router
@@ -91,9 +93,12 @@ def execution_agent(tier: str, request: str, user: str) -> str:
     completion = provider.complete(config.MODELS[ran], request)
     decision = router.Decision(tier, "unclassified", "low", request)
     record = memory.save(
-        memory.build("agent", user, decision, ran, None, completion)
+        memory.build(uuid.uuid4().hex, user, decision, ran, None, completion)
     )
-    return f"{completion.text}\n\n[{ran}, {record.total_cost:.6f} USD]"
+    return (
+        f"{completion.text}\n\n"
+        f"[{ran}, {record.total_cost:.6f} USD, id {record.request_id[:8]}]"
+    )
 
 
 @tool
@@ -120,8 +125,18 @@ Report the answer to the work, not your process. Nobody wants to read which
 tools you called. They want the email written or the question answered."""
 
 
-def handle(request, user="demo"):
-    """Run one request through the team."""
+def handle(request, user="demo", approve=None):
+    """Run one request through the team.
+
+    The approval gate is enforced here, in Python, before any agent starts.
+    A supervisor told to ask first is a request, not a control: it can be talked
+    out of it, and an approval a model grants itself is not an approval. This
+    check runs on a keyword rule that costs nothing and cannot be argued with.
+    """
+    gate = router.heuristic(request)
+    if approve and gate.tier in ("heavy", "max") and not approve(gate):
+        return "declined by owner, nothing was run"
+
     supervisor = _agent(
         SUPERVISOR,
         tier="mid",

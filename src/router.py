@@ -95,6 +95,8 @@ def decide(text):
         )
         decision = _parse(completion.text, text) or decision
 
+    if len(_cache) > 1000:
+        _cache.clear()
     _cache[key] = decision
     return decision, completion
 
