@@ -16,3 +16,5 @@ feedback.jsonl
 ui/.titles.json
 settings.json
 .claude/
+server.out
+server.err

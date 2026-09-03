@@ -27,7 +27,16 @@ body{margin:0;background:#fff;color:var(--ink);font-family:var(--sans);font-size
 #shader{position:fixed;inset:0;width:100%;height:100%;z-index:0}
 
 .app{position:relative;z-index:1;height:100%;display:grid;
-  grid-template-columns:252px 1fr;gap:12px;padding:12px}
+  grid-template-columns:var(--side,252px) 1fr;gap:12px;padding:12px}
+
+/* Drag to resize, double click to reset, arrow keys when focused. The width
+   is this viewer's own preference, so it lives in their browser and never
+   reaches the ledger. */
+.grip{position:absolute;top:12px;bottom:12px;width:9px;z-index:4;cursor:col-resize;
+  left:calc(12px + var(--side,252px) + 2px);border-radius:5px;
+  transition:background .18s}
+.grip:hover,.grip.on{background:rgba(20,22,27,.12)}
+.grip:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
 
 /* ---------- glass ---------- */
 .g{border:1px solid var(--glass-hi);border-radius:16px;background:var(--glass);
@@ -82,7 +91,7 @@ body{margin:0;background:#fff;color:var(--ink);font-family:var(--sans);font-size
 .gear:hover,.gear[aria-expanded="true"]{background:rgba(20,22,27,.07);color:var(--ink)}
 .gear:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
-.thread{flex:1;overflow-y:auto;min-height:0;padding:24px 20px;display:flex;
+.thread{position:relative;flex:1;overflow-y:auto;min-height:0;padding:24px 20px;display:flex;
   flex-direction:column;gap:22px}
 .thread::-webkit-scrollbar{width:8px}
 .thread::-webkit-scrollbar-thumb{background:rgba(20,22,27,.13);border-radius:4px}
@@ -175,18 +184,34 @@ textarea::placeholder{color:var(--faint)}
                  50%{transform:rotate(4deg) scale(1.05)}}
 .head img.busy{animation:press 1.5s ease-in-out infinite}
 
-/* ---------- the runner ---------- */
-.runner{position:relative;height:26px;width:150px}
-.runner .track{position:absolute;left:0;right:0;bottom:2px;height:1px;
-  background:linear-gradient(90deg,transparent,var(--hair) 18%,var(--hair) 82%,transparent)}
-.sprite{position:absolute;bottom:3px;width:22px;height:22px;
-  animation:dash 2.5s cubic-bezier(.42,0,.58,1) infinite}
-.sprite .f2{opacity:0}
-.sprite .f1{animation:blink .26s steps(1,end) infinite}
-.sprite .f2{animation:blink .26s steps(1,end) infinite reverse}
-@keyframes dash{0%{left:-6px}50%{left:calc(100% - 16px)}100%{left:-6px}}
-@keyframes blink{0%,49.9%{opacity:1}50%,100%{opacity:0}}
-.runner.done .sprite{animation-play-state:paused}
+/* ---------- the spider ----------
+   DungeonSpider.png by SpinachChicken, CC0, opengameart.org. 51x20 with four
+   12px frames at a 13px pitch. Frames 0 to 2 move her legs; frame 3 draws her
+   own silk, which is the clue that she belongs vertically rather than walking
+   a floor.
+
+   She pays out rope for as long as the model is thinking, so the length of the
+   line is roughly how long you have waited. The drop is capped and asymptotic:
+   a two second call and a forty second call both read, and neither sends her
+   down the whole panel. */
+.runner{position:absolute;top:14px;bottom:14px;left:0;right:0;
+  pointer-events:none;z-index:2}
+.strand{position:absolute;top:0;left:calc(50% - 15px)}
+.silk{position:absolute;left:15px;top:0;width:1px;height:0;background:#16181C}
+
+/* She is drawn dark. Inverted she is a near white body on a near white panel,
+   about 1.05 to 1 contrast, and no combination of shadows rescued that: she
+   simply is not there. Dark also matches the rope, so the two read as one
+   animal on one thread. Add invert(1) here if the panel ever goes dark. */
+.sprite{position:absolute;left:0;top:0;width:30px;height:50px;
+  image-rendering:pixelated;background:url(spider.png) 0 0/127.5px 50px no-repeat;
+  filter:drop-shadow(0 1px 2px rgba(255,255,255,.9));
+  animation:twitch .42s steps(1) infinite}
+@keyframes twitch{0%,32%{background-position:0 0}
+                  33%,65%{background-position:-32.5px 0}
+                  66%,100%{background-position:-65px 0}}
+
+.runner.done{transition:opacity .4s ease-out;opacity:0}
 
 /* ---------- rating + forensics ---------- */
 .acts{display:flex;align-items:center;gap:4px;margin-top:2px}
@@ -196,6 +221,7 @@ textarea::placeholder{color:var(--faint)}
 .act[aria-pressed="true"]{color:var(--ink);background:rgba(20,22,27,.08)}
 .act:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .learned{font-family:var(--mono);font-size:11px;color:var(--gold);margin-left:4px}
+.waiting{font-family:var(--mono);font-size:11px;color:var(--faint)}
 
 .forensic{max-width:720px;width:100%;margin:0 auto;display:flex;gap:11px;padding:13px 15px;
   border-radius:12px;border:1px solid rgba(138,106,30,.28);background:rgba(255,251,240,.72);
@@ -207,9 +233,40 @@ textarea::placeholder{color:var(--faint)}
 .adapted{font-family:var(--mono);font-size:11px;color:var(--faint);
   border:1px solid var(--hair);border-radius:5px;padding:1px 5px;cursor:help}
 
+/* One row per model call, as the Strands hooks recorded it. */
+.calls{font-family:var(--mono);font-size:11px;color:var(--faint);display:grid;gap:4px;
+  margin-top:8px;padding:9px 12px;border-radius:9px;background:rgba(20,22,27,.035)}
+.calls div{display:flex;align-items:baseline;gap:10px}
+.calls b{color:var(--dim);font-weight:400;min-width:96px}
+.calls .n{margin-left:auto;color:var(--dim);font-variant-numeric:tabular-nums}
+.calls .stop b,.calls .stop{color:var(--gold)}
+.calls .sum{border-top:1px solid var(--hair);padding-top:5px;margin-top:2px;color:var(--dim)}
+.disclose{background:none;border:0;padding:0;cursor:pointer;color:var(--faint);
+  font-family:var(--mono);font-size:11px;text-decoration:underline;text-underline-offset:3px}
+.disclose:hover{color:var(--ink)}
+.disclose:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+.approve{max-width:720px;width:100%;margin:0 auto;display:grid;gap:11px;padding:14px 16px;
+  border-radius:12px;border:1px solid rgba(138,106,30,.34);background:rgba(255,251,240,.78);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.approve .k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--gold)}
+.approve .v{font-size:13.5px;line-height:1.55}
+.approve .row{display:flex;gap:9px}
+.approve button{border:1px solid var(--hair);background:rgba(255,255,255,.7);border-radius:9px;
+  padding:7px 15px;cursor:pointer;font-family:var(--sans);font-size:12.5px;color:var(--ink)}
+.approve button.yes{background:var(--ink);color:#fff;border-color:var(--ink)}
+.approve button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+.panel select{width:100%;margin-bottom:12px;font-family:var(--mono);font-size:11px;
+  color:var(--ink);background:rgba(255,255,255,.7);border:1px solid var(--hair);
+  border-radius:8px;padding:6px 8px}
+.panel label{display:block;font-size:11px;color:var(--faint);letter-spacing:.12em;
+  text-transform:uppercase;margin-bottom:5px}
+
 @media(max-width:820px){
   .app{grid-template-columns:1fr}
-  .side{display:none}
+  .side,.grip{display:none}
 }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -218,6 +275,8 @@ textarea::placeholder{color:var(--faint)}
 <canvas id="shader" aria-hidden="true"></canvas>
 
 <div class="app">
+  <div class="grip" id="grip" role="separator" aria-orientation="vertical"
+       aria-label="Resize sidebar" tabindex="0"></div>
   <aside class="g side">
     <div class="head">
       <img src="logo.png" alt="">
@@ -255,27 +314,8 @@ textarea::placeholder{color:var(--faint)}
 
     <div class="thread" id="thread"></div>
 <template id="spriteTpl">
-  <div class="runner"><div class="track"></div>
-    <svg class="sprite" viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges">
-      <g class="f1" fill="var(--ink)">
-        <rect x="6" y="1" width="4" height="2"/><rect x="5" y="3" width="6" height="1"/>
-        <rect x="6" y="4" width="4" height="2" fill="#C8A47A"/>
-        <rect x="6" y="6" width="5" height="5"/>
-        <rect x="4" y="7" width="2" height="3"/><rect x="11" y="6" width="2" height="3"/>
-        <rect x="5" y="11" width="2" height="3"/><rect x="9" y="11" width="2" height="3"/>
-        <rect x="4" y="14" width="3" height="1"/><rect x="9" y="14" width="3" height="1"/>
-        <rect x="9" y="7" width="1" height="1" fill="var(--gold)"/>
-      </g>
-      <g class="f2" fill="var(--ink)">
-        <rect x="6" y="2" width="4" height="2"/><rect x="5" y="4" width="6" height="1"/>
-        <rect x="6" y="5" width="4" height="2" fill="#C8A47A"/>
-        <rect x="6" y="7" width="5" height="5"/>
-        <rect x="4" y="8" width="2" height="3"/><rect x="11" y="8" width="2" height="3"/>
-        <rect x="7" y="12" width="2" height="3"/><rect x="9" y="12" width="2" height="2"/>
-        <rect x="6" y="15" width="3" height="1"/><rect x="10" y="14" width="3" height="1"/>
-        <rect x="9" y="8" width="1" height="1" fill="var(--gold)"/>
-      </g>
-    </svg>
+  <div class="runner" aria-hidden="true">
+    <div class="strand"><div class="silk"></div><div class="sprite"></div></div>
   </div>
 </template>
 
@@ -300,71 +340,100 @@ textarea::placeholder{color:var(--faint)}
 <div class="g panel" id="panel" role="dialog" aria-label="Settings">
   <h2>Never route above</h2>
   <div class="opts" id="ceil"></div>
+  <label for="habit">Compare against</label>
+  <select id="habit">
+    <option value="cheap">cheap</option><option value="mid">mid</option>
+    <option value="heavy">heavy</option><option value="max">max</option>
+  </select>
   <div class="row"><span>cases today</span><b id="nCases">0</b></div>
 </div>
 
 <script>
-const T={
-  cheap:{m:"nova-micro", r:[0.035,0.14], c:"var(--cheap)"},
-  mid:  {m:"haiku-4.5",  r:[1,5],        c:"var(--mid)"},
-  heavy:{m:"sonnet-5",   r:[3,15],       c:"var(--heavy)"},
-  max:  {m:"opus-4.8",   r:[5,25],       c:"var(--max)"}
-};
-const ORDER=["cheap","mid","heavy","max"];
-/* Mirrors src/router.py. */
-const RULES=[
-  ["max",   /\b(strategy|invest|acquisition|lawsuit|contract|irreversible|restructur)/i],
-  ["heavy", /\b(negotiat|pricing|forecast|legal|audit|tax|margin|valuation)/i],
-  ["mid",   /\b(code|debug|formula|spreadsheet|analy[sz]|script|sql|refactor)/i],
-  ["cheap", /\b(email|reply|caption|translat|summar|post|reminder|thank)/i]
-];
-const route=t=>{for(const[k,re]of RULES)if(re.test(t))return k;return "mid"};
-const cost=(t,k)=>{const[i,o]=T[k].r, n=Math.max(t.trim().split(/\s+/).length*1.35,20);
-  return (n*i+n*1.4*o)/1e6};
-const usd=v=>v<0.001?"$"+v.toFixed(6):"$"+v.toFixed(4);
-const esc=s=>s.replace(/[&<>]/g,x=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[x]));
+const ORDER = ["cheap", "mid", "heavy", "max"];
+const COLOR = {cheap:"var(--cheap)", mid:"var(--mid)", heavy:"var(--heavy)", max:"var(--max)"};
+const usd = v => v < 0.001 ? "$" + v.toFixed(6) : "$" + v.toFixed(4);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g,
+  x => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[x]));
+const attr = x => String(x).replace(/"/g, "&quot;");
 
-let CASES=[], offline=false;
-let current=0, pick=null, open=false, overridden=false, ceiling="max", spent=0, nCases=0;
-const clamp=k=>ORDER.indexOf(k)>ORDER.indexOf(ceiling)?ceiling:k;
+/* Model names, tiers and costs all come from the server. Nothing on this page
+   predicts a price or mirrors a routing rule. A copy kept here would drift
+   from src/ the first time somebody changed a tier, and a number this file
+   invented would look exactly like one a provider actually charged. */
+let MODELS = {}, CASES = [], ANSWERS = {}, CALLS = {};
+let offline = false, note = null, current = 0;
+let pick = null, choosing = false, overridden = false;
+let ceiling = "max", habit = "heavy";
 
-const $=id=>document.getElementById(id);
-const thread=$("thread"), input=$("input"), send=$("send"), routeEl=$("route"),
-      casesEl=$("cases"), panel=$("panel"), gear=$("gear"), ceilEl=$("ceil");
+const $ = id => document.getElementById(id);
+const thread = $("thread"), input = $("input"), send = $("send"), routeEl = $("route"),
+      casesEl = $("cases"), panel = $("panel"), gear = $("gear"), ceilEl = $("ceil");
 
-function drawCases(){
-  let html="", last=null;
-  CASES.forEach((c,i)=>{
-    if(c.day!==last){html+=`<div class="grp">${c.day}</div>`; last=c.day}
-    html+=`<button class="case" data-i="${i}" aria-current="${i===current}">
-      <span class="t">${esc(c.title)}</span>
-      <span class="s"><span class="pip" style="background:${T[c.tier]?T[c.tier].c:"var(--mid)"}"></span>${c.tier}
-        <span>${usd(c.cost)}</span></span></button>`;
-  });
-  casesEl.innerHTML=html;
-}
-const SEEDS=[
+const SEEDS = [
   "Reply to the supplier about the late order",
   "Write the reorder point formula for my stock sheet",
   "Negotiate the packaging supplier's new terms"
 ];
-/* router.adapt only scaffolds the bottom and top tiers. */
-const ADAPTS={cheap:"answer directly, no preamble",
-              max:"state your assumptions and what would change them"};
-const ESCALATED={};
-const attr=x=>x.replace(/"/g,"&quot;");
 
-/* forensics.review: speaks only when something needs a decision. */
-const FORENSIC="Strategy work went to <b>opus-4.8</b> eleven times this week, against a "
-  +"usual four. That is <b>$0.14</b> of the <b>$0.31</b> rise. Two came back rated poorly, "
-  +"so the tier is not buying you much.";
-const forensicCard=()=>`<div class="forensic"><span class="k">Forensics</span>
-  <span class="v">${FORENSIC}</span></div>`;
+/* ------------------------------------------------------------ sidebar width */
 
-function emptyState(){
-  $("title").textContent="New case";
-  if(offline){
-    thread.innerHTML=`<div class="empty"><div class="empty-in">
+const SIDE_MIN = 190, SIDE_MAX = 470, SIDE_DEFAULT = 252;
+const grip = $("grip");
+
+function setSide(width) {
+  const w = Math.max(SIDE_MIN, Math.min(SIDE_MAX, Math.round(width)));
+  document.documentElement.style.setProperty("--side", w + "px");
+  grip.setAttribute("aria-valuenow", w);
+  try { localStorage.setItem("tbi.side", w); } catch (err) { /* private window */ }
+}
+function currentSide() {
+  return parseInt(getComputedStyle(document.documentElement)
+    .getPropertyValue("--side")) || SIDE_DEFAULT;
+}
+try {
+  const saved = Number(localStorage.getItem("tbi.side"));
+  if (saved) setSide(saved);
+} catch (err) { /* storage can be blocked; the default width is fine */ }
+
+grip.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  grip.classList.add("on");
+  const move = ev => setSide(ev.clientX - 12);
+  const up = () => {
+    grip.classList.remove("on");
+    removeEventListener("pointermove", move);
+    removeEventListener("pointerup", up);
+  };
+  addEventListener("pointermove", move);
+  addEventListener("pointerup", up);
+});
+grip.addEventListener("dblclick", () => setSide(SIDE_DEFAULT));
+grip.addEventListener("keydown", e => {
+  if (e.key === "ArrowLeft") { setSide(currentSide() - 16); e.preventDefault(); }
+  if (e.key === "ArrowRight") { setSide(currentSide() + 16); e.preventDefault(); }
+  if (e.key === "Home") { setSide(SIDE_DEFAULT); e.preventDefault(); }
+});
+
+/* ------------------------------------------------------------------ sidebar */
+
+function drawCases() {
+  let html = "", last = null;
+  CASES.forEach((c, i) => {
+    if (c.day !== last) { html += `<div class="grp">${c.day}</div>`; last = c.day; }
+    html += `<button class="case" data-i="${i}" aria-current="${i === current}">
+      <span class="t">${esc(c.title)}</span>
+      <span class="s"><span class="pip" style="background:${COLOR[c.tier] || "var(--mid)"}"></span>${esc(c.tier)}
+        <span>${usd(c.cost)}</span></span></button>`;
+  });
+  casesEl.innerHTML = html;
+}
+
+/* ------------------------------------------------------------- empty states */
+
+function emptyState() {
+  $("title").textContent = "New case";
+  if (offline) {
+    thread.innerHTML = `<div class="empty"><div class="empty-in">
       <img src="logo.png" alt="">
       <h1>Not connected</h1>
       <p>The interface is open but the bureau is not running, so there is nothing
@@ -376,168 +445,368 @@ function emptyState(){
     </div></div>`;
     return;
   }
-  thread.innerHTML=`<div class="empty"><div class="empty-in">
+  thread.innerHTML = `<div class="empty"><div class="empty-in">
     <img src="logo.png" alt="">
     <h1>What do you need done?</h1>
     <p>Write it the way you would say it. The bureau reads it, picks the model the
        work actually needs, and keeps the receipt.</p>
-    <div class="seeds">${SEEDS.map(x=>{const k=route(x);
-      return `<button class="seed" data-s="${attr(x)}">
-        <span class="pip" style="background:${T[k].c}"></span>${esc(x)}</button>`}).join("")}
+    <div class="seeds">${SEEDS.map(x =>
+      `<button class="seed" data-s="${attr(x)}">${esc(x)}</button>`).join("")}
     </div>
   </div></div>`;
 }
 
-function drawThread(){
-  const c=CASES[current];
-  if(!c){emptyState(); return}
-  if(c.pending){
-    $("title").textContent=c.title;
-    thread.innerHTML=`<div class="turn"><div class="you">${esc(c.title)}</div></div>
-      <div class="turn"><div class="tbi"><div class="body" id="pend"></div></div></div>`;
-    $("pend").appendChild($("spriteTpl").content.cloneNode(true));
+/* --------------------------------------------------------------- the record */
+
+function caseFile(c) {
+  /* One row per model call, as the Strands hooks recorded it. The team's own
+     calls are in here: a cost tracker that hides its own overhead is doing the
+     thing it exists to catch. */
+  const calls = CALLS[c.id];
+  if (!calls || !calls.length) return "";
+  const rows = calls.map(k => `<div><b>${esc(k.agent)}</b>
+    <span>${esc(k.tier)}</span>
+    <span>${k.input_tokens} in, ${k.output_tokens} out</span>
+    <span class="n">${usd(k.cost)}</span></div>`).join("");
+  const stopped = (c.blocks || []).map(b => `<div class="stop"><b>stopped</b>
+    <span>${esc(b.reason)}</span></div>`).join("");
+  const compare = c.baseline > c.cost
+    ? `<div class="sum"><b>on ${esc(MODELS[habit] || habit)}</b>
+       <span class="n">${usd(c.baseline)}</span></div>` : "";
+  return `<div class="calls" id="calls" hidden>${rows}${stopped}${compare}</div>`;
+}
+
+function approvalCard(c) {
+  const a = c.approve;
+  return `<div class="approve">
+    <span class="k">Your call</span>
+    <span class="v">This reads as <b>${esc(a.risk)}</b> risk and wants the
+      <b>${esc(a.tier)}</b> tier (${esc(a.model)}), above your standing ceiling
+      of <b>${esc(a.ceiling)}</b>. Nothing has run and nothing has been billed.</span>
+    <div class="row">
+      <button type="button" class="yes" data-ok="1">Authorise</button>
+      <button type="button" data-ok="0">Decline</button>
+    </div>
+  </div>`;
+}
+
+function drawThread() {
+  raiseSpiders();
+  const c = CASES[current];
+  if (!c) { emptyState(); return; }
+  $("title").textContent = c.title;
+  const you = `<div class="turn"><div class="you">${esc(c.title)}</div></div>`;
+
+  if (c.pending) {
+    thread.innerHTML = you +
+      `<div class="turn"><div class="tbi"><div class="body" id="pend">
+         <span class="waiting">the bureau is reading the case</span>
+       </div></div></div>`;
+    lowerSpiders();
     return;
   }
-  if(c.failed){
-    $("title").textContent=c.title;
-    thread.innerHTML=`<div class="turn"><div class="you">${esc(c.title)}</div></div>
-      <div class="turn"><div class="tbi"><div class="forensic">
-        <span class="k">Failed</span><span class="v">${esc(c.failed)}</span></div></div></div>`;
+  if (c.approve) { thread.innerHTML = you + approvalCard(c); return; }
+  if (c.failed) {
+    thread.innerHTML = you + `<div class="turn"><div class="tbi"><div class="forensic">
+      <span class="k">Stopped</span><span class="v">${esc(c.failed)}</span></div></div></div>`;
     return;
   }
-  $("title").textContent=c.title;
-  const ad=ADAPTS[c.tier]?`<span class="adapted" title="router.adapt adds: ${attr(ADAPTS[c.tier])}">adapted</span>`:"";
-  const note=c.r==="bad"?`<span class="learned">noted, this work moves up a tier</span>`:"";
-  thread.innerHTML=(c.f?forensicCard():"")
-    +`<div class="turn"><div class="you">${esc(c.title)}</div></div>
-    <div class="turn"><div class="tbi">
-      <div class="stamp"><span class="pip" style="background:${T[c.tier]?T[c.tier].c:"var(--mid)"}"></span>
-        <b>${c.tier}</b><span>${T[c.tier].m}</span><span>${usd(c.cost)}</span>${ad}</div>
-      <div class="body"><p>${esc(c.a)}</p></div>
+
+  const answer = ANSWERS[c.id];
+  const noted = c.r === "bad"
+    ? `<span class="learned">noted, this work moves up a tier</span>` : "";
+  const detail = CALLS[c.id] && CALLS[c.id].length
+    ? `<button type="button" class="disclose" id="show">${CALLS[c.id].length} calls</button>` : "";
+
+  thread.innerHTML = (note ? `<div class="forensic"><span class="k">Forensics</span>
+      <span class="v">${esc(note)}</span></div>` : "")
+    + you
+    + `<div class="turn"><div class="tbi">
+      <div class="stamp">
+        <span class="pip" style="background:${COLOR[c.tier] || "var(--mid)"}"></span>
+        <b>${esc(c.tier)}</b><span>${esc(MODELS[c.tier] || "")}</span>
+        <span>${usd(c.cost)}</span>${c.path ? `<span>${esc(c.path)}</span>` : ""}${detail}
+      </div>
+      ${caseFile(c)}
+      <div class="body"><p>${esc(answer ||
+        "This case is in the ledger. The answer itself is not stored.")}</p></div>
       <div class="acts">
-        <button class="act" data-r="ok" aria-pressed="${c.r==="ok"}" aria-label="Good answer">
+        <button class="act" data-r="ok" aria-pressed="${c.r === "ok"}" aria-label="Good answer">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 8.6l2.6 2.6L12 5.8"
             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-        <button class="act" data-r="bad" aria-pressed="${c.r==="bad"}" aria-label="Not good enough">
+        <button class="act" data-r="bad" aria-pressed="${c.r === "bad"}" aria-label="Not good enough">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M5 5l6 6M11 5l-6 6"
             stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-        </button>${note}
+        </button>${noted}
       </div>
     </div></div>`;
-  thread.scrollTop=0;
+  thread.scrollTop = 0;
 }
 
-thread.addEventListener("click",e=>{
-  const seed=e.target.closest(".seed");
-  if(seed){input.value=seed.dataset.s; input.dispatchEvent(new Event("input")); input.focus(); return}
-  const a=e.target.closest(".act");
-  if(a&&CASES[current]){
-    const r=a.dataset.r;
-    CASES[current].r = CASES[current].r===r ? null : r;
-    const c=CASES[current];
-    if(c.r==="bad"){                                  /* memory.escalate */
-      const i=ORDER.indexOf(c.tier);
-      if(i<ORDER.length-1) ESCALATED[c.tier]=ORDER[i+1];
-    }
-    if(c.id&&c.id!=="pending"&&c.r) fetch("/api/rate",{method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({id:c.id, tier:c.tier, rating:c.r==="ok"?1:0})}).catch(()=>{});
+/* --------------------------------------------------------------- the spider */
+
+let spiderStop = null;
+
+/* How far she is allowed to go, whatever the wait. Without a cap a slow model
+   walks her off the bottom of the panel. */
+const DROP_MAX = 108;
+const DROP_TAU = 5;
+
+function lowerSpiders() {
+  raiseSpiders();
+  thread.appendChild($("spriteTpl").content.cloneNode(true));
+  const runner = thread.querySelector(".runner");
+  const sprite = runner.querySelector(".sprite");
+  const silk = runner.querySelector(".silk");
+  const began = performance.now();
+
+  /* Elapsed time, not a fake progress bar. We cannot know how long inference
+     will take, so she approaches her limit rather than pretending to finish. */
+  let frame = requestAnimationFrame(function tick(now) {
+    const seconds = (now - began) / 1000;
+    const reach = Math.min(DROP_MAX, Math.max(runner.clientHeight - 70, 30));
+    const depth = reach * (1 - Math.exp(-seconds / DROP_TAU));
+    sprite.style.transform = "translateY(" + depth + "px)";
+    silk.style.height = (depth + 12) + "px";
+    frame = requestAnimationFrame(tick);
+  });
+
+  spiderStop = () => {
+    cancelAnimationFrame(frame);
+    runner.classList.add("done");
+    setTimeout(() => runner.remove(), 420);
+    spiderStop = null;
+  };
+}
+
+function raiseSpiders() {
+  if (spiderStop) spiderStop();
+  thread.querySelectorAll(".runner").forEach(node => node.remove());
+}
+
+/* -------------------------------------------------------------- interaction */
+
+thread.addEventListener("click", e => {
+  const seed = e.target.closest(".seed");
+  if (seed) {
+    input.value = seed.dataset.s;
+    input.dispatchEvent(new Event("input"));
+    input.focus();
+    return;
+  }
+  if (e.target.closest("#show")) {
+    const box = $("calls");
+    if (box) box.hidden = !box.hidden;
+    return;
+  }
+  const gate = e.target.closest("[data-ok]");
+  if (gate) {
+    const c = CASES[current];
+    if (gate.dataset.ok === "1") { submit(c.title, true); return; }
+    CASES[current] = {...c, approve: null,
+                      failed: "Declined. Nothing ran and nothing was billed."};
+    drawThread();
+    return;
+  }
+  const act = e.target.closest(".act");
+  if (act && CASES[current]) {
+    const c = CASES[current];
+    c.r = c.r === act.dataset.r ? null : act.dataset.r;
+    /* memory.escalate reads a negative mean, so a rejection is -1. Sending 0
+       would record the complaint and change nothing. */
+    if (c.id && c.id !== "pending" && c.r) fetch("/api/rate", {method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({id: c.id, tier: c.tier, rating: c.r === "ok" ? 1 : -1})
+    }).catch(() => {});
     drawThread();
   }
 });
-casesEl.addEventListener("click",e=>{
-  const b=e.target.closest(".case"); if(!b)return;
-  current=+b.dataset.i; drawCases(); drawThread();
-});
-$("new").addEventListener("click",()=>{current=-1; drawCases(); drawThread(); input.focus()});
 
-function drawRoute(){
-  const t=input.value.trim();
-  if(!t){routeEl.classList.remove("on"); return}
+casesEl.addEventListener("click", e => {
+  const b = e.target.closest(".case");
+  if (!b) return;
+  current = +b.dataset.i;
+  drawCases();
+  drawThread();
+});
+$("new").addEventListener("click", () => {
+  current = -1; overridden = false; pick = null;
+  drawCases(); drawThread(); input.focus();
+});
+
+/* The bureau chooses the model, because six agent calls against one is a
+   latency decision as much as a cost one. The override is here because
+   somebody who knows the work beats a guess about it, but it is opt in, and
+   it never shows a price before a provider has charged one. */
+function drawRoute() {
+  if (!input.value.trim()) { routeEl.classList.remove("on"); return; }
   routeEl.classList.add("on");
-  routeEl.innerHTML = open
-    ? '<span class="opts">'+ORDER.map(k=>
-        `<button type="button" class="opt" data-k="${k}" aria-pressed="${k===pick}">${k}</button>`
-      ).join("")+'</span>'
-    : `<b>${pick}</b><span>${T[pick].m}</span><span>~${usd(cost(t,pick))}</span>`
-      +'<button type="button" class="link" id="chg">change</button>';
+  routeEl.innerHTML = choosing
+    ? '<span class="opts">' + ORDER.map(k =>
+        `<button type="button" class="opt" data-k="${k}" aria-pressed="${k === pick}">${k}</button>`
+      ).join("") + '</span>'
+    : overridden
+      ? `<b>${esc(pick)}</b><span>${esc(MODELS[pick] || "")}</span>
+         <button type="button" class="link" id="chg">let the bureau choose</button>`
+      : `<span>the bureau picks the model</span>
+         <button type="button" class="link" id="chg">choose it yourself</button>`;
 }
-input.addEventListener("input",()=>{
-  input.style.height="auto"; input.style.height=input.scrollHeight+"px";
-  const t=input.value.trim(); send.disabled=!t;
-  if(t&&!overridden){const b=route(t); pick=clamp(ESCALATED[b]||b)}
+
+input.addEventListener("input", () => {
+  input.style.height = "auto";
+  input.style.height = input.scrollHeight + "px";
+  send.disabled = !input.value.trim();
   drawRoute();
 });
-routeEl.addEventListener("click",e=>{
-  if(e.target.id==="chg"){open=true; drawRoute(); routeEl.querySelector(".opt").focus(); return}
-  const o=e.target.closest(".opt");
-  if(o){pick=clamp(o.dataset.k); overridden=true; open=false; drawRoute()}
+routeEl.addEventListener("click", e => {
+  if (e.target.id === "chg") {
+    if (overridden) { overridden = false; pick = null; drawRoute(); return; }
+    choosing = true;
+    drawRoute();
+    routeEl.querySelector(".opt").focus();
+    return;
+  }
+  const o = e.target.closest(".opt");
+  if (o) { pick = o.dataset.k; overridden = true; choosing = false; drawRoute(); }
 });
-input.addEventListener("keydown",e=>{
-  if(e.key==="Enter"&&!e.shiftKey){e.preventDefault(); submit()}});
-send.addEventListener("click",submit);
+input.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
+});
+send.addEventListener("click", () => submit());
 
-async function submit(){
-  const t=input.value.trim(); if(!t)return;
-  const k=pick, forced=overridden?k:null;
-  input.value=""; input.style.height="auto"; send.disabled=true;
-  overridden=false; open=false; routeEl.classList.remove("on");
+/* ------------------------------------------------------------------ sending */
 
-  CASES.unshift({id:"pending", day:"Today", title:t, tier:k, cost:0, pending:true});
-  current=0; drawCases(); drawThread();
+async function submit(text, approved) {
+  const t = (text !== undefined ? text : input.value).trim();
+  if (!t) return;
+  const forced = overridden ? pick : null;
+  if (text === undefined) { input.value = ""; input.style.height = "auto"; }
+  send.disabled = true;
+  routeEl.classList.remove("on");
+
+  if (approved) CASES[current] = {...CASES[current], approve: null, pending: true};
+  else {
+    CASES.unshift({id: "pending", day: "Today", title: t,
+                   tier: forced || "mid", cost: 0, pending: true});
+    current = 0;
+  }
+  drawCases(); drawThread();
   document.querySelector(".head img").classList.add("busy");
 
-  try{
-    const res=await fetch("/api/ask",{method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({text:t, tier:forced})});
-    const d=await res.json();
-    if(d.error) throw new Error(d.error);
-    CASES[0]={id:d.id, day:"Today", title:t, tier:d.tier, asked:d.asked,
-              cost:d.cost, decided:d.decided, domain:d.domain, risk:d.risk,
-              answer:d.text, tokens:[d.input_tokens,d.output_tokens]};
-    await refresh(false);
-  }catch(err){
-    CASES[0]={...CASES[0], pending:false, failed:String(err.message||err)};
+  try {
+    const res = await fetch("/api/ask", {method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({text: t, tier: forced, approved: !!approved})});
+    const d = await res.json();
+
+    if (d.needs_approval) {
+      CASES[current] = {id: "pending", day: "Today", title: t, cost: 0,
+                        tier: d.needs_approval.tier, approve: d.needs_approval};
+    } else if (d.error) {
+      throw new Error(d.error);
+    } else if (d.declined) {
+      CASES[current] = {...CASES[current], pending: false, approve: null,
+                        failed: "Declined. Nothing ran and nothing was billed."};
+    } else {
+      ANSWERS[d.id] = d.text;
+      CALLS[d.id] = d.calls || [];
+      CASES[current] = {id: d.id, day: "Today", title: t, tier: d.tier, asked: d.asked,
+                        cost: d.cost, baseline: d.baseline, domain: d.domain,
+                        risk: d.risk, path: d.path, blocks: d.blocks || []};
+      await refresh(false);
+    }
+  } catch (err) {
+    CASES[current] = {...CASES[current], pending: false, approve: null,
+                      failed: String(err.message || err)};
   }
+  overridden = false; pick = null;
   document.querySelector(".head img").classList.remove("busy");
   drawCases(); drawThread();
 }
 
-async function refresh(redraw=true){
-  try{
-    const d=await (await fetch("/api/state")).json();
-    offline=false;
-    const pending=CASES.filter(c=>c.pending||c.failed);
-    CASES=d.history.map(h=>({id:h.id, day:h.day, title:h.title, tier:h.tier,
-      asked:h.asked, cost:h.cost, decided:h.decided, domain:h.domain,
-      r:h.rating===1?"ok":h.rating===0?"bad":null}));
-    $("today").textContent=$("fToday").textContent="$"+d.today.toFixed(4);
-    $("fMonth").textContent="$"+d.month.toFixed(4);
-    $("fSaved").textContent=d.saved?d.saved+"%":"--";
-    $("nCases").textContent=d.history.filter(h=>h.day==="Today").length;
-    ceiling=d.ceiling; drawCeil();
-    $("backend").textContent=d.backend;
-    if(redraw){drawCases(); drawThread()}
-  }catch(err){ offline=true; if(redraw){drawCases(); drawThread()} }
+/* ------------------------------------------------------------------ reading */
+
+async function refresh(redraw = true) {
+  try {
+    const d = await (await fetch("/api/state")).json();
+    offline = false;
+    MODELS = d.models || {};
+    ceiling = d.ceiling;
+    habit = d.habit;
+    /* A case still waiting on the model is not in the ledger yet. The health
+       probe makes this request slow, so without this a reply that lands while
+       the page is loading gets erased by the load. */
+    const live = CASES.filter(c => c.pending || c.failed || c.approve);
+    const filed = d.history.map(h => ({id: h.id, day: h.day, title: h.title, tier: h.tier,
+      asked: h.asked, cost: h.cost, baseline: h.baseline, domain: h.domain,
+      r: h.rating === 1 ? "ok" : h.rating === -1 ? "bad" : null}));
+    CASES = live.concat(filed);
+    $("today").textContent = $("fToday").textContent = usd(d.today);
+    $("fMonth").textContent = usd(d.month);
+    $("fSaved").textContent = d.saved == null ? "--" : d.saved + "%";
+    $("nCases").textContent = d.history.filter(h => h.day === "Today").length;
+    $("backend").textContent = d.backend;
+    $("backend").title = d.backend_detail || "";
+    drawSettings();
+    if (redraw) { drawCases(); drawThread(); }
+  } catch (err) {
+    offline = true;
+    if (redraw) { drawCases(); drawThread(); }
+  }
 }
 
-const drawCeil=()=>ceilEl.innerHTML=ORDER.map(k=>
-  `<button type="button" class="opt" data-c="${k}" aria-pressed="${k===ceiling}">${k}</button>`).join("");
-ceilEl.addEventListener("click",e=>{
-  const b=e.target.closest(".opt"); if(!b)return;
-  ceiling=b.dataset.c; drawCeil();
-  if(pick&&ORDER.indexOf(pick)>ORDER.indexOf(ceiling)){pick=ceiling; drawRoute()}
-});
-gear.addEventListener("click",()=>gear.setAttribute("aria-expanded",panel.classList.toggle("on")));
-addEventListener("keydown",e=>{if(e.key==="Escape"&&panel.classList.contains("on")){
-  panel.classList.remove("on"); gear.setAttribute("aria-expanded","false")}});
-document.addEventListener("click",e=>{
-  if(!panel.contains(e.target)&&!gear.contains(e.target)&&panel.classList.contains("on")){
-    panel.classList.remove("on"); gear.setAttribute("aria-expanded","false")}});
+/* Speaks only when something needs a decision, so an empty reply shows nothing
+   rather than a reassuring sentence nobody asked for. */
+fetch("/api/forensics").then(r => r.json()).then(d => {
+  if (d && d.note) { note = d.note; drawThread(); }
+}).catch(() => {});
 
-drawCeil(); refresh();
+/* ----------------------------------------------------------------- settings */
+
+function drawSettings() {
+  ceilEl.innerHTML = ORDER.map(k =>
+    `<button type="button" class="opt" data-c="${k}" aria-pressed="${k === ceiling}">${k}</button>`
+  ).join("");
+  if ($("habit").value !== habit) $("habit").value = habit;
+}
+
+async function saveSettings(patch) {
+  try {
+    const res = await fetch("/api/settings", {method: "POST",
+      headers: {"Content-Type": "application/json"}, body: JSON.stringify(patch)});
+    const d = await res.json();
+    if (d.error) return;
+    ceiling = d.ceiling;
+    habit = d.habit;
+    drawSettings();
+    refresh(false);
+  } catch (err) { /* the panel keeps showing what the server last confirmed */ }
+}
+
+ceilEl.addEventListener("click", e => {
+  const b = e.target.closest(".opt");
+  if (b) saveSettings({ceiling: b.dataset.c});
+});
+$("habit").addEventListener("change", e => saveSettings({habit: e.target.value}));
+
+gear.addEventListener("click", () =>
+  gear.setAttribute("aria-expanded", panel.classList.toggle("on")));
+addEventListener("keydown", e => {
+  if (e.key === "Escape" && panel.classList.contains("on")) {
+    panel.classList.remove("on");
+    gear.setAttribute("aria-expanded", "false");
+  }
+});
+document.addEventListener("click", e => {
+  if (!panel.contains(e.target) && !gear.contains(e.target)
+      && panel.classList.contains("on")) {
+    panel.classList.remove("on");
+    gear.setAttribute("aria-expanded", "false");
+  }
+});
+
+refresh();
 
 /* Background only: two very large soft fields, blue and gold, on white. The
    glass above is CSS, which now has real content behind it to blur. */
