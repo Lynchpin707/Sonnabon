@@ -45,20 +45,39 @@ MODELS = BEDROCK if USE_AWS else OLLAMA
 # the whole savings model quietly reports zero.
 PRICED = BEDROCK
 
+TIER_ORDER = tuple(PRICED)
+
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+
 # The router pays output rates to save input rates. Under this length it can
 # never recover its own cost, so the deterministic heuristic decides instead.
 ROUTER_MIN_CHARS = int(os.getenv("ROUTER_MIN_CHARS", "400"))
 
 MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "1024"))
-LEDGER_PATH = os.getenv("LEDGER_PATH", "ledger.jsonl")
+
+
+def _tier(name, default):
+    """Reject an unknown tier name loudly. A typo in TIER_CEILING must not
+    silently become 'whatever .index() happened to raise on'."""
+    if name not in TIER_ORDER:
+        raise ValueError(f"{name!r} is not a tier. Use one of {TIER_ORDER}.")
+    return name
 
 
 # The highest tier we can afford to actually call. Routing still decides the
 # true tier and the ledger still records what it would have cost, but execution
 # is clamped to this. A student budget changes what we run, not what we measure.
-CEILING = os.getenv("TIER_CEILING", "mid")
+CEILING = _tier(os.getenv("TIER_CEILING", "mid"), "mid")
 
-TIER_ORDER = tuple(PRICED)
+# The tab somebody already had open. Savings are measured against sending the
+# same request here, because that is the thing TBI actually replaces. Comparing
+# against the clamped tier would only measure our own budget, not the product.
+HABIT_TIER = _tier(os.getenv("HABIT_TIER", "heavy"), "heavy")
+
+
+# Domain to tier, set by hand in the interface. Empty means the classifier
+# decides everything. Populated by settings.apply.
+DOMAIN_RULES = {}
 
 
 def runnable(tier):

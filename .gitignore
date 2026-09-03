@@ -13,3 +13,6 @@ wheels/
 # Runtime output
 ledger.jsonl
 feedback.jsonl
+ui/.titles.json
+settings.json
+.claude/

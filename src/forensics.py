@@ -10,9 +10,9 @@ part a function cannot do. Routing is a classification and stays a function.
 Its standing instruction is to say nothing unless something needs a decision.
 """
 
-from strands import Agent, tool
+from strands import tool
 
-from . import config, memory
+from . import bureau, config, memory
 
 SYSTEM = """You are the forensics agent at the Tokens Bureau of Investigation.
 
@@ -92,25 +92,15 @@ def tier_prices() -> str:
     )
 
 
-def _model():
-    if config.USE_AWS:
-        from strands.models.bedrock import BedrockModel
-
-        return BedrockModel(
-            model_id=config.MODELS["mid"].id, region_name=config.AWS_REGION
-        )
-
-    from strands.models.openai import OpenAIModel
-
-    return OpenAIModel(model_id=config.MODELS["mid"].id, stream=False)
-
-
 def review(user):
-    """Run the audit. Returns None when there is nothing worth surfacing."""
-    agent = Agent(
-        model=_model(),
-        system_prompt=SYSTEM,
+    """Run the audit. Returns None when there is nothing worth surfacing.
+
+    Built through bureau.agent like every other agent here, so an audit that
+    runs during a request is itself charged to that request. The auditor pays
+    for its own time."""
+    auditor = bureau.agent(
+        SYSTEM, "mid", "forensics",
         tools=[spending, satisfaction, unusual, tier_prices],
     )
-    finding = str(agent(f"Review model spending for {user}.")).strip()
+    finding = str(auditor(f"Review model spending for {user}.")).strip()
     return None if "NOTHING TO REPORT" in finding.upper() else finding

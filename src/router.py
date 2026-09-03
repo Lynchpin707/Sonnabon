@@ -97,6 +97,26 @@ def heuristic(text):
     return Decision(tier, "unclassified", "low", normalise(text))
 
 
+def apply_rules(decision):
+    """A tier the owner pinned to a domain beats the classifier.
+
+    Applied after the cache, never before, so changing a rule takes effect on
+    the next request instead of whenever the cache happens to turn over.
+    """
+    tier = config.DOMAIN_RULES.get(decision.domain)
+    return replace(decision, tier=tier) if tier in TIERS else decision
+
+
+def needs_team(decision):
+    """Whether this request is worth the full agent team.
+
+    The team costs about six model calls; the fast path costs one or two. That
+    is a latency decision as much as a cost one, so the system makes it, not
+    the person waiting. Judgement work earns the team. Formulaic work does not.
+    """
+    return decision.risk == "high" or decision.tier in ("heavy", "max")
+
+
 _cache = {}
 
 
@@ -108,7 +128,7 @@ def decide(text):
     """
     key = hashlib.sha256(normalise(text).encode()).hexdigest()
     if key in _cache:
-        return replace(_cache[key], cached=True), None
+        return apply_rules(replace(_cache[key], cached=True)), None
 
     decision = heuristic(text)
     completion = None
@@ -122,7 +142,7 @@ def decide(text):
     if len(_cache) > 1000:
         _cache.clear()
     _cache[key] = decision
-    return decision, completion
+    return apply_rules(decision), completion
 
 
 def _parse(raw, text):

@@ -1,32 +1,33 @@
 """The agent team.
 
-Four specialists and a supervisor that decides who to call. Each specialist is
-its own Strands agent with one job and one system prompt. The supervisor sees
-them as tools, which is how a team is assembled in Strands.
+Four specialists and a case officer that decides who to call. Each specialist
+is its own Strands agent with one job and one system prompt. The case officer
+sees them as tools, which is how a team is assembled in Strands.
+
+Every agent here is built by ``bureau.agent``, so every agent is wired to the
+same case file. Nobody in this building can make a model call off the books.
 
 Names say the job. Nothing here is called a prosecutor.
 """
 
 import uuid
+from dataclasses import dataclass
 
-from strands import Agent, tool
+from strands import tool
 
-from . import config, forensics, memory, provider, router
+from . import bureau, config, forensics, memory, router
 
 
-def _agent(system_prompt, tier="cheap", tools=None):
-    if config.USE_AWS:
-        from strands.models.bedrock import BedrockModel
+@dataclass(frozen=True)
+class Case:
+    """What one request produced, and what it cost to produce it."""
 
-        model = BedrockModel(
-            model_id=config.MODELS[tier].id, region_name=config.AWS_REGION
-        )
-    else:
-        from strands.models.openai import OpenAIModel
-
-        model = OpenAIModel(model_id=config.MODELS[tier].id, stream=False)
-
-    return Agent(model=model, system_prompt=system_prompt, tools=tools or [])
+    answer: str
+    decision: router.Decision
+    record: memory.Record | None
+    calls: tuple = ()
+    blocks: tuple = ()
+    approved: bool = True
 
 
 SCENARIO = """You read a request and say what it actually is.
@@ -63,11 +64,16 @@ each tier before. A tier they rated badly is not a saving, whatever it cost.
 
 Reply with the tier name and one short sentence of reason. Nothing else."""
 
+EXECUTION = """You do the work the request asks for.
+
+Answer the request itself. Do not describe what you are about to do, do not
+restate the question, and do not offer further help at the end."""
+
 
 @tool
 def scenario_agent(request: str) -> str:
     """Read a request and report its intent, complexity, risk and domain."""
-    return str(_agent(SCENARIO)(request))
+    return str(bureau.agent(SCENARIO, "cheap", "scenario")(request))
 
 
 @tool
@@ -81,24 +87,18 @@ def routing_agent(scenario_report: str, user: str) -> str:
         if past
         else "no history for this user in this domain"
     )
-    return str(_agent(ROUTING)(f"{scenario_report}\n\n{history}"))
+    return str(bureau.agent(ROUTING, "cheap", "routing")(
+        f"{scenario_report}\n\n{history}"))
 
 
 @tool
-def execution_agent(tier: str, request: str, user: str) -> str:
-    """Run the request on the chosen tier and record what it really cost."""
+def execution_agent(tier: str, request: str) -> str:
+    """Run the request on the chosen tier. The cost is recorded by the hooks."""
     if tier not in config.TIER_ORDER:
         tier = "mid"
     ran = config.runnable(tier)
-    completion = provider.complete(config.MODELS[ran], router.adapt(request, tier))
-    decision = router.Decision(tier, "unclassified", "low", request)
-    record = memory.save(
-        memory.build(uuid.uuid4().hex, user, decision, ran, None, completion)
-    )
-    return (
-        f"{completion.text}\n\n"
-        f"[{ran}, {record.total_cost:.6f} USD, id {record.request_id[:8]}]"
-    )
+    answer = bureau.agent(EXECUTION, ran, "execution")(router.adapt(request, tier))
+    return str(answer)
 
 
 @tool
@@ -116,11 +116,6 @@ You have a team. Use them in this order:
   execution_agent  to actually do the work, once you have a tier
   forensics_agent  only when the person asks about their spending
 
-Two standing rules.
-
-Stop and ask the owner before running anything the scenario agent marked high
-risk. Say what it is and what tier it needs. Do not decide that for them.
-
 Report the answer to the work, not your process. Nobody wants to read which
 tools you called. They want the email written or the question answered."""
 
@@ -128,18 +123,30 @@ tools you called. They want the email written or the question answered."""
 def handle(request, user="demo", approve=None):
     """Run one request through the team.
 
-    The approval gate is enforced here, in Python, before any agent starts.
-    A supervisor told to ask first is a request, not a control: it can be talked
-    out of it, and an approval a model grants itself is not an approval. This
-    check runs on a keyword rule that costs nothing and cannot be argued with.
+    Two controls, and neither of them is a sentence in a system prompt. The
+    owner is asked before anything above the standing ceiling runs, using the
+    same rule the fast path uses. Then the case file's hooks enforce it call by
+    call inside the agent loop, where a model cannot talk its way past it.
     """
-    gate = router.heuristic(request)
-    if approve and gate.tier in ("heavy", "max") and not approve(gate):
-        return "declined by owner, nothing was run"
+    decision = router.heuristic(request)
+    authorised = config.CEILING
 
-    supervisor = _agent(
-        SUPERVISOR,
-        tier="mid",
-        tools=[scenario_agent, routing_agent, execution_agent, forensics_agent],
-    )
-    return str(supervisor(f"user: {user}\n\nrequest: {request}"))
+    if bureau.needs_approval(decision):
+        if approve is None or not approve(decision):
+            return Case("", decision, None, approved=False)
+        authorised = decision.tier
+
+    case = bureau.CaseFile(user=user, authorised=authorised)
+    token = bureau.open_case(case)
+    try:
+        officer = bureau.agent(
+            SUPERVISOR, "mid", "case officer",
+            tools=[scenario_agent, routing_agent, execution_agent, forensics_agent],
+        )
+        answer = str(officer(f"user: {user}\n\nrequest: {request}"))
+    finally:
+        bureau.close_case(token)
+
+    record = memory.save(
+        memory.build_case(uuid.uuid4().hex, user, decision, case))
+    return Case(answer, decision, record, tuple(case.calls), tuple(case.blocks))

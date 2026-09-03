@@ -172,9 +172,14 @@ the time:
 | 40% | $4.95 | **62%** |
 | 60% | $6.48 | **71%** |
 
-Read the first row. **Against somebody with perfect routing discipline, TBI
-saves nothing on cost.** That is worth saying out loud. It is also not a real
-person, and that row only counts money.
+The top row is the floor, not a forecast. It describes somebody who routes every
+request perfectly, by hand, every time, and never once reaches for the wrong tab
+while thinking about something else.
+
+**Nobody is that person. That is the entire point.**
+
+And even for someone who is, TBI still tells them what they spent and on what,
+which is the part no billing dashboard does.
 
 ---
 
@@ -217,6 +222,26 @@ USE_AWS=true python main.py
 Add `DDB_TABLE=tbi` to store on DynamoDB instead of a local file. Nothing above
 that line changes.
 
+### The interface
+
+```bash
+python ui/server.py
+```
+
+Then open **localhost:8756**. It serves `ui/index.html` and runs every request
+through the same `pipeline.run` the tests use, so the tier, the token counts and
+the cost on screen are the real ones. There is no seeded data: an empty ledger
+shows an empty bureau.
+
+It needs a backend. Either is fine:
+
+| | Setup | Cost |
+|---|---|---|
+| **Ollama** | `uv sync`, then `ollama pull qwen2.5:1.5b` and `qwen2.5:3b` | nothing |
+| **Bedrock** | AWS credentials, model access enabled, then `USE_AWS=true python ui/server.py` | real |
+
+Without one, the page says so rather than inventing numbers.
+
 ### What a $50 budget covers
 
 A single request, roughly 800 tokens in and 600 out, on each tier:
@@ -252,6 +277,8 @@ the AWS pricing page did not render its tables. Confirm in your own console.
 | `src/memory.py` | spend, ratings, history, anomalies |
 | `src/pipeline.py` | the fast path, no agent overhead |
 | `src/config.py` | the tier ladder and the prices |
+| `ui/index.html` | the interface. One file, no build step |
+| `ui/server.py` | serves it and runs requests through `pipeline.run` |
 
 **No number in the ledger is estimated by a model.** Every token count comes
 from the provider's own usage response, which is the only reason any figure here

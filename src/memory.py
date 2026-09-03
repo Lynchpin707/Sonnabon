@@ -47,10 +47,19 @@ class Record:
     input_tokens: int
     output_tokens: int
     at: float
+    # What these same tokens would have cost on the tab the person already had
+    # open. Defaulted so ledgers written before this field still load.
+    baseline_cost: float = 0.0
+    calls: int = 1
 
     @property
     def total_cost(self):
         return self.router_cost + self.task_cost
+
+    @property
+    def saved(self):
+        """Never negative. Routing upward is a decision, not a loss."""
+        return max(self.baseline_cost - self.total_cost, 0.0)
 
 
 @dataclass(frozen=True)
@@ -87,11 +96,17 @@ def _put(entry, sort_key, path):
     return entry
 
 
-def _rows(cls, items, prefix):
+def _row(cls, item):
+    """Keep only fields the class still has. A ledger outlives its schema, and
+    a row written last week must not crash the reader this week."""
     fields = cls.__dataclass_fields__
+    return cls(**{k: float(v) if isinstance(v, Decimal) else v
+                  for k, v in item.items() if k in fields})
+
+
+def _rows(cls, items, prefix):
     return [
-        cls(**{k: float(v) if isinstance(v, Decimal) else v
-               for k, v in item.items() if k in fields})
+        _row(cls, item)
         for item in items
         if str(item.get("sk", "")).startswith(prefix)
     ]
@@ -103,7 +118,7 @@ def _query(prefix, cls, path, user=None):
     if not TABLE:
         try:
             with open(path, encoding="utf-8") as handle:
-                rows = [cls(**json.loads(line)) for line in handle if line.strip()]
+                rows = [_row(cls, json.loads(line)) for line in handle if line.strip()]
         except FileNotFoundError:
             return []
         return [r for r in rows if user is None or r.user == user]
@@ -144,7 +159,12 @@ def ratings(user=None):
 
 def build(request_id, user, decision, ran_tier, router_completion, task_completion):
     """task_cost is what we spent. decided_cost is what the routing decision
-    would have cost unclamped, which is the number the pitch uses."""
+    would have cost unclamped. baseline_cost is what the same tokens would have
+    cost on the model the person would otherwise have reached for, which is the
+    only one of the three that is a saving rather than an accounting entry.
+
+    Our own router tokens count against us; the baseline has no router, because
+    somebody typing into an open tab does not pay for one."""
     return Record(
         request_id=request_id,
         user=user,
@@ -156,9 +176,32 @@ def build(request_id, user, decision, ran_tier, router_completion, task_completi
         else 0.0,
         task_cost=price(config.PRICED[ran_tier], task_completion),
         decided_cost=price(config.PRICED[decision.tier], task_completion),
+        baseline_cost=price(config.PRICED[config.HABIT_TIER], task_completion),
         input_tokens=task_completion.input_tokens,
         output_tokens=task_completion.output_tokens,
         at=time.time(),
+    )
+
+
+def build_case(request_id, user, decision, case):
+    """One ledger row for a whole agent run, summed from what the hooks saw.
+
+    The team's own calls are in here. Counting only the answer would flatter us
+    by exactly the overhead the product is supposed to be honest about."""
+    return Record(
+        request_id=request_id,
+        user=user,
+        domain=decision.domain,
+        tier=decision.tier,
+        ran_tier=max(case.calls, key=lambda c: c.cost).tier if case.calls else decision.tier,
+        router_cost=0.0,
+        task_cost=case.spent,
+        decided_cost=case.spent,
+        baseline_cost=case.baseline,
+        input_tokens=sum(c.input_tokens for c in case.calls),
+        output_tokens=sum(c.output_tokens for c in case.calls),
+        at=time.time(),
+        calls=len(case.calls),
     )
 
 
@@ -223,3 +266,49 @@ def anomalies(factor=3.0, minimum=5):
         if median > 0 and rows[-1].total_cost > median * factor:
             flagged.append((user, rows[-1].total_cost, median))
     return flagged
+
+
+def usage(user=None, days=30):
+    """What the dashboard shows: where the tokens went, and what they cost.
+
+    One pass over the window. Every figure here is a sum of provider-reported
+    counts, so the dashboard cannot disagree with the ledger it came from.
+    """
+    cutoff = time.time() - days * 86400
+    rows = [r for r in _query("CASE#", Record, LEDGER, user=user) if r.at >= cutoff]
+
+    daily, tiers, domains = {}, {}, {}
+    for row in rows:
+        day = time.strftime("%Y-%m-%d", time.localtime(row.at))
+        bucket = daily.setdefault(day, {"day": day, "tokens": 0, "cost": 0.0,
+                                        "baseline": 0.0, "n": 0})
+        bucket["tokens"] += row.input_tokens + row.output_tokens
+        bucket["cost"] += row.total_cost
+        bucket["baseline"] += row.baseline_cost
+        bucket["n"] += 1
+
+        for group, key in ((tiers, row.ran_tier), (domains, row.domain)):
+            entry = group.setdefault(key, {"n": 0, "cost": 0.0, "tokens": 0})
+            entry["n"] += 1
+            entry["cost"] += row.total_cost
+            entry["tokens"] += row.input_tokens + row.output_tokens
+
+    spent = sum(r.total_cost for r in rows)
+    baseline = sum(r.baseline_cost for r in rows)
+    return {
+        "daily": [daily[day] for day in sorted(daily)],
+        "by_tier": tiers,
+        "by_domain": dict(sorted(domains.items(),
+                                 key=lambda kv: -kv[1]["cost"])[:8]),
+        "totals": {
+            "cases": len(rows),
+            "calls": sum(r.calls for r in rows),
+            "tokens": sum(r.input_tokens + r.output_tokens for r in rows),
+            "cost": spent,
+            "baseline": baseline,
+            "saved": max(baseline - spent, 0.0),
+            # None, not zero. Nothing measured is not the same as nothing saved.
+            "saved_pct": round(100 * (1 - spent / baseline), 1)
+            if baseline > 0 else None,
+        },
+    }

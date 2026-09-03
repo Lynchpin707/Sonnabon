@@ -10,7 +10,7 @@ import hashlib
 import uuid
 from dataclasses import dataclass, replace
 
-from . import config, memory, provider, router
+from . import bureau, config, memory, provider, router
 
 RATING_RATE = 0.05
 COMMENT_RATE = 0.01
@@ -43,14 +43,26 @@ def should_comment(request_id):
     return should_rate(request_id) and _bucket(request_id, "comment") < COMMENT_RATE
 
 
-def run(text, user="demo", approve=None):
+def run(text, user="demo", approve=None, tier=None):
+    """One request, start to finish.
+
+    Passing a tier is the person overriding the routing on purpose, so no
+    classification happens and no history is consulted. It is still recorded
+    the same way, because an override you cannot see the cost of is worse than
+    no override at all.
+    """
     request_id = uuid.uuid4().hex
-    decision, router_completion = router.decide(text)
 
-    tier = memory.escalate(decision.tier, memory.prior(user, decision.domain))
-    decision = replace(decision, tier=tier)
+    if tier:
+        decision, router_completion = router.Decision(tier, "override", "low", text), None
+    else:
+        decision, router_completion = router.decide(text)
+        tier = memory.escalate(decision.tier, memory.prior(user, decision.domain))
+        decision = replace(decision, tier=tier)
 
-    if approve and decision.risk == "high" and not approve(decision):
+    # Same rule as the agent team, from the same function. Two entry points
+    # that disagree about what needs permission is how a gate gets bypassed.
+    if bureau.needs_approval(decision) and not (approve and approve(decision)):
         return Result("", decision, None, approved=False)
 
     ran = config.runnable(tier)
