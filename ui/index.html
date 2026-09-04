@@ -209,9 +209,11 @@ textarea::placeholder{color:var(--faint)}
    one damped swing that loses amplitude each pass and comes to rest, which is
    what a pendulum does. Running a constant arc forever is the part that reads
    as animation rather than as a spider. */
+/* Right against the answer column, not out in the margin. Her whole job is
+   to hold the wait, and something in peripheral vision cannot do that. */
 .strand{position:absolute;top:16px;transform-origin:50% 0;
-  left:max(16px, calc(50% - 400px - 128px));width:48px;
-  animation:settle 5.4s cubic-bezier(.36,0,.64,1) 4.6s forwards}
+  left:max(14px, calc(50% - 400px - 64px));width:48px;
+  animation:settle 4.6s cubic-bezier(.36,0,.64,1) 9.4s forwards}
 @keyframes settle{
    0%{transform:rotate(0deg)}
    10%{transform:rotate(4.2deg)}
@@ -224,10 +226,28 @@ textarea::placeholder{color:var(--faint)}
   100%{transform:rotate(0deg)}}
 .runner.done .strand{animation:none}
 /* Narrow windows have no margin to hang her in, so make one. */
-@media(max-width:1420px){.thread.busy{padding-left:150px}}
+@media(max-width:1000px){.thread.busy{padding-left:76px}}
 
+/* Spiders do not glide down a thread, they drop in bursts and stop, and the
+   silk is elastic so each stop overshoots and pulls back. Three drops with a
+   recoil apiece is worth watching for a few seconds; one smooth slide is not.
+   --reach is set per case, because how far she may go depends on the panel. */
 .bug{position:absolute;top:0;left:0;
-  transition:transform var(--fall,18s) cubic-bezier(0,.55,.25,1)}
+  animation:descend 13s linear forwards}
+@keyframes descend{
+    0%{transform:translateY(0)}
+    6%{transform:translateY(calc(var(--reach) * .34))}
+    9%{transform:translateY(calc(var(--reach) * .29))}
+   11%{transform:translateY(calc(var(--reach) * .32))}
+   30%{transform:translateY(calc(var(--reach) * .32))}
+   37%{transform:translateY(calc(var(--reach) * .68))}
+   40%{transform:translateY(calc(var(--reach) * .63))}
+   42%{transform:translateY(calc(var(--reach) * .66))}
+   62%{transform:translateY(calc(var(--reach) * .66))}
+   69%{transform:translateY(var(--reach))}
+   72%{transform:translateY(calc(var(--reach) * .95))}
+   75%{transform:translateY(calc(var(--reach) * .98))}
+  100%{transform:translateY(calc(var(--reach) * .98))}}
 .silk{position:absolute;width:1px;height:3000px;top:auto;left:24px;bottom:24px;
   background:#16181C}
 
@@ -724,8 +744,7 @@ let spiderStop = null;
    second call and a forty second call both read, and neither reaches the
    bottom. The browser runs the transition, so it keeps going when the tab is
    in the background. requestAnimationFrame does not. */
-const DROP_MAX = 118;
-const DROP_TIME = "16s";
+const DROP_MAX = 132;
 
 function lowerSpiders() {
   raiseSpiders();
@@ -734,17 +753,17 @@ function lowerSpiders() {
   const runner = thread.querySelector(".runner");
 
   const bug = runner.querySelector(".bug");
-  const reach = Math.min(DROP_MAX, Math.max(runner.clientHeight - 96, 24));
-  bug.style.setProperty("--fall", DROP_TIME);
-  bug.getBoundingClientRect();              // commit the start of the drop
-  bug.style.transform = "translateY(" + reach + "px)";
+  const reach = Math.min(DROP_MAX, Math.max(runner.clientHeight - 108, 24));
+  bug.style.setProperty("--reach", reach + "px");
 
   spiderStop = () => {
     /* They let go: the threads whip up and both fall out of frame. */
     runner.classList.add("done");
     const fall = runner.clientHeight + 120;
+    bug.style.animation = "none";
     bug.style.transition = "transform .5s cubic-bezier(.55,0,.9,.45), " +
                            "opacity .4s ease-in .2s";
+    bug.getBoundingClientRect();            // keep where she was, then let go
     bug.style.transform = "translateY(" + fall + "px)";
     bug.style.opacity = "0";
     setTimeout(() => runner.remove(), 700);
