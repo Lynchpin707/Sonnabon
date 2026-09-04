@@ -205,12 +205,10 @@ textarea::placeholder{color:var(--faint)}
 .runner{position:absolute;top:0;bottom:12px;left:0;right:0;
   overflow:hidden;pointer-events:none;z-index:2}
 
-/* She drops straight, because that is what paying out silk looks like. Then
-   one damped swing that loses amplitude each pass and comes to rest, which is
-   what a pendulum does. Running a constant arc forever is the part that reads
-   as animation rather than as a spider. */
-/* Right against the answer column, not out in the margin. Her whole job is
-   to hold the wait, and something in peripheral vision cannot do that. */
+/* Right against the answer column rather than out in the margin: her whole
+   job is to hold the wait, and something in peripheral vision cannot do that.
+   The swing runs once and damps to rest, because a pendulum bleeds energy and
+   a constant arc repeating forever reads as animation, not as a spider. */
 .strand{position:absolute;top:16px;transform-origin:50% 0;
   left:max(14px, calc(50% - 400px - 64px));width:48px;
   animation:settle 4.6s cubic-bezier(.36,0,.64,1) 9.4s forwards}
@@ -236,18 +234,18 @@ textarea::placeholder{color:var(--faint)}
   animation:descend 13s linear forwards}
 @keyframes descend{
     0%{transform:translateY(0)}
-    6%{transform:translateY(calc(var(--reach) * .34))}
-    9%{transform:translateY(calc(var(--reach) * .29))}
-   11%{transform:translateY(calc(var(--reach) * .32))}
-   30%{transform:translateY(calc(var(--reach) * .32))}
-   37%{transform:translateY(calc(var(--reach) * .68))}
-   40%{transform:translateY(calc(var(--reach) * .63))}
-   42%{transform:translateY(calc(var(--reach) * .66))}
-   62%{transform:translateY(calc(var(--reach) * .66))}
-   69%{transform:translateY(var(--reach))}
-   72%{transform:translateY(calc(var(--reach) * .95))}
-   75%{transform:translateY(calc(var(--reach) * .98))}
-  100%{transform:translateY(calc(var(--reach) * .98))}}
+    6%{transform:translateY(calc(var(--reach, 120px) * .34))}
+    9%{transform:translateY(calc(var(--reach, 120px) * .29))}
+   11%{transform:translateY(calc(var(--reach, 120px) * .32))}
+   30%{transform:translateY(calc(var(--reach, 120px) * .32))}
+   37%{transform:translateY(calc(var(--reach, 120px) * .68))}
+   40%{transform:translateY(calc(var(--reach, 120px) * .63))}
+   42%{transform:translateY(calc(var(--reach, 120px) * .66))}
+   62%{transform:translateY(calc(var(--reach, 120px) * .66))}
+   69%{transform:translateY(var(--reach, 120px))}
+   72%{transform:translateY(calc(var(--reach, 120px) * .95))}
+   75%{transform:translateY(calc(var(--reach, 120px) * .98))}
+  100%{transform:translateY(calc(var(--reach, 120px) * .98))}}
 .silk{position:absolute;width:1px;height:3000px;top:auto;left:24px;bottom:24px;
   background:#16181C}
 
