@@ -202,8 +202,8 @@ textarea::placeholder{color:var(--faint)}
 /* The whole strand pivots from where the rope is anchored, so the thread
    swings with her rather than her sliding along a fixed line. */
 .strand{position:absolute;top:0;left:0;transform-origin:15px 0;
-  animation:swing 3.4s ease-in-out infinite alternate}
-@keyframes swing{from{transform:rotate(-3.2deg)}to{transform:rotate(3.2deg)}}
+  animation:swing 1.7s ease-in-out infinite alternate}
+@keyframes swing{from{transform:rotate(-4.5deg)}to{transform:rotate(4.5deg)}}
 .runner.done .strand{animation:none}
 /* The rope has to reach her body, not the top of her sprite box. Her frames
    only draw in the bottom third of the 50px cell, which is the BODY offset. */
@@ -585,7 +585,14 @@ function lowerSpiders() {
   const reach = Math.min(DROP_MAX, Math.max(runner.clientHeight - 70, 30));
 
   runner.style.setProperty("--fall", DROP_TIME);
-  sprite.getBoundingClientRect();          // commit the start of the transition
+
+  /* The rope hangs from the anchor down to her body, so its length is always
+     her depth plus BODY. Starting it at zero while she starts at BODY made it
+     trail 36px behind her and close the gap on the way down, which read as the
+     rope catching up rather than holding her. */
+  sprite.style.transform = "translateY(0px)";
+  silk.style.height = BODY + "px";
+  sprite.getBoundingClientRect();          // commit that as the start state
   sprite.style.transform = "translateY(" + reach + "px)";
   silk.style.height = (reach + BODY) + "px";
 
