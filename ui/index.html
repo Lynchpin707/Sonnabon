@@ -230,7 +230,7 @@ textarea::placeholder{color:var(--faint)}
    silk is elastic so each stop overshoots and pulls back. Three drops with a
    recoil apiece is worth watching for a few seconds; one smooth slide is not.
    --reach is set per case, because how far she may go depends on the panel. */
-.bug{position:absolute;top:0;left:0;
+.bug{position:absolute;top:0;left:0;width:48px;height:80px;
   animation:descend 13s linear forwards}
 @keyframes descend{
     0%{transform:translateY(0)}
@@ -518,7 +518,7 @@ const SEEDS = [
 
 /* ------------------------------------------------------------ sidebar width */
 
-const SIDE_MIN = 210, SIDE_MAX = 520, SIDE_DEFAULT = 288;
+const SIDE_MIN = 140, SIDE_MAX = 560, SIDE_DEFAULT = 288;
 const grip = $("grip");
 
 function setSide(width) {
@@ -1232,11 +1232,17 @@ refresh();
   void main(){
     vec2 uv=gl_FragCoord.xy/r; float ar=r.x/r.y;
     vec2 p=(uv-.5)*vec2(ar,1.);
+    /* A slow swell across the whole field. Two waves at different rates and
+       angles, so it never repeats visibly and never reads as a loop. */
+    p += vec2(sin(p.y*1.7 + t*.19)*.020 + sin(p.y*0.8 - t*.11)*.014,
+              cos(p.x*1.4 + t*.16)*.017 + cos(p.x*0.6 + t*.09)*.012);
     /* Weight-normalised: two lights combining, not one paint over another.
        mix() in sequence let the blue erase most of the gold's chroma. */
-    vec2 g=p-vec2(.78+sin(t*.040)*.10, .50+cos(t*.033)*.07);
-    vec2 b=p-vec2(-.82+cos(t*.029)*.11,-.56+sin(t*.036)*.08);
-    float wg=exp(-dot(g,g)*.42)*.95, wb=exp(-dot(b,b)*.38)*.95;
+    vec2 g=p-vec2(.78+sin(t*.061)*.19, .50+cos(t*.048)*.14);
+    vec2 b=p-vec2(-.82+cos(t*.044)*.21,-.56+sin(t*.053)*.15);
+    /* And each one breathes, so the light is never quite the same size twice. */
+    float wg=exp(-dot(g,g)*(.42+sin(t*.13)*.055))*.95,
+          wb=exp(-dot(b,b)*(.38+cos(t*.10)*.050))*.95;
     float w=wg+wb;
     vec3 tint=(vec3(.973,.898,.718)*wg+vec3(.776,.851,.953)*wb)/max(w,1e-4);
     vec3 c=mix(vec3(1.),tint,min(w,1.));
