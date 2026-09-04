@@ -20,23 +20,41 @@ _FILLER = re.compile(
     r"|agis comme un expert|merci d'avance)\b",
     re.IGNORECASE,
 )
-_HEAVY = ("strategy", "strategie", "budget", "legal", "contract", "audit",
-          "forecast", "negotiat", "negocia", "pricing", "margin",
-          "valuation", "tax", "compliance", "dispute")
-_MID = ("code", "debug", "refactor", "analyse", "analyze", "sql", "schema",
-        "spreadsheet", "formula", "script", "query", "calculate")
-_CHEAP = ("email", "caption", "translate", "reply", "newsletter", "summar",
-          "post", "rediger", "redige", "thank", "remind", "invite")
+# Prefixes, matched at a word boundary. Plain substring matching sent every
+# request containing "transcript" to the code tier, because "script" is inside
+# it, and missed "prices" because the list said "pricing".
+_HEAVY = ("strateg", "budget", "legal", "contract", "agreement", "audit",
+          "forecast", "negotiat", "negocia", "pric", "margin", "valuation",
+          "tax", "complian", "dispute", "redline", "clause", "runway",
+          "acquisition", "term sheet")
+_MID = ("code", "debug", "refactor", "analy", "sql", "schema", "spreadsheet",
+        "formula", "script", "quer", "calculat", "webhook", "endpoint",
+        "integration", "pipeline", "regex", "dashboard")
+_CHEAP = ("email", "caption", "translat", "repl", "newsletter", "summar",
+          "post", "rediger", "redige", "thank", "remind", "invite", "recap",
+          "changelog")
+
+
+def _hits(words, text):
+    """Prefix match at a word boundary, so transcript is not a script."""
+    return re.search(r"\b(?:" + "|".join(words) + ")", text, re.IGNORECASE)
 
 # Work you cannot take back. Deliberately narrow: every term here stops the
 # request and asks the owner, so a loose list turns the gate into noise and
 # people learn to click through it.
 _RISK = re.compile(
-    r"\b(terminate|end (our|the) (\w+ ){1,3}(relationship|contract|agreement)"
-    r"|cancel the (contract|order|agreement)|break the (contract|lease)"
-    r"|sue|lawsuit|litigat|sign (the|this|off on)|wire (the )?(funds|money)"
-    r"|acquisition|acquire the|merge with|lay off|make redundant|dismiss"
-    r"|resign|dissolve|liquidat|breach of)\b",
+    r"\b(?:terminat"
+    r"|end (?:our|the) (?:\w+ ){0,3}(?:relationship|contract|agreement)"
+    r"|cancel the (?:contract|order|agreement|subscription)"
+    r"|break the (?:contract|lease)"
+    r"|sue\b|lawsuit|litigat"
+    r"|sign (?:the|this|off on)"
+    r"|wire (?:the )?(?:funds|money)"
+    r"|acquire the|merge with"
+    r"|lay(?:ing)? off|let(?:ting)? .{0,40}?\bgo\b"
+    r"|make .{0,20}?redundant|redundanc"
+    r"|dismiss|resign|dissolve|liquidat|breach of"
+    r"|pull the plug|shut (?:it|us|them) down)",
     re.IGNORECASE)
 
 _PROMPT = """Return JSON only, no prose.
@@ -101,12 +119,11 @@ def heuristic(text):
     "low" on every request, which quietly made the approval gate and the agent
     team unreachable: both of them key off it.
     """
-    lowered = text.lower()
-    if len(text) > 2000 or any(word in lowered for word in _HEAVY):
+    if len(text) > 2000 or _hits(_HEAVY, text):
         tier = "heavy"
-    elif any(word in lowered for word in _MID):
+    elif _hits(_MID, text):
         tier = "mid"
-    elif len(text) < 400 and any(word in lowered for word in _CHEAP):
+    elif len(text) < 400 and _hits(_CHEAP, text):
         tier = "cheap"
     else:
         tier = "mid"

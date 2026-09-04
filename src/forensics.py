@@ -99,7 +99,7 @@ def review(user):
     runs during a request is itself charged to that request. The auditor pays
     for its own time."""
     auditor = bureau.agent(
-        SYSTEM, "mid", "forensics",
+        SYSTEM, "mid", "auditor",
         tools=[spending, satisfaction, unusual, tier_prices],
     )
     finding = str(auditor(f"Review model spending for {user}.")).strip()

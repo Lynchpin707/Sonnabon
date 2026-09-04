@@ -369,10 +369,13 @@ const $ = id => document.getElementById(id);
 const thread = $("thread"), input = $("input"), send = $("send"), routeEl = $("route"),
       casesEl = $("cases"), panel = $("panel"), gear = $("gear"), ceilEl = $("ceil");
 
+/* One per lane, in order: cheap and solo, mid and solo, heavy and the full
+   team, then one the bureau stops and asks you about first. */
 const SEEDS = [
-  "Reply to the supplier about the late order",
-  "Write the reorder point formula for my stock sheet",
-  "Negotiate the packaging supplier's new terms"
+  "Summarise this sales call transcript into next steps and owners",
+  "Write the SQL for monthly active users by plan tier",
+  "Review the vendor contract redline and flag what I should push back on",
+  "Should we terminate the reseller agreement this quarter"
 ];
 
 /* ------------------------------------------------------------ sidebar width */

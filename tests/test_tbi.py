@@ -288,7 +288,7 @@ def test_every_lane_is_watched(ledger, offline):
     seen = []
     pipeline.run("write a short email", user="u", watch=seen.append)
     assert [e["kind"] for e in seen] == ["call"]
-    assert seen[0]["agent"] == "duty officer"
+    assert seen[0]["agent"] == "assistant"
 
 
 def test_the_classifier_pays_for_itself_and_the_ledger_says_so(ledger, offline):

@@ -8,12 +8,13 @@ import sys
 
 from src import agents, memory, pipeline, provider
 
+# One per lane: a cheap solo call, a mid solo call, the full team, and one the
+# bureau stops and asks about before it runs anything.
 SCENARIOS = [
-    "Redige un email court et professionnel a notre fournisseur de tissus pour "
-    "demander le numero de suivi de la commande 4088.",
-    "Debug why this SQL query returns duplicate rows after I added the join.",
-    "We are deciding whether to end our main supplier relationship and move "
-    "production to Portugal. Walk through the risks and recommend a course.",
+    "Summarise this sales call transcript into next steps and owners.",
+    "Write the SQL for monthly active users by plan tier from our events table.",
+    "Review the vendor contract redline and flag what I should push back on.",
+    "Should we terminate the reseller agreement this quarter?",
 ]
 
 

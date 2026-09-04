@@ -1,13 +1,14 @@
-"""The agent team.
+"""The agents.
 
 Two lanes, both Strands. ``solo`` is one agent with no tools and handles most
-traffic. ``team`` is a case officer with four specialists exposed to it as
-tools, which is how a team is assembled in Strands.
+traffic at a single call. ``team`` is a coordinator with four specialists
+exposed to it as tools, which is how a team is assembled in Strands.
 
-Every agent here is built by ``bureau.agent``, so every agent is wired to the
-same case file. Nobody in this building can make a model call off the books.
+Every agent is built by ``bureau.agent``, so every agent is wired to the same
+case file and no model call happens off the books.
 
-Names say the job. Nothing here is called a prosecutor.
+The allocator is told what this system can actually reach, generated from
+config, so adding a model changes what it knows without editing a prompt.
 """
 
 from strands import tool
@@ -30,7 +31,12 @@ history later, which silently breaks the routing.
 
 Four lines. No preamble."""
 
-ROUTING = """You choose which model tier answers a request.
+ALLOCATOR = """You choose which model answers a request.
+
+These are the models this system can actually reach right now, with what they
+cost per million tokens:
+
+{catalogue}
 
   cheap   email, captions, translation, summarising. Formulaic work with a
           known shape and no judgement in it
@@ -48,19 +54,37 @@ each tier before. A tier they rated badly is not a saving, whatever it cost.
 
 Reply with the tier name and one short sentence of reason. Nothing else."""
 
+
+def catalogue():
+    """What this system can actually call, priced, as the allocator sees it.
+
+    Generated from config rather than written into the prompt, so adding a
+    model or renegotiating a rate changes what the allocator knows without
+    anybody editing a system prompt and forgetting the other copy.
+    """
+    return "\n".join(
+        f"  {tier:<6} {model.id:<34} "
+        f"${model.input_cost:g} in / ${model.output_cost:g} out"
+        for tier, model in config.PRICED.items())
+
+
+def allocator_prompt():
+    return ALLOCATOR.format(catalogue=catalogue())
+
+
 EXECUTION = """You do the work the request asks for.
 
 Answer the request itself. Do not describe what you are about to do, do not
 restate the question, and do not offer further help at the end."""
 
-SUPERVISOR = """You are the case officer at the Tokens Bureau of Investigation.
+SUPERVISOR = """You coordinate a small team that answers one request.
 
-You have a team. Use them in this order:
+You have four specialists. Use them in this order:
 
-  scenario_agent   first, always. You cannot route what you have not read
-  routing_agent    next, to pick the tier. Pass it the scenario report
-  execution_agent  to do the work, once you have a tier
-  forensics_agent  only when the person asks about their spending
+  scenario_agent   first, always. You cannot allocate what you have not read
+  allocator_agent  next, to pick the model. Pass it the scenario report
+  execution_agent  to do the work, once you have a model
+  auditor_agent    only when the person asks about their spending
 
 Report the answer to the work, not your process. Nobody wants to read which
 tools you called. They want the email written or the question answered."""
@@ -73,8 +97,9 @@ def scenario_agent(request: str) -> str:
 
 
 @tool
-def routing_agent(scenario_report: str, user: str) -> str:
-    """Choose the model tier for a request, using this user's rating history."""
+def allocator_agent(scenario_report: str, user: str) -> str:
+    """Choose the model for a request, from what this system can reach, using
+    this user's rating history."""
     decision = router.heuristic(scenario_report)
     past = memory.prior(user, decision.domain)
     history = (
@@ -83,7 +108,7 @@ def routing_agent(scenario_report: str, user: str) -> str:
         if past
         else "no history for this user in this domain"
     )
-    return str(bureau.agent(ROUTING, "cheap", "routing")(
+    return str(bureau.agent(allocator_prompt(), "cheap", "allocator")(
         f"{scenario_report}\n\n{history}"))
 
 
@@ -98,7 +123,7 @@ def execution_agent(tier: str, request: str) -> str:
 
 
 @tool
-def forensics_agent(user: str) -> str:
+def auditor_agent(user: str) -> str:
     """Review this user's spending and report only what needs a decision."""
     return forensics.review(user) or "nothing to report"
 
@@ -110,14 +135,14 @@ def solo(text, decision):
     The saving is in the number of calls, not in skipping the controls.
     """
     ran = config.runnable(decision.tier)
-    officer = bureau.agent(EXECUTION, ran, "duty officer")
-    return str(officer(router.adapt(text, decision.tier)))
+    agent = bureau.agent(EXECUTION, ran, "assistant")
+    return str(agent(router.adapt(text, decision.tier)))
 
 
 def team(text, user="demo"):
-    """A case officer and four specialists, for work that needs judgement."""
-    officer = bureau.agent(
-        SUPERVISOR, "mid", "case officer",
-        tools=[scenario_agent, routing_agent, execution_agent, forensics_agent],
+    """A coordinator and four specialists, for work that needs judgement."""
+    coordinator = bureau.agent(
+        SUPERVISOR, "mid", "coordinator",
+        tools=[scenario_agent, allocator_agent, execution_agent, auditor_agent],
     )
-    return str(officer(f"user: {user}\n\nrequest: {text}"))
+    return str(coordinator(f"user: {user}\n\nrequest: {text}"))
