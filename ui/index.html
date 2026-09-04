@@ -34,7 +34,7 @@ body{margin:0;background:#fff;color:var(--ink);font-family:var(--sans);font-size
 /* Drag to resize, double click to reset, arrow keys when focused. The width
    is this viewer's own preference, so it lives in their browser and never
    reaches the ledger. */
-.grip{position:absolute;top:12px;bottom:12px;width:9px;z-index:4;cursor:col-resize;
+.grip{position:absolute;top:12px;bottom:12px;width:13px;z-index:4;cursor:col-resize;
   left:calc(12px + var(--side,288px) + 2px);border-radius:5px;
   transition:background .18s}
 .grip:hover,.grip.on{background:rgba(20,22,27,.12)}
@@ -57,7 +57,7 @@ body{margin:0;background:#fff;color:var(--ink);font-family:var(--sans);font-size
 .head{display:flex;align-items:center;gap:12px;padding:2px 6px 20px}
 .head img{width:52px;height:52px;object-fit:contain;flex:none}
 .head .n{font-size:15px;font-family:var(--mono);letter-spacing:.18em;color:var(--dim)}
-.new{display:flex;align-items:center;gap:8px;width:100%;padding:9px 11px;margin-bottom:18px;
+.new{display:flex;align-items:center;gap:9px;width:100%;padding:12px 13px;margin-bottom:18px;
   border-radius:10px;border:1px solid var(--hair);background:rgba(255,255,255,.5);
   cursor:pointer;font-family:var(--sans);font-size:14px;color:var(--ink);text-align:left;
   transition:background .2s,border-color .2s}
@@ -70,7 +70,7 @@ body{margin:0;background:#fff;color:var(--ink);font-family:var(--sans);font-size
 .grp{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;
   color:var(--faint);padding:12px 8px 6px}
 .case{display:block;width:100%;text-align:left;border:0;background:none;cursor:pointer;
-  padding:8px 9px;border-radius:9px;transition:background .18s}
+  padding:11px 11px;border-radius:10px;transition:background .18s}
 .case:hover{background:rgba(255,255,255,.62)}
 .case[aria-current="true"]{background:rgba(255,255,255,.85)}
 .case:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
@@ -93,7 +93,7 @@ body{margin:0;background:#fff;color:var(--ink);font-family:var(--sans);font-size
 .top .r{display:flex;align-items:center;gap:14px;font-family:var(--mono);font-size:12px;
   color:var(--dim)}
 .top .r b{color:var(--ink);font-weight:400}
-.gear{background:none;border:0;padding:5px;border-radius:7px;cursor:pointer;color:var(--dim);
+.gear{background:none;border:0;width:34px;height:34px;border-radius:9px;cursor:pointer;color:var(--dim);
   display:grid;place-items:center;transition:background .2s,color .2s}
 .gear:hover,.gear[aria-expanded="true"]{background:rgba(20,22,27,.07);color:var(--ink)}
 .gear:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
@@ -127,7 +127,7 @@ body{margin:0;background:#fff;color:var(--ink);font-family:var(--sans);font-size
 textarea{flex:1;border:0;background:none;resize:none;color:var(--ink);font-family:var(--sans);
   font-size:17px;line-height:1.55;max-height:200px;padding:6px 0;outline:none}
 textarea::placeholder{color:var(--faint)}
-.send{flex:none;width:31px;height:31px;border-radius:50%;border:0;cursor:pointer;
+.send{flex:none;width:40px;height:40px;border-radius:50%;border:0;cursor:pointer;
   color:var(--faint);background:rgba(20,22,27,.06);display:grid;place-items:center;
   transition:background .2s,color .2s}
 .send:not(:disabled){background:var(--ink);color:#fff}
@@ -138,13 +138,17 @@ textarea::placeholder{color:var(--faint)}
   font-family:var(--mono);font-size:11px;color:var(--faint);opacity:0;transition:opacity .4s}
 .route.on{opacity:1}
 .route b{color:var(--ink);font-weight:400}
-.link{background:none;border:0;padding:0;cursor:pointer;color:var(--faint);
-  font-family:var(--mono);font-size:11px;text-decoration:underline;text-underline-offset:3px}
+.link{background:none;border:0;padding:7px 10px;cursor:pointer;color:var(--faint);
+  font-family:var(--mono);font-size:12.5px;text-decoration:underline;
+  text-underline-offset:3px;border-radius:8px}
+.link:hover{background:rgba(20,22,27,.06)}
 .link:hover{color:var(--ink)}
 .link:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .opts{display:flex;gap:14px}
-.opt{background:none;border:0;padding:0;cursor:pointer;color:var(--faint);
-  font-family:var(--mono);font-size:11px;transition:color .2s}
+.opt{background:none;border:0;padding:7px 10px;border-radius:8px;cursor:pointer;
+  color:var(--faint);font-family:var(--mono);font-size:12.5px;
+  transition:color .2s,background .2s}
+.opt:hover{background:rgba(20,22,27,.06)}
 .opt:hover,.opt[aria-pressed="true"]{color:var(--ink)}
 .opt:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
@@ -266,9 +270,10 @@ textarea::placeholder{color:var(--faint)}
                   66%,100%{background-position:-104px 0}}
 
 /* ---------- rating + forensics ---------- */
-.acts{display:flex;align-items:center;gap:4px;margin-top:2px}
-.act{border:0;background:none;padding:5px;border-radius:7px;cursor:pointer;color:var(--faint);
-  display:grid;place-items:center;transition:background .18s,color .18s}
+.acts{display:flex;align-items:center;gap:6px;margin-top:4px}
+.act{border:0;background:none;width:38px;height:38px;border-radius:10px;cursor:pointer;
+  color:var(--faint);display:grid;place-items:center;
+  transition:background .18s,color .18s}
 .act:hover{background:rgba(20,22,27,.06);color:var(--ink)}
 .act[aria-pressed="true"]{color:var(--ink);background:rgba(20,22,27,.08)}
 .act:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
@@ -277,9 +282,11 @@ textarea::placeholder{color:var(--faint)}
 
 /* The working notes. Collapsed by default: it is diagnostics, not the answer. */
 .think{display:grid;gap:6px;margin-bottom:10px}
-.think-head{display:inline-flex;align-items:center;gap:7px;background:none;border:0;
-  padding:0;cursor:pointer;font-family:var(--mono);font-size:12.5px;color:var(--faint);
-  justify-self:start}
+.think-head{display:inline-flex;align-items:center;gap:8px;background:none;border:0;
+  padding:7px 11px 7px 9px;border-radius:9px;cursor:pointer;font-family:var(--mono);
+  font-size:13px;color:var(--faint);justify-self:start;margin-left:-9px;
+  transition:background .18s,color .18s}
+.think-head:hover{background:rgba(20,22,27,.06)}
 .think-head:hover{color:var(--ink)}
 .think-head:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .think-head .arrow{transition:transform .18s ease}
@@ -307,7 +314,7 @@ textarea::placeholder{color:var(--faint)}
 
 /* ---------- the spending view ---------- */
 .views{display:flex;gap:2px}
-.views button{background:none;border:0;padding:4px 9px;border-radius:7px;cursor:pointer;
+.views button{background:none;border:0;padding:8px 14px;border-radius:9px;cursor:pointer;
   font-family:var(--mono);font-size:11px;color:var(--faint);transition:background .18s,color .18s}
 .views button:hover{color:var(--ink)}
 .views button[aria-pressed="true"]{background:rgba(20,22,27,.07);color:var(--ink)}
@@ -362,7 +369,8 @@ textarea::placeholder{color:var(--faint)}
 .calls .sum{border-top:1px solid var(--hair);padding-top:5px;margin-top:2px;color:var(--dim)}
 .disclose{background:none;border:0;padding:0;cursor:pointer;color:var(--faint);
   font-family:var(--mono);font-size:11px;text-decoration:underline;text-underline-offset:3px}
-.disclose:hover{color:var(--ink)}
+.disclose{padding:6px 9px;border-radius:8px;margin:-6px -9px}
+.disclose:hover{color:var(--ink);background:rgba(20,22,27,.06)}
 .disclose:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
 .approve{max-width:800px;width:100%;margin:0 auto;display:grid;gap:11px;padding:14px 16px;
@@ -372,8 +380,9 @@ textarea::placeholder{color:var(--faint)}
   text-transform:uppercase;color:var(--gold)}
 .approve .v{font-size:15px;line-height:1.6}
 .approve .row{display:flex;gap:9px}
-.approve button{border:1px solid var(--hair);background:rgba(255,255,255,.7);border-radius:9px;
-  padding:7px 15px;cursor:pointer;font-family:var(--sans);font-size:12.5px;color:var(--ink)}
+.approve button{border:1px solid var(--hair);background:rgba(255,255,255,.7);
+  border-radius:10px;padding:11px 22px;cursor:pointer;font-family:var(--sans);
+  font-size:14.5px;color:var(--ink)}
 .approve button.yes{background:var(--ink);color:#fff;border-color:var(--ink)}
 .approve button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
