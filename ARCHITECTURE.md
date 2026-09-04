@@ -126,6 +126,53 @@ An earlier version had a second, agent-free path for speed. It was faster
 because it was doing less than anyone believed, and nothing it did was
 recorded the same way.
 
+## What the hooks do
+
+Everything that matters happens in `src/bureau.py`, in two Strands hooks that
+fire on every model call any agent makes.
+
+```mermaid
+flowchart LR
+    A["BeforeModelCallEvent"] --> B{allowed?}
+    B -- "above the authorised tier" --> X["event.cancel"]
+    B -- "past the case budget" --> X
+    B -- "past the call cap" --> X
+    B -- yes --> C["the call runs"]
+    C --> D["AfterModelCallEvent"]
+    D --> E["read usage from the provider"]
+    E --> F["price it, time it, record it"]
+    F --> G[(ledger)]
+    D --> H["stream the step to the browser"]
+
+    classDef stop fill:#1f2937,stroke:#f87171,color:#e5e7eb
+    class X stop
+```
+
+A supervisor told in its prompt to ask permission first is making a request,
+and a model can talk itself out of a request. A hook that sets `event.cancel`
+is a control, and the model is not consulted.
+
+Three things can stop a call: a tier above what the owner authorised, a case
+that has spent its budget, and a case past its call cap. The last one exists
+because local models are free, so a dollar budget never fires on Ollama, and a
+small model calling tools in circles is exactly the local failure.
+
+## A case is a conversation
+
+One case is one session. Turns accumulate under a single case id, and the
+agent facing the person carries a Strands `FileSessionManager`, so it sees
+what was already said.
+
+History cannot grow without bound, so a `SummarizingConversationManager`
+compresses the older part of it. Its summarising agent is one of ours, on the
+cheapest tier, wired to the same hooks. The cost of compressing therefore sits
+in the ledger next to the cost it saves, which is the only way that trade can
+be checked.
+
+Only the agent facing the person carries a session. The specialists it calls
+are stateless on purpose: they answer one question about one request, and
+shared history would blur whose turn is whose.
+
 ## Local and deployed
 
 One switch, `USE_AWS`. Off, every agent runs on Ollama and costs nothing. On,
@@ -135,3 +182,26 @@ used for accounting do not move; only the model behind each tier does.
 Locally the coordinator is the only agent that calls tools, and small models
 are unreliable at that, so `OLLAMA_MID` is the setting worth raising if the
 team lane misbehaves.
+
+Adding a provider is a code change, in `src/config.py`, on purpose. It is the
+one place that decides what the system can reach, and a running instance
+should not be able to point itself somewhere new from a web form.
+
+## What gets measured
+
+The ledger records money and time, and deliberately not what anybody wrote.
+
+| Recorded | Where it comes from |
+|---|---|
+| tokens in and out | the provider's own usage response |
+| cost | those tokens at the catalogue rate |
+| baseline cost | the same tokens priced on the tier the person would otherwise have opened |
+| seconds | wall clock, per call and per turn |
+| calls | how many model calls the turn took, agents included |
+| adapted | whether the prompt was fitted to the tier answering |
+
+`memory.quality` joins that to the ratings and reports **cost per accepted
+answer**: spend divided by the answers somebody actually took. A cheap tier
+rejected three times in four costs the same per useful answer as a mid tier
+that lands every time, while looking four times cheaper on any bill. A bill
+cannot see a rejection.

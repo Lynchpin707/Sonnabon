@@ -274,13 +274,13 @@ the AWS pricing page did not render its tables. Confirm in your own console.
 | `src/forensics.py` | the forensics agent and its four tools |
 | `src/router.py` | picks a tier and reads risk. One call, keyword fallback, cached |
 | `src/provider.py` | calls a model, returns what it really cost |
-| `src/memory.py` | spend, ratings, history, anomalies |
 | `src/pipeline.py` | the one entry point. Classify, gate, pick a lane, record |
 | `src/config.py` | the tier ladder and the prices |
-| `src/bureau.py` | the Strands hooks: the ledger, the gate, the loop cap |
+| `src/bureau.py` | the Strands hooks: ledger, gate, budget, loop cap, sessions |
 | `src/settings.py` | what the interface may change at runtime |
+| `src/memory.py` | spend, ratings, latency, history, anomalies, quality |
 | `ui/index.html` | the interface. One file, no build step |
-| `ui/server.py` | serves it and runs requests through `pipeline.run` |
+| `ui/server.py` | serves it, streams each step, runs `pipeline.run` |
 
 **No number in the ledger is estimated by a model.** Every token count comes
 from the provider's own usage response, which is the only reason any figure here
