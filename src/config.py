@@ -31,11 +31,15 @@ BEDROCK = {
     "max": Model("anthropic.claude-opus-4-8", 5.00, 25.00),
 }
 
+# What runs locally. The coordinator is the only agent that calls tools, and
+# small models are unreliable at that, so OLLAMA_MID is the one worth raising
+# if the team lane misbehaves: qwen2.5:7b handles tool calling far better than
+# 3b, at about 5GB of memory instead of 2GB.
 OLLAMA = {
-    "cheap": Model("qwen2.5:1.5b", 0.0, 0.0),
-    "mid": Model("qwen2.5:3b", 0.0, 0.0),
-    "heavy": Model("qwen2.5:3b", 0.0, 0.0),
-    "max": Model("qwen2.5:3b", 0.0, 0.0),
+    "cheap": Model(os.getenv("OLLAMA_CHEAP", "qwen2.5:1.5b"), 0.0, 0.0),
+    "mid": Model(os.getenv("OLLAMA_MID", "qwen2.5:3b"), 0.0, 0.0),
+    "heavy": Model(os.getenv("OLLAMA_HEAVY", "qwen2.5:3b"), 0.0, 0.0),
+    "max": Model(os.getenv("OLLAMA_MAX", "qwen2.5:3b"), 0.0, 0.0),
 }
 
 MODELS = BEDROCK if USE_AWS else OLLAMA
@@ -81,7 +85,11 @@ CEILING = _tier(os.getenv("TIER_CEILING", "heavy"), "heavy")
 # The tab somebody already had open. Savings are measured against sending the
 # same request here, because that is the thing TBI actually replaces. Comparing
 # against the clamped tier would only measure our own budget, not the product.
-HABIT_TIER = _tier(os.getenv("HABIT_TIER", "heavy"), "heavy")
+#
+# The top tier, not the ceiling. Set equal to CEILING it reports zero saving on
+# exactly the requests where routing matters most, because the baseline and the
+# actual become the same number.
+HABIT_TIER = _tier(os.getenv("HABIT_TIER", "max"), "max")
 
 
 # Domain to tier, set by hand in the interface. Empty means the classifier

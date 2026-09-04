@@ -270,13 +270,15 @@ the AWS pricing page did not render its tables. Confirm in your own console.
 
 | File | Job |
 |---|---|
-| `src/agents.py` | **the team.** Scenario, routing, execution, forensics, case officer |
+| `src/agents.py` | **the agents.** One solo lane, and a coordinator with four specialists |
 | `src/forensics.py` | the forensics agent and its four tools |
-| `src/router.py` | picks a tier. One call, keyword fallback, cached |
+| `src/router.py` | picks a tier and reads risk. One call, keyword fallback, cached |
 | `src/provider.py` | calls a model, returns what it really cost |
 | `src/memory.py` | spend, ratings, history, anomalies |
-| `src/pipeline.py` | the fast path, no agent overhead |
+| `src/pipeline.py` | the one entry point. Classify, gate, pick a lane, record |
 | `src/config.py` | the tier ladder and the prices |
+| `src/bureau.py` | the Strands hooks: the ledger, the gate, the loop cap |
+| `src/settings.py` | what the interface may change at runtime |
 | `ui/index.html` | the interface. One file, no build step |
 | `ui/server.py` | serves it and runs requests through `pipeline.run` |
 

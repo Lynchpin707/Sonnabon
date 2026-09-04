@@ -437,3 +437,16 @@ def test_usage_totals_agree_with_the_ledger_they_came_from(ledger):
 
 def test_usage_on_an_empty_ledger_reports_nothing_not_zero(ledger):
     assert memory.usage("demo")["totals"]["saved_pct"] is None
+
+
+def test_a_looping_agent_is_stopped_by_call_count_not_only_by_cost():
+    """Locally the model is free, so a dollar budget never fires. A small model
+    calling tools in circles is exactly the local failure mode."""
+    case = bureau.CaseFile(authorised="max", max_calls=3)
+    agent = FakeAgent()
+    case.assign(agent, "cheap")
+    for _ in range(3):
+        case.calls.append(bureau.Call("x", "cheap", 1, 1, 0.0, 0.0))
+    case.gate(event := FakeEvent(agent))
+    assert "loop" in str(event.cancel)
+    assert case.spent == 0.0

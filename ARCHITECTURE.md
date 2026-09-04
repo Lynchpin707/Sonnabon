@@ -107,14 +107,31 @@ flowchart LR
 
 No number in the ledger is estimated by a model.
 
-## Two entry points
+## One entry point, two lanes
 
-The repository has both, on purpose.
+`pipeline.run` is the only way in. It classifies the request, applies the
+approval rule, picks a lane, and records the result.
 
-| Entry | Path | Use |
+| Lane | What runs | When |
 |---|---|---|
-| `agents.handle()` | the full team | the product |
-| `pipeline.run()` | one classification call, then execute | the fast path, no agent overhead |
+| solo | one Strands agent, no tools | formulaic work, most traffic |
+| team | a coordinator with four specialists as tools | judgement work, or high risk |
 
-They share `router`, `memory`, `provider` and `config`, so cost accounting and
-history are identical either way.
+Both lanes are Strands agents wired to the same hooks, so the ledger, the
+approval gate, the spend budget and the loop cap apply identically. The lane
+only decides how many heads look at the problem, never whether the controls
+run.
+
+An earlier version had a second, agent-free path for speed. It was faster
+because it was doing less than anyone believed, and nothing it did was
+recorded the same way.
+
+## Local and deployed
+
+One switch, `USE_AWS`. Off, every agent runs on Ollama and costs nothing. On,
+every agent runs on Bedrock. The tiers, the ledger, the gate and the prices
+used for accounting do not move; only the model behind each tier does.
+
+Locally the coordinator is the only agent that calls tools, and small models
+are unreliable at that, so `OLLAMA_MID` is the setting worth raising if the
+team lane misbehaves.

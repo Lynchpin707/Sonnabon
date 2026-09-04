@@ -91,7 +91,8 @@ body{margin:0;background:#fff;color:var(--ink);font-family:var(--sans);font-size
 .gear:hover,.gear[aria-expanded="true"]{background:rgba(20,22,27,.07);color:var(--ink)}
 .gear:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
-.thread{position:relative;flex:1;overflow-y:auto;min-height:0;padding:24px 20px;display:flex;
+.thread{position:relative;flex:1;overflow-y:auto;min-height:0;padding:24px 20px;
+  transition:padding-left .25s ease;display:flex;
   flex-direction:column;gap:22px}
 .thread::-webkit-scrollbar{width:8px}
 .thread::-webkit-scrollbar-thumb{background:rgba(20,22,27,.13);border-radius:4px}
@@ -194,9 +195,11 @@ textarea::placeholder{color:var(--faint)}
    line is roughly how long you have waited. The drop is capped and asymptotic:
    a two second call and a forty second call both read, and neither sends her
    down the whole panel. */
-.runner{position:absolute;top:14px;bottom:14px;left:0;right:0;
+/* Left gutter, and the thread makes room for her while she is there, so the
+   rope cannot cross a message bubble at any width. */
+.runner{position:absolute;top:14px;bottom:14px;left:14px;width:30px;
   pointer-events:none;z-index:2}
-.strand{position:absolute;top:0;left:calc(50% - 15px)}
+.strand{position:absolute;top:0;left:0}
 .silk{position:absolute;left:15px;top:0;width:1px;height:0;background:#16181C}
 
 /* She is drawn dark. Inverted she is a near white body on a near white panel,
@@ -212,6 +215,7 @@ textarea::placeholder{color:var(--faint)}
                   66%,100%{background-position:-65px 0}}
 
 .runner.done{transition:opacity .4s ease-out;opacity:0}
+.thread.busy{padding-left:64px}
 
 /* ---------- rating + forensics ---------- */
 .acts{display:flex;align-items:center;gap:4px;margin-top:2px}
@@ -558,6 +562,7 @@ const DROP_TAU = 5;
 
 function lowerSpiders() {
   raiseSpiders();
+  thread.classList.add("busy");
   thread.appendChild($("spriteTpl").content.cloneNode(true));
   const runner = thread.querySelector(".runner");
   const sprite = runner.querySelector(".sprite");
@@ -585,6 +590,7 @@ function lowerSpiders() {
 
 function raiseSpiders() {
   if (spiderStop) spiderStop();
+  thread.classList.remove("busy");
   thread.querySelectorAll(".runner").forEach(node => node.remove());
 }
 

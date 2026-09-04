@@ -32,6 +32,12 @@ from . import config, memory
 # runaway loop billed to a student account.
 CASE_BUDGET = float(os.getenv("CASE_BUDGET_USD", "0.25"))
 
+# A full team pass is about six model calls. Past this, the coordinator is
+# looping rather than working. Strands caps iterations on Swarm but not on a
+# plain Agent, and small local models are exactly the ones that loop, so the
+# ceiling lives here where the gate already runs.
+CASE_MAX_CALLS = int(os.getenv("CASE_MAX_CALLS", "14"))
+
 
 @dataclass(frozen=True)
 class Call:
@@ -76,6 +82,7 @@ class CaseFile(HookProvider):
     # being done instead of only the receipt afterwards. Fired from the agent
     # loop's own threads, so whatever is on the other end must be thread safe.
     watch: object = None
+    max_calls: int = CASE_MAX_CALLS
     calls: list = field(default_factory=list)
     blocks: list = field(default_factory=list)
     _seen: dict = field(default_factory=dict)
@@ -120,6 +127,11 @@ class CaseFile(HookProvider):
         """Refuse the call, before it is billed, if it is not allowed."""
         agent = getattr(event.agent, "name", "agent")
         tier = self.tier_of(event.agent)
+
+        if len(self.calls) >= self.max_calls:
+            return self._block(event, agent, tier,
+                               f"stopped after {len(self.calls)} model calls. "
+                               f"A full pass takes about six, so this is a loop")
 
         if self.spent >= self.budget:
             return self._block(event, agent, tier,
