@@ -48,7 +48,12 @@ body{margin:0;background:#fff;color:var(--ink);font-family:var(--sans);font-size
              0 12px 34px rgba(28,32,40,.10)}
 
 /* ---------- sidebar ---------- */
-.side{display:flex;flex-direction:column;min-height:0;padding:18px 14px}
+.side{display:flex;flex-direction:column;min-height:0;padding:18px 14px;
+  overflow:hidden}
+/* Shut: the panel goes, the handle stays where you can grab it. */
+.app.shut .side{display:none}
+.app.shut{grid-template-columns:0 1fr}
+.app.shut .grip{left:6px;background:rgba(20,22,27,.10)}
 .head{display:flex;align-items:center;gap:12px;padding:2px 6px 20px}
 .head img{width:52px;height:52px;object-fit:contain;flex:none}
 .head .n{font-size:15px;font-family:var(--mono);letter-spacing:.18em;color:var(--dim)}
@@ -518,12 +523,17 @@ const SEEDS = [
 
 /* ------------------------------------------------------------ sidebar width */
 
-const SIDE_MIN = 140, SIDE_MAX = 560, SIDE_DEFAULT = 288;
+/* It goes all the way to nothing. Below the snap point it collapses rather
+   than sitting at an awkward width where the case titles are unreadable, and
+   the handle stays put at the edge so it can be pulled back out. */
+const SIDE_MIN = 0, SIDE_MAX = 720, SIDE_DEFAULT = 288, SIDE_SNAP = 116;
 const grip = $("grip");
 
 function setSide(width) {
-  const w = Math.max(SIDE_MIN, Math.min(SIDE_MAX, Math.round(width)));
+  let w = Math.max(SIDE_MIN, Math.min(SIDE_MAX, Math.round(width)));
+  if (w < SIDE_SNAP) w = 0;
   document.documentElement.style.setProperty("--side", w + "px");
+  document.querySelector(".app").classList.toggle("shut", w === 0);
   grip.setAttribute("aria-valuenow", w);
   try { localStorage.setItem("tbi.side", w); } catch (err) { /* private window */ }
 }
@@ -559,10 +569,13 @@ grip.addEventListener("pointerdown", e => {
   grip.addEventListener("pointerup", up);
   grip.addEventListener("pointercancel", up);
 });
-grip.addEventListener("dblclick", () => setSide(SIDE_DEFAULT));
+grip.addEventListener("dblclick", () =>
+  setSide(currentSide() === 0 ? SIDE_DEFAULT : 0));
 grip.addEventListener("keydown", e => {
-  if (e.key === "ArrowLeft") { setSide(currentSide() - 16); e.preventDefault(); }
-  if (e.key === "ArrowRight") { setSide(currentSide() + 16); e.preventDefault(); }
+  if (e.key === "ArrowLeft") { setSide(currentSide() - 24); e.preventDefault(); }
+  if (e.key === "ArrowRight") {
+    setSide(Math.max(currentSide() + 24, SIDE_SNAP)); e.preventDefault();
+  }
   if (e.key === "Home") { setSide(SIDE_DEFAULT); e.preventDefault(); }
 });
 
