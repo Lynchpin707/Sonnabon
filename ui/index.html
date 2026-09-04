@@ -183,9 +183,12 @@ textarea::placeholder{color:var(--faint)}
 @keyframes stamp{from{opacity:0;transform:scale(1.5) rotate(-9deg)}
                  to{opacity:1;transform:none}}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-@keyframes press{0%,100%{transform:rotate(0) scale(1)}
-                 50%{transform:rotate(4deg) scale(1.05)}}
-.head img.busy{animation:press 1.5s ease-in-out infinite}
+/* The seal breathes while the bureau is working. One thing moving in the
+   header is a status; two would be decoration. */
+@keyframes breathe{0%,100%{transform:scale(1);opacity:.8}
+                   50%{transform:scale(1.16);opacity:1}}
+.head img{transition:transform .3s ease}
+.head img.busy{animation:breathe 1.15s ease-in-out infinite}
 
 /* ---------- the spiders ----------
    DungeonSpider.png by SpinachChicken, CC0, opengameart.org. 51x20 with four
