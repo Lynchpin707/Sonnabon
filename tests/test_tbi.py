@@ -580,3 +580,86 @@ def test_latency_is_reported_beside_cost(ledger):
     tier = memory.quality("u")["by_tier"]["cheap"]
     assert tier["seconds"] == pytest.approx(4.0)
     assert tier["seconds_per_request"] == pytest.approx(2.0)
+
+
+# ----------------------------------------------------------------- streaming
+
+
+class FakeSocket:
+    """Collects what the handler would have written to the browser."""
+
+    def __init__(self):
+        self.written = b""
+
+    def write(self, chunk):
+        self.written += chunk
+
+    def flush(self):
+        pass
+
+
+def _handler(server, monkeypatch, ask):
+    """A handler with the HTTP plumbing stubbed, so only framing is under test."""
+    handler = server.Handler.__new__(server.Handler)
+    handler.wfile = FakeSocket()
+    handler.send_response = lambda *a, **k: None
+    handler.send_header = lambda *a, **k: None
+    handler.end_headers = lambda: None
+    monkeypatch.setattr(server, "ask", ask)
+    return handler
+
+
+def lines(handler):
+    return [json.loads(line) for line in
+            handler.wfile.written.decode().splitlines() if line.strip()]
+
+
+def test_each_step_is_its_own_line_and_the_answer_is_the_last(server, monkeypatch):
+    """One line per event, the last carrying the answer. A half written line
+    would be unparseable JSON in the browser, not a missing step."""
+    def ask(text, approved, forced=None, watch=None, case_id=None):
+        watch({"kind": "call", "agent": "scenario", "cost": 0.0001})
+        watch({"kind": "tool", "state": "start", "agent": "allocator_agent"})
+        return {"id": "r1", "text": "done", "case_id": "c1"}
+
+    handler = _handler(server, monkeypatch, ask)
+    handler._stream({}, "anything")
+
+    sent = lines(handler)
+    assert [set(entry) for entry in sent] == [{"step"}, {"step"}, {"done"}]
+    assert sent[0]["step"]["agent"] == "scenario"
+    assert sent[-1]["done"]["text"] == "done"
+
+
+def test_a_failure_still_arrives_as_the_final_line(server, monkeypatch):
+    """The browser must never be left waiting on a stream that just stops."""
+    def ask(*a, **k):
+        raise RuntimeError("bedrock said no")
+
+    handler = _handler(server, monkeypatch, ask)
+    handler._stream({}, "anything")
+
+    sent = lines(handler)
+    assert "done" in sent[-1]
+    assert "bedrock said no" in sent[-1]["done"]["error"]
+
+
+def test_a_closed_tab_does_not_take_the_case_with_it(server, monkeypatch):
+    """They closed the browser. The work was already paid for, so it finishes
+    and is recorded rather than being abandoned halfway."""
+    finished = []
+
+    def ask(text, approved, forced=None, watch=None, case_id=None):
+        watch({"kind": "call", "agent": "scenario"})
+        watch({"kind": "call", "agent": "execution"})
+        finished.append(True)
+        return {"id": "r1", "text": "done"}
+
+    handler = _handler(server, monkeypatch, ask)
+
+    def explode(chunk):
+        raise BrokenPipeError("client gone")
+
+    handler.wfile.write = explode
+    handler._stream({}, "anything")
+    assert finished == [True]
