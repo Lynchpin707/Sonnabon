@@ -185,48 +185,50 @@ textarea::placeholder{color:var(--faint)}
                  50%{transform:rotate(4deg) scale(1.05)}}
 .head img.busy{animation:press 1.5s ease-in-out infinite}
 
-/* ---------- the spider ----------
+/* ---------- the spiders ----------
    DungeonSpider.png by SpinachChicken, CC0, opengameart.org. 51x20 with four
    12px frames at a 13px pitch. Frames 0 to 2 move her legs; frame 3 draws her
    own silk, which is the clue that she belongs vertically rather than walking
    a floor.
 
-   She pays out rope for as long as the model is thinking, so the length of the
-   line is roughly how long you have waited. The drop is capped and asymptotic:
-   a two second call and a forty second call both read, and neither sends her
-   down the whole panel. */
-/* Left gutter, and the thread makes room for her while she is there, so the
-   rope cannot cross a message bubble at any width. */
-.runner{position:absolute;top:14px;bottom:14px;left:14px;width:30px;
-  pointer-events:none;z-index:2}
-/* The whole strand pivots from where the rope is anchored, so the thread
-   swings with her rather than her sliding along a fixed line. */
-.strand{position:absolute;top:0;left:0;transform-origin:15px 0;
+   The rope hangs upward off her back from inside the element that moves, so
+   it is attached by construction. Two elements with two transitions had to
+   agree on where she was, and they never quite did. */
+.runner{position:absolute;top:0;bottom:12px;left:0;right:0;
+  overflow:hidden;pointer-events:none;z-index:2}
+.strand{position:absolute;top:14px;transform-origin:50% 0;
   animation:swing 1.7s ease-in-out infinite alternate}
 @keyframes swing{from{transform:rotate(-4.5deg)}to{transform:rotate(4.5deg)}}
 .runner.done .strand{animation:none}
-/* The rope has to reach her body, not the top of her sprite box. Her frames
-   only draw in the bottom third of the 50px cell, which is the BODY offset. */
-.silk{position:absolute;left:15px;top:0;width:1px;height:0;background:#16181C;
-  transition:height var(--fall,18s) cubic-bezier(0,.55,.25,1)}
 
-/* She is drawn dark. Inverted she is a near white body on a near white panel,
-   about 1.05 to 1 contrast, and no combination of shadows rescued that: she
-   simply is not there. Dark also matches the rope, so the two read as one
-   animal on one thread. Add invert(1) here if the panel ever goes dark. */
-.sprite{position:absolute;left:0;top:0;width:30px;height:50px;
-  image-rendering:pixelated;background:url(spider.png) 0 0/127.5px 50px no-repeat;
-  filter:drop-shadow(0 1px 2px rgba(255,255,255,.9));
-  animation:twitch .42s steps(1) infinite;
+.bug{position:absolute;top:0;left:0;
   transition:transform var(--fall,18s) cubic-bezier(0,.55,.25,1)}
-@keyframes twitch{0%,32%{background-position:0 0}
-                  33%,65%{background-position:-32.5px 0}
-                  66%,100%{background-position:-65px 0}}
+.silk{position:absolute;width:1px;height:3000px;top:auto;background:#16181C}
+.sprite{position:absolute;top:0;left:0;image-rendering:pixelated;
+  background-image:url(spider.png);background-repeat:no-repeat}
 
-/* When the answer lands she lets go: the thread whips up and she drops out
-   of frame under something close to gravity. */
-.runner.done .sprite{animation:none}
-.thread.busy{padding-left:64px}
+/* Her: dark, and the larger of the two. */
+.mother{left:6px;width:36px}
+.mother .bug{width:36px;height:60px}
+.mother .silk{left:18px;bottom:18px}
+.mother .sprite{width:36px;height:60px;background-size:153px 60px;
+  filter:drop-shadow(0 1px 2px rgba(255,255,255,.9));
+  animation:twitch1 .42s steps(1) infinite}
+@keyframes twitch1{0%,32%{background-position:0 0}
+                   33%,65%{background-position:-39px 0}
+                   66%,100%{background-position:-78px 0}}
+
+/* The baby: inverted to white, on her own thread, and quicker. One shadow
+   only, as an edge. Chaining more fills her in and she becomes a blob. */
+.baby{left:52px;width:18px}
+.baby .bug{width:18px;height:30px}
+.baby .silk{left:9px;bottom:9px}
+.baby .sprite{width:18px;height:30px;background-size:76.5px 30px;
+  filter:invert(1) drop-shadow(0 0 1.2px rgba(20,22,27,.95));
+  animation:twitch2 .3s steps(1) infinite}
+@keyframes twitch2{0%,32%{background-position:0 0}
+                   33%,65%{background-position:-19.5px 0}
+                   66%,100%{background-position:-39px 0}}
 
 /* ---------- rating + forensics ---------- */
 .acts{display:flex;align-items:center;gap:4px;margin-top:2px}
@@ -330,7 +332,10 @@ textarea::placeholder{color:var(--faint)}
     <div class="thread" id="thread"></div>
 <template id="spriteTpl">
   <div class="runner" aria-hidden="true">
-    <div class="strand"><div class="silk"></div><div class="sprite"></div></div>
+    <div class="strand mother"><div class="bug">
+      <div class="silk"></div><div class="sprite"></div></div></div>
+    <div class="strand baby"><div class="bug">
+      <div class="silk"></div><div class="sprite"></div></div></div>
   </div>
 </template>
 
@@ -570,47 +575,41 @@ function drawThread() {
 
 let spiderStop = null;
 
-/* How far she may go and how long she takes to get there. The easing is a
-   strong ease out, so she covers most of the distance early and creeps
-   afterwards: a two second call and a forty second call both read, and neither
-   walks her off the panel. The browser runs the transition, so it keeps going
-   when the tab is in the background. requestAnimationFrame does not. */
-const DROP_MAX = 108;
-const DROP_TIME = "18s";
-const BODY = 36;   // where her body sits inside the 50px sprite cell
+/* How far each may go and how long she takes. The easing is a strong ease
+   out, so most of the distance goes early and they creep afterwards: a two
+   second call and a forty second call both read, and neither reaches the
+   bottom. The browser runs the transition, so it keeps going when the tab is
+   in the background. requestAnimationFrame does not. */
+const DROP = [
+  {pick: ".mother", max: 120, time: "18s"},
+  {pick: ".baby", max: 78, time: "11s"},
+];
 
 function lowerSpiders() {
   raiseSpiders();
   thread.classList.add("busy");
   thread.appendChild($("spriteTpl").content.cloneNode(true));
   const runner = thread.querySelector(".runner");
-  const sprite = runner.querySelector(".sprite");
-  const silk = runner.querySelector(".silk");
-  const reach = Math.min(DROP_MAX, Math.max(runner.clientHeight - 70, 30));
 
-  runner.style.setProperty("--fall", DROP_TIME);
-
-  /* The rope hangs from the anchor down to her body, so its length is always
-     her depth plus BODY. Starting it at zero while she starts at BODY made it
-     trail 36px behind her and close the gap on the way down, which read as the
-     rope catching up rather than holding her. */
-  sprite.style.transform = "translateY(0px)";
-  silk.style.height = BODY + "px";
-  sprite.getBoundingClientRect();          // commit that as the start state
-  sprite.style.transform = "translateY(" + reach + "px)";
-  silk.style.height = (reach + BODY) + "px";
+  for (const spec of DROP) {
+    const bug = runner.querySelector(spec.pick + " .bug");
+    const reach = Math.min(spec.max, Math.max(runner.clientHeight - 80, 24));
+    bug.style.setProperty("--fall", spec.time);
+    bug.getBoundingClientRect();            // commit the start of the drop
+    bug.style.transform = "translateY(" + reach + "px)";
+  }
 
   spiderStop = () => {
-    /* She lets go: the thread whips up and she falls out of frame. */
-    const fall = runner.clientHeight + 90;
+    /* They let go: the threads whip up and both fall out of frame. */
     runner.classList.add("done");
-    sprite.style.transition = "transform .5s cubic-bezier(.55,0,.9,.45), " +
-                              "opacity .4s ease-in .15s";
-    sprite.style.transform = "translateY(" + fall + "px)";
-    sprite.style.opacity = "0";
-    silk.style.transition = "height .16s ease-in";
-    silk.style.height = "0px";
-    setTimeout(() => runner.remove(), 620);
+    const fall = runner.clientHeight + 120;
+    runner.querySelectorAll(".bug").forEach((bug, i) => {
+      bug.style.transition = "transform .5s cubic-bezier(.55,0,.9,.45) " +
+                             (i * 60) + "ms, opacity .4s ease-in .2s";
+      bug.style.transform = "translateY(" + fall + "px)";
+      bug.style.opacity = "0";
+    });
+    setTimeout(() => runner.remove(), 760);
     spiderStop = null;
   };
 }
