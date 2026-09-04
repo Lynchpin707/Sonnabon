@@ -193,7 +193,7 @@ textarea::placeholder{color:var(--faint)}
 .head img{transition:transform .3s ease}
 .head img.busy{animation:breathe 1.15s ease-in-out infinite}
 
-/* ---------- the spiders ----------
+/* ---------- the spider ----------
    DungeonSpider.png by SpinachChicken, CC0, opengameart.org. 51x20 with four
    12px frames at a 13px pitch. Frames 0 to 2 move her legs; frame 3 draws her
    own silk, which is the clue that she belongs vertically rather than walking
@@ -204,50 +204,43 @@ textarea::placeholder{color:var(--faint)}
    agree on where she was, and they never quite did. */
 .runner{position:absolute;top:0;bottom:12px;left:0;right:0;
   overflow:hidden;pointer-events:none;z-index:2}
-.strand{position:absolute;top:14px;transform-origin:50% 0}
-/* A pendulum's period follows the square root of its length, not the weight
-   on the end: T = 2*pi*sqrt(L/g). At roughly 300px to the metre, her 120px
-   thread is about 1.3s and the child's shorter one about 1.05s, so the
-   smaller one is quicker. A hanging spider barely sways, so the arc is a few
-   degrees, and neither moves until it has stopped descending. Most requests
-   finish before either of them swings at all, which is also true to life. */
-@keyframes swing{0%,100%{transform:rotate(0)}
-                 25%{transform:rotate(var(--arc))}
-                 75%{transform:rotate(calc(0deg - var(--arc)))}}
-.mother{--arc:3deg;top:14px;animation:swing 1.3s ease-in-out 5.5s infinite;
-  left:max(14px, calc(50% - 400px - 152px));width:60px}
-.baby{--arc:4deg;top:40px;animation:swing 1.05s ease-in-out 8.5s infinite;
-  left:max(84px, calc(50% - 400px - 68px));width:36px}
+
+/* She drops straight, because that is what paying out silk looks like. Then
+   one damped swing that loses amplitude each pass and comes to rest, which is
+   what a pendulum does. Running a constant arc forever is the part that reads
+   as animation rather than as a spider. */
+.strand{position:absolute;top:16px;transform-origin:50% 0;
+  left:max(16px, calc(50% - 400px - 128px));width:48px;
+  animation:settle 5.4s cubic-bezier(.36,0,.64,1) 4.6s forwards}
+@keyframes settle{
+   0%{transform:rotate(0deg)}
+   10%{transform:rotate(4.2deg)}
+   24%{transform:rotate(-3.3deg)}
+   38%{transform:rotate(2.5deg)}
+   52%{transform:rotate(-1.8deg)}
+   66%{transform:rotate(1.2deg)}
+   79%{transform:rotate(-.7deg)}
+   90%{transform:rotate(.3deg)}
+  100%{transform:rotate(0deg)}}
 .runner.done .strand{animation:none}
-/* Narrow windows have no margin to hang them in, so make one. */
-@media(max-width:1420px){.thread.busy{padding-left:168px}}
+/* Narrow windows have no margin to hang her in, so make one. */
+@media(max-width:1420px){.thread.busy{padding-left:150px}}
 
 .bug{position:absolute;top:0;left:0;
   transition:transform var(--fall,18s) cubic-bezier(0,.55,.25,1)}
-.silk{position:absolute;width:1px;height:3000px;top:auto;background:#16181C}
-.sprite{position:absolute;top:0;left:0;image-rendering:pixelated;
-  background-image:url(spider.png);background-repeat:no-repeat}
+.silk{position:absolute;width:1px;height:3000px;top:auto;left:24px;bottom:24px;
+  background:#16181C}
 
-/* Her: dark, and the larger of the two. */
-.mother .bug{width:60px;height:100px}
-.mother .silk{left:30px;bottom:30px}
-.mother .sprite{width:60px;height:100px;background-size:255px 100px;
-  filter:drop-shadow(0 1px 2px rgba(255,255,255,.9));
-  animation:twitch1 .42s steps(1) infinite}
-@keyframes twitch1{0%,32%{background-position:0 0}
-                   33%,65%{background-position:-65px 0}
-                   66%,100%{background-position:-130px 0}}
-
-/* The baby: inverted to white, on her own thread, and quicker. One shadow
-   only, as an edge. Chaining more fills her in and she becomes a blob. */
-.baby .bug{width:36px;height:60px}
-.baby .silk{left:18px;bottom:18px}
-.baby .sprite{width:36px;height:60px;background-size:153px 60px;
-  filter:invert(1) drop-shadow(0 0 1.2px rgba(20,22,27,.95));
-  animation:twitch2 .3s steps(1) infinite}
-@keyframes twitch2{0%,32%{background-position:0 0}
-                   33%,65%{background-position:-39px 0}
-                   66%,100%{background-position:-78px 0}}
+/* Inverted to white. One shadow only, as an edge: chaining more shadows makes
+   each one shadow the last and she fills in to a blob. */
+.sprite{position:absolute;top:0;left:0;width:48px;height:80px;
+  image-rendering:pixelated;background-image:url(spider.png);
+  background-repeat:no-repeat;background-size:204px 80px;
+  filter:invert(1) drop-shadow(0 0 1.4px rgba(20,22,27,.95));
+  animation:twitch .34s steps(1) infinite}
+@keyframes twitch{0%,32%{background-position:0 0}
+                  33%,65%{background-position:-52px 0}
+                  66%,100%{background-position:-104px 0}}
 
 /* ---------- rating + forensics ---------- */
 .acts{display:flex;align-items:center;gap:4px;margin-top:2px}
@@ -430,9 +423,7 @@ textarea::placeholder{color:var(--faint)}
     <div class="dash" id="dash" hidden></div>
 <template id="spriteTpl">
   <div class="runner" aria-hidden="true">
-    <div class="strand mother"><div class="bug">
-      <div class="silk"></div><div class="sprite"></div></div></div>
-    <div class="strand baby"><div class="bug">
+    <div class="strand"><div class="bug">
       <div class="silk"></div><div class="sprite"></div></div></div>
   </div>
 </template>
@@ -733,10 +724,8 @@ let spiderStop = null;
    second call and a forty second call both read, and neither reaches the
    bottom. The browser runs the transition, so it keeps going when the tab is
    in the background. requestAnimationFrame does not. */
-const DROP = [
-  {pick: ".mother", max: 120, time: "18s"},
-  {pick: ".baby", max: 78, time: "11s"},
-];
+const DROP_MAX = 118;
+const DROP_TIME = "16s";
 
 function lowerSpiders() {
   raiseSpiders();
@@ -744,25 +733,21 @@ function lowerSpiders() {
   thread.appendChild($("spriteTpl").content.cloneNode(true));
   const runner = thread.querySelector(".runner");
 
-  for (const spec of DROP) {
-    const bug = runner.querySelector(spec.pick + " .bug");
-    const reach = Math.min(spec.max, Math.max(runner.clientHeight - 80, 24));
-    bug.style.setProperty("--fall", spec.time);
-    bug.getBoundingClientRect();            // commit the start of the drop
-    bug.style.transform = "translateY(" + reach + "px)";
-  }
+  const bug = runner.querySelector(".bug");
+  const reach = Math.min(DROP_MAX, Math.max(runner.clientHeight - 96, 24));
+  bug.style.setProperty("--fall", DROP_TIME);
+  bug.getBoundingClientRect();              // commit the start of the drop
+  bug.style.transform = "translateY(" + reach + "px)";
 
   spiderStop = () => {
     /* They let go: the threads whip up and both fall out of frame. */
     runner.classList.add("done");
     const fall = runner.clientHeight + 120;
-    runner.querySelectorAll(".bug").forEach((bug, i) => {
-      bug.style.transition = "transform .5s cubic-bezier(.55,0,.9,.45) " +
-                             (i * 60) + "ms, opacity .4s ease-in .2s";
-      bug.style.transform = "translateY(" + fall + "px)";
-      bug.style.opacity = "0";
-    });
-    setTimeout(() => runner.remove(), 760);
+    bug.style.transition = "transform .5s cubic-bezier(.55,0,.9,.45), " +
+                           "opacity .4s ease-in .2s";
+    bug.style.transform = "translateY(" + fall + "px)";
+    bug.style.opacity = "0";
+    setTimeout(() => runner.remove(), 700);
     spiderStop = null;
   };
 }
