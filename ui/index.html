@@ -199,8 +199,16 @@ textarea::placeholder{color:var(--faint)}
    rope cannot cross a message bubble at any width. */
 .runner{position:absolute;top:14px;bottom:14px;left:14px;width:30px;
   pointer-events:none;z-index:2}
-.strand{position:absolute;top:0;left:0}
-.silk{position:absolute;left:15px;top:0;width:1px;height:0;background:#16181C}
+/* The whole strand pivots from where the rope is anchored, so the thread
+   swings with her rather than her sliding along a fixed line. */
+.strand{position:absolute;top:0;left:0;transform-origin:15px 0;
+  animation:swing 3.4s ease-in-out infinite alternate}
+@keyframes swing{from{transform:rotate(-3.2deg)}to{transform:rotate(3.2deg)}}
+.runner.done .strand{animation:none}
+/* The rope has to reach her body, not the top of her sprite box. Her frames
+   only draw in the bottom third of the 50px cell, which is the BODY offset. */
+.silk{position:absolute;left:15px;top:0;width:1px;height:0;background:#16181C;
+  transition:height var(--fall,18s) cubic-bezier(0,.55,.25,1)}
 
 /* She is drawn dark. Inverted she is a near white body on a near white panel,
    about 1.05 to 1 contrast, and no combination of shadows rescued that: she
@@ -209,12 +217,15 @@ textarea::placeholder{color:var(--faint)}
 .sprite{position:absolute;left:0;top:0;width:30px;height:50px;
   image-rendering:pixelated;background:url(spider.png) 0 0/127.5px 50px no-repeat;
   filter:drop-shadow(0 1px 2px rgba(255,255,255,.9));
-  animation:twitch .42s steps(1) infinite}
+  animation:twitch .42s steps(1) infinite;
+  transition:transform var(--fall,18s) cubic-bezier(0,.55,.25,1)}
 @keyframes twitch{0%,32%{background-position:0 0}
                   33%,65%{background-position:-32.5px 0}
                   66%,100%{background-position:-65px 0}}
 
-.runner.done{transition:opacity .4s ease-out;opacity:0}
+/* When the answer lands she lets go: the thread whips up and she drops out
+   of frame under something close to gravity. */
+.runner.done .sprite{animation:none}
 .thread.busy{padding-left:64px}
 
 /* ---------- rating + forensics ---------- */
@@ -555,10 +566,14 @@ function drawThread() {
 
 let spiderStop = null;
 
-/* How far she is allowed to go, whatever the wait. Without a cap a slow model
-   walks her off the bottom of the panel. */
+/* How far she may go and how long she takes to get there. The easing is a
+   strong ease out, so she covers most of the distance early and creeps
+   afterwards: a two second call and a forty second call both read, and neither
+   walks her off the panel. The browser runs the transition, so it keeps going
+   when the tab is in the background. requestAnimationFrame does not. */
 const DROP_MAX = 108;
-const DROP_TAU = 5;
+const DROP_TIME = "18s";
+const BODY = 36;   // where her body sits inside the 50px sprite cell
 
 function lowerSpiders() {
   raiseSpiders();
@@ -567,23 +582,24 @@ function lowerSpiders() {
   const runner = thread.querySelector(".runner");
   const sprite = runner.querySelector(".sprite");
   const silk = runner.querySelector(".silk");
-  const began = performance.now();
+  const reach = Math.min(DROP_MAX, Math.max(runner.clientHeight - 70, 30));
 
-  /* Elapsed time, not a fake progress bar. We cannot know how long inference
-     will take, so she approaches her limit rather than pretending to finish. */
-  let frame = requestAnimationFrame(function tick(now) {
-    const seconds = (now - began) / 1000;
-    const reach = Math.min(DROP_MAX, Math.max(runner.clientHeight - 70, 30));
-    const depth = reach * (1 - Math.exp(-seconds / DROP_TAU));
-    sprite.style.transform = "translateY(" + depth + "px)";
-    silk.style.height = (depth + 12) + "px";
-    frame = requestAnimationFrame(tick);
-  });
+  runner.style.setProperty("--fall", DROP_TIME);
+  sprite.getBoundingClientRect();          // commit the start of the transition
+  sprite.style.transform = "translateY(" + reach + "px)";
+  silk.style.height = (reach + BODY) + "px";
 
   spiderStop = () => {
-    cancelAnimationFrame(frame);
+    /* She lets go: the thread whips up and she falls out of frame. */
+    const fall = runner.clientHeight + 90;
     runner.classList.add("done");
-    setTimeout(() => runner.remove(), 420);
+    sprite.style.transition = "transform .5s cubic-bezier(.55,0,.9,.45), " +
+                              "opacity .4s ease-in .15s";
+    sprite.style.transform = "translateY(" + fall + "px)";
+    sprite.style.opacity = "0";
+    silk.style.transition = "height .16s ease-in";
+    silk.style.height = "0px";
+    setTimeout(() => runner.remove(), 620);
     spiderStop = null;
   };
 }
