@@ -205,12 +205,18 @@ textarea::placeholder{color:var(--faint)}
 .runner{position:absolute;top:0;bottom:12px;left:0;right:0;
   overflow:hidden;pointer-events:none;z-index:2}
 .strand{position:absolute;top:14px;transform-origin:50% 0}
+/* A pendulum's period follows the square root of its length, not the weight
+   on the end: T = 2*pi*sqrt(L/g). At roughly 300px to the metre, her 120px
+   thread is about 1.3s and the child's shorter one about 1.05s, so the
+   smaller one is quicker. A hanging spider barely sways, so the arc is a few
+   degrees, and neither moves until it has stopped descending. Most requests
+   finish before either of them swings at all, which is also true to life. */
 @keyframes swing{0%,100%{transform:rotate(0)}
                  25%{transform:rotate(var(--arc))}
                  75%{transform:rotate(calc(0deg - var(--arc)))}}
-.mother{--arc:4deg;top:14px;animation:swing 1.6s ease-in-out 3.4s infinite;
+.mother{--arc:3deg;top:14px;animation:swing 1.3s ease-in-out 5.5s infinite;
   left:max(14px, calc(50% - 400px - 152px));width:60px}
-.baby{--arc:6.5deg;top:40px;animation:swing 1.15s ease-in-out 6.2s infinite;
+.baby{--arc:4deg;top:40px;animation:swing 1.05s ease-in-out 8.5s infinite;
   left:max(84px, calc(50% - 400px - 68px));width:36px}
 .runner.done .strand{animation:none}
 /* Narrow windows have no margin to hang them in, so make one. */
