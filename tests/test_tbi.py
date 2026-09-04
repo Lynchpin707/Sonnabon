@@ -709,3 +709,56 @@ def test_a_pinned_tier_is_never_overwritten(local, monkeypatch):
 def test_nothing_installed_changes_nothing(local):
     before = {t: m.id for t, m in config.OLLAMA.items()}
     assert config.adopt_ollama([]) == before
+
+
+# ----------------------------------------------------- the measured baseline
+
+
+def test_the_counterfactual_is_measured_not_assumed(ledger, offline, monkeypatch):
+    """baseline_cost prices the cheap model's tokens at the dear model's rate,
+    which assumes the dear model would have been equally brief. On a sample we
+    pay to find out instead."""
+    monkeypatch.setattr(config, "SHADOW_RATE", 1.0)
+    # The habit tier is more verbose: 900 output tokens against the 500 assumed.
+    monkeypatch.setattr(pipeline.provider, "complete",
+                        lambda *a, **k: FakeCompletion("long", 1000, 900))
+
+    result = pipeline.run("write a short email", user="u")
+    assert result.record.shadow_cost > 0
+    assert result.record.shadow_output_tokens == 900
+
+    found = memory.measured("u")
+    assert found["n"] == 1
+    # Assuming the token counts carry over understated what it really costs.
+    assert found["bias"] > 1.0
+    assert found["measured_saving_pct"] > found["modelled_saving_pct"]
+
+
+def test_nothing_is_claimed_before_anything_is_measured(ledger, offline):
+    pipeline.run("write a short email", user="u")
+    assert memory.measured("u") is None
+
+
+def test_a_failed_control_does_not_fail_the_request(ledger, offline, monkeypatch):
+    """The control is ours, not theirs. Losing it must not lose their answer."""
+    monkeypatch.setattr(config, "SHADOW_RATE", 1.0)
+
+    def refuse(*a, **k):
+        raise provider.BackendUnavailable("the habit tier is down")
+
+    monkeypatch.setattr(pipeline.provider, "complete", refuse)
+    result = pipeline.run("write a short email", user="u")
+    assert result.record is not None
+    assert result.record.shadow_cost == 0.0
+
+
+def test_measurement_spend_is_not_billed_to_the_person(ledger, offline, monkeypatch):
+    """Running a control is our cost, not theirs. It must not appear as what
+    they were charged, or the ledger is lying in our favour."""
+    monkeypatch.setattr(config, "SHADOW_RATE", 1.0)
+    monkeypatch.setattr(pipeline.provider, "complete",
+                        lambda *a, **k: FakeCompletion("long", 1000, 900))
+    result = pipeline.run("write a short email", user="u")
+    assert result.record.total_cost == pytest.approx(
+        result.record.router_cost + result.record.task_cost)
+    assert result.record.shadow_cost not in (result.record.total_cost,)

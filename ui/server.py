@@ -253,6 +253,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {
                 **memory.usage(USER),
                 "quality": memory.quality(USER),
+                "measured": memory.measured(USER),
                 "anomalies": flagged,
                 "habit_model": config.PRICED[config.HABIT_TIER].id,
                 "models": {tier: model.id for tier, model in config.MODELS.items()},

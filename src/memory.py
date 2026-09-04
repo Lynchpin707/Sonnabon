@@ -61,6 +61,11 @@ class Record:
     # Wall clock for the whole turn. Under load the runaway case is a latency
     # incident before it is a cost one, so latency belongs in the same row.
     seconds: float = 0.0
+    # What the habit tier actually charged for this same request, on the rows
+    # where we paid to find out. Zero means it was not sampled, which is why
+    # measured() filters rather than averaging over everything.
+    shadow_cost: float = 0.0
+    shadow_output_tokens: int = 0
 
     @property
     def total_cost(self):
@@ -221,7 +226,7 @@ def build(request_id, user, decision, ran_tier, router_completion, task_completi
 
 
 def build_case(request_id, user, decision, case, router_completion=None,
-               case_id="", adapted=False):
+               case_id="", adapted=False, shadow=None):
     """One ledger row for a whole run, summed from what the hooks saw.
 
     The agents' own calls are in here, and so is the classifier that chose the
@@ -245,6 +250,8 @@ def build_case(request_id, user, decision, case, router_completion=None,
         case_id=case_id,
         adapted=adapted,
         seconds=round(case.seconds, 3),
+        shadow_cost=shadow[0] if shadow else 0.0,
+        shadow_output_tokens=shadow[1] if shadow else 0,
     )
 
 
@@ -332,6 +339,40 @@ def quality(user=None):
         # The control. Same measure, split by whether the prompt was fitted to
         # the model answering it, so the claim can be checked rather than made.
         "by_adaptation": adapted,
+    }
+
+
+def measured(user=None):
+    """The counterfactual, on the rows where we paid to measure it.
+
+    baseline_cost is what the habit tier would have cost if it produced the
+    same tokens. shadow_cost is what it actually charged when we ran it. The
+    ratio between them is how wrong the assumption is, and it is reported
+    rather than corrected: a correction factor derived from a sample and then
+    applied to everything is just a nicer looking estimate.
+
+    None until something has been sampled. An unmeasured claim says so.
+    """
+    rows = [r for r in _query("CASE#", Record, LEDGER, user=user)
+            if r.shadow_cost > 0]
+    if not rows:
+        return None
+
+    modelled = sum(r.baseline_cost for r in rows)
+    actual = sum(r.shadow_cost for r in rows)
+    spent = sum(r.total_cost for r in rows)
+    return {
+        "n": len(rows),
+        "modelled_baseline": modelled,
+        "measured_baseline": actual,
+        # Above 1.0 means the habit tier really costs more than assuming its
+        # token counts match, so the modelled figure understates the saving.
+        "bias": actual / modelled if modelled > 0 else None,
+        "spent": spent,
+        "measured_saving_pct": round(100 * (1 - spent / actual), 1)
+        if actual > 0 else None,
+        "modelled_saving_pct": round(100 * (1 - spent / modelled), 1)
+        if modelled > 0 else None,
     }
 
 

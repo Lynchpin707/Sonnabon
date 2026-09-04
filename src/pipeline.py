@@ -18,7 +18,7 @@ import hashlib
 import uuid
 from dataclasses import dataclass, replace
 
-from . import agents, bureau, config, memory, router
+from . import agents, bureau, config, memory, provider, router
 
 RATING_RATE = 0.05
 COMMENT_RATE = 0.01
@@ -69,6 +69,33 @@ def classify(text, user, tier=None):
     return replace(decision, tier=raised), completion
 
 
+def should_shadow(request_id):
+    """Whether to pay to measure the counterfactual on this one."""
+    return _bucket(request_id, "shadow") < config.SHADOW_RATE
+
+
+def measure_baseline(text, decision):
+    """Run the same request on the habit tier and see what it really costs.
+
+    Deliberately not through an agent and not inside the case file: this is
+    measurement spend, not the user's work, and folding it into their bill
+    would make the ledger claim they were charged for a control.
+
+    Inline rather than backgrounded, because the sampled request is the one
+    request whose ledger row has to be complete. It is a few percent of
+    traffic, and those few wait twice.
+    """
+    model = config.MODELS[config.HABIT_TIER]
+    try:
+        completion = provider.complete(model, router.adapt(text, config.HABIT_TIER))
+    except Exception:
+        # A failed control is not a failed request. Record nothing and let the
+        # answer the person actually asked for go out.
+        return None
+    return (memory.price(config.PRICED[config.HABIT_TIER], completion),
+            completion.output_tokens)
+
+
 def run(text, user="demo", approve=None, tier=None, watch=None, case_id=None):
     """One turn of one case, start to finish.
 
@@ -99,8 +126,12 @@ def run(text, user="demo", approve=None, tier=None, watch=None, case_id=None):
     finally:
         bureau.close_case(token)
 
+    shadow = (measure_baseline(text, decision)
+              if should_shadow(request_id) else None)
+
     record = memory.save(memory.build_case(
-        request_id, user, decision, case, router_completion, case_id, adapted))
+        request_id, user, decision, case, router_completion, case_id, adapted,
+        shadow))
     return Result(
         answer,
         decision,

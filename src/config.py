@@ -134,6 +134,13 @@ HABIT_TIER = _tier(os.getenv("HABIT_TIER", "max"), "max")
 DOMAIN_RULES = {}
 
 
+# How often to actually run the request a second time on the habit tier, to
+# find out what it would really have cost rather than assuming the token counts
+# transfer. Off by default because it spends money to learn something: at two
+# percent and top-tier rates it adds well under a cent per hundred requests.
+SHADOW_RATE = float(os.getenv("SHADOW_RATE", "0"))
+
+
 def runnable(tier):
     """Clamp a routing decision down to the tier the budget allows."""
     return TIER_ORDER[min(TIER_ORDER.index(tier), TIER_ORDER.index(CEILING))]
