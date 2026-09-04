@@ -24,7 +24,7 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{height:100%}
-body{margin:0;background:#fff;color:var(--ink);font-family:var(--sans);font-size:15px;
+body{margin:0;background:#fff;color:var(--ink);font-family:var(--sans);font-size:16px;
   -webkit-font-smoothing:antialiased;overflow:hidden}
 #shader{position:fixed;inset:0;width:100%;height:100%;z-index:0}
 
@@ -49,9 +49,9 @@ body{margin:0;background:#fff;color:var(--ink);font-family:var(--sans);font-size
 
 /* ---------- sidebar ---------- */
 .side{display:flex;flex-direction:column;min-height:0;padding:18px 14px}
-.head{display:flex;align-items:center;gap:10px;padding:2px 6px 16px}
-.head img{width:40px;height:40px;object-fit:contain;flex:none}
-.head .n{font-size:13px;font-family:var(--mono);letter-spacing:.18em;color:var(--dim)}
+.head{display:flex;align-items:center;gap:12px;padding:2px 6px 20px}
+.head img{width:52px;height:52px;object-fit:contain;flex:none}
+.head .n{font-size:15px;font-family:var(--mono);letter-spacing:.18em;color:var(--dim)}
 .new{display:flex;align-items:center;gap:8px;width:100%;padding:9px 11px;margin-bottom:18px;
   border-radius:10px;border:1px solid var(--hair);background:rgba(255,255,255,.5);
   cursor:pointer;font-family:var(--sans);font-size:14px;color:var(--ink);text-align:left;
@@ -69,7 +69,7 @@ body{margin:0;background:#fff;color:var(--ink);font-family:var(--sans);font-size
 .case:hover{background:rgba(255,255,255,.62)}
 .case[aria-current="true"]{background:rgba(255,255,255,.85)}
 .case:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
-.case .t{font-size:14px;line-height:1.35;color:var(--ink);
+.case .t{font-size:15px;line-height:1.35;color:var(--ink);
   display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
 .case .s{display:flex;align-items:center;gap:6px;margin-top:4px;
   font-family:var(--mono);font-size:12px;color:var(--faint)}
@@ -84,7 +84,7 @@ body{margin:0;background:#fff;color:var(--ink);font-family:var(--sans);font-size
 .main{display:flex;flex-direction:column;min-height:0;min-width:0}
 .top{display:flex;align-items:center;justify-content:space-between;gap:12px;
   padding:16px 24px;border-bottom:1px solid var(--hair)}
-.title{font-size:17px;font-weight:600}
+.title{font-size:19px;font-weight:600}
 .top .r{display:flex;align-items:center;gap:14px;font-family:var(--mono);font-size:12px;
   color:var(--dim)}
 .top .r b{color:var(--ink);font-weight:400}
@@ -101,12 +101,12 @@ body{margin:0;background:#fff;color:var(--ink);font-family:var(--sans);font-size
 .turn{max-width:800px;width:100%;margin:0 auto;display:grid;gap:10px}
 .you{justify-self:end;max-width:76%;padding:11px 15px;border-radius:14px 14px 4px 14px;
   background:rgba(255,255,255,.78);border:1px solid var(--glass-hi);
-  box-shadow:0 2px 8px rgba(28,32,40,.06);font-size:15.5px;line-height:1.55}
+  box-shadow:0 2px 8px rgba(28,32,40,.06);font-size:16.5px;line-height:1.55}
 .tbi{display:grid;gap:8px}
 .stamp{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:12px;
   color:var(--faint)}
 .stamp b{color:var(--dim);font-weight:400}
-.body{font-size:16px;line-height:1.65;color:var(--ink);max-width:68ch}
+.body{font-size:17px;line-height:1.65;color:var(--ink);max-width:68ch}
 .body p{margin:0 0 9px}.body p:last-child{margin:0}
 
 /* ---------- composer ---------- */
@@ -120,7 +120,7 @@ body{margin:0;background:#fff;color:var(--ink);font-family:var(--sans);font-size
 .field:focus-within{border-color:#fff;
   box-shadow:inset 0 1px 0 #fff,0 10px 32px rgba(28,32,40,.15),0 0 0 3px rgba(138,106,30,.13)}
 textarea{flex:1;border:0;background:none;resize:none;color:var(--ink);font-family:var(--sans);
-  font-size:16px;line-height:1.55;max-height:190px;padding:5px 0;outline:none}
+  font-size:17px;line-height:1.55;max-height:200px;padding:6px 0;outline:none}
 textarea::placeholder{color:var(--faint)}
 .send{flex:none;width:31px;height:31px;border-radius:50%;border:0;cursor:pointer;
   color:var(--faint);background:rgba(20,22,27,.06);display:grid;place-items:center;
@@ -165,19 +165,19 @@ textarea::placeholder{color:var(--faint)}
 
 /* ---------- empty state ---------- */
 .empty{flex:1;display:grid;place-items:center;padding:24px}
-.empty-in{display:grid;justify-items:center;gap:20px;max-width:520px;text-align:center}
-.empty img{width:112px;height:112px;object-fit:contain;
+.empty-in{display:grid;justify-items:center;gap:24px;max-width:580px;text-align:center}
+.empty img{width:148px;height:148px;object-fit:contain;
   filter:drop-shadow(0 10px 26px rgba(28,32,40,.22));
   animation:stamp .85s cubic-bezier(.2,1.5,.4,1) both, float 7s ease-in-out 1s infinite}
-.empty h1{font-size:31px;font-weight:500;letter-spacing:-.024em;margin:0;color:var(--ink)}
-.empty p{margin:0;color:var(--faint);font-size:15px;max-width:48ch;line-height:1.6}
+.empty h1{font-size:36px;font-weight:500;letter-spacing:-.024em;margin:0;color:var(--ink)}
+.empty p{margin:0;color:var(--faint);font-size:16px;max-width:48ch;line-height:1.6}
 .empty p b{color:var(--ink);font-weight:500}
 .cmd{font-family:var(--mono);font-size:12.5px;color:var(--ink);margin:0;
   background:rgba(20,22,27,.05);border:1px solid var(--hair);border-radius:8px;
   padding:9px 13px;user-select:all}
 .seeds{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:2px}
 .seed{border:1px solid var(--hair);background:rgba(255,255,255,.6);border-radius:9999px;
-  padding:9px 16px;cursor:pointer;font-family:var(--sans);font-size:14px;color:var(--dim);
+  padding:10px 18px;cursor:pointer;font-family:var(--sans);font-size:15px;color:var(--dim);
   display:inline-flex;align-items:center;gap:7px;transition:background .2s,border-color .2s,color .2s}
 .seed:hover{background:#fff;color:var(--ink);border-color:rgba(20,22,27,.2)}
 .seed:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
@@ -304,7 +304,7 @@ textarea::placeholder{color:var(--faint)}
 
 .head-figs{display:flex;flex-wrap:wrap;gap:34px;align-items:flex-end}
 .fig{display:grid;gap:3px}
-.fig .v{font-size:31px;font-weight:500;letter-spacing:-.02em;line-height:1;
+.fig .v{font-size:34px;font-weight:500;letter-spacing:-.02em;line-height:1;
   font-variant-numeric:tabular-nums}
 .fig .k{font-family:var(--mono);font-size:12px;color:var(--faint)}
 .fig.quiet .v{font-size:19px;color:var(--dim);font-weight:400}
@@ -312,7 +312,7 @@ textarea::placeholder{color:var(--faint)}
 .sect{display:grid;gap:11px}
 .sect h2{font-family:var(--mono);font-size:12px;letter-spacing:.15em;
   text-transform:uppercase;color:var(--faint);font-weight:400}
-.sect .why{font-size:14px;color:var(--faint);line-height:1.55;margin:-4px 0 2px}
+.sect .why{font-size:15px;color:var(--faint);line-height:1.55;margin:-4px 0 2px}
 
 .grid{display:grid;gap:9px;font-family:var(--mono);font-size:12.5px}
 .grid .hd{display:grid;grid-template-columns:74px 1fr 74px 84px 62px;gap:10px;
@@ -529,15 +529,26 @@ try {
 
 grip.addEventListener("pointerdown", e => {
   e.preventDefault();
+  grip.setPointerCapture(e.pointerId);
   grip.classList.add("on");
+  document.body.style.cursor = "col-resize";
+  document.body.style.userSelect = "none";
+
   const move = ev => setSide(ev.clientX - 12);
-  const up = () => {
+  const up = ev => {
     grip.classList.remove("on");
-    removeEventListener("pointermove", move);
-    removeEventListener("pointerup", up);
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+    try { grip.releasePointerCapture(ev.pointerId); } catch (err) { /* gone */ }
+    grip.removeEventListener("pointermove", move);
+    grip.removeEventListener("pointerup", up);
+    grip.removeEventListener("pointercancel", up);
   };
-  addEventListener("pointermove", move);
-  addEventListener("pointerup", up);
+  /* Capture puts the events on the handle, so a drag that outruns it keeps
+     going instead of stopping the moment the cursor leaves. */
+  grip.addEventListener("pointermove", move);
+  grip.addEventListener("pointerup", up);
+  grip.addEventListener("pointercancel", up);
 });
 grip.addEventListener("dblclick", () => setSide(SIDE_DEFAULT));
 grip.addEventListener("keydown", e => {
