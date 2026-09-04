@@ -58,6 +58,9 @@ class Record:
     # Recorded so "does fitting the prompt help" can be measured against
     # ratings instead of assumed.
     adapted: bool = False
+    # Wall clock for the whole turn. Under load the runaway case is a latency
+    # incident before it is a cost one, so latency belongs in the same row.
+    seconds: float = 0.0
 
     @property
     def total_cost(self):
@@ -155,10 +158,12 @@ def cases(user):
     for row in history(user):
         key = row.case_id or row.request_id
         entry = grouped.setdefault(key, {"case_id": key, "turns": 0, "cost": 0.0,
-                                         "baseline": 0.0, "calls": 0, "at": row.at,
+                                         "baseline": 0.0, "calls": 0, "seconds": 0.0,
+                                         "at": row.at,
                                          "tier": row.ran_tier, "domain": row.domain,
                                          "first": row.request_id})
         entry["turns"] += 1
+        entry["seconds"] += row.seconds
         entry["cost"] += row.total_cost
         entry["baseline"] += row.baseline_cost
         entry["calls"] += row.calls
@@ -239,6 +244,7 @@ def build_case(request_id, user, decision, case, router_completion=None,
         calls=len(case.calls),
         case_id=case_id,
         adapted=adapted,
+        seconds=round(case.seconds, 3),
     )
 
 
@@ -297,11 +303,12 @@ def quality(user=None):
         groups = {}
         for row in rows:
             entry = groups.setdefault(key(row), {
-                "n": 0, "cost": 0.0, "baseline": 0.0,
+                "n": 0, "cost": 0.0, "baseline": 0.0, "seconds": 0.0,
                 "rated": 0, "accepted": 0, "rejected": 0})
             entry["n"] += 1
             entry["cost"] += row.total_cost
             entry["baseline"] += row.baseline_cost
+            entry["seconds"] += row.seconds
             mark = scored.get(row.request_id)
             if mark is None:
                 continue
@@ -314,6 +321,7 @@ def quality(user=None):
             entry["cost_per_accepted"] = (entry["cost"] / entry["accepted"]
                                           if entry["accepted"] else None)
             entry["cost_per_request"] = entry["cost"] / entry["n"]
+            entry["seconds_per_request"] = entry["seconds"] / entry["n"]
         return groups
 
     adapted = fold(lambda r: "adapted" if r.adapted else "as written")
@@ -366,8 +374,9 @@ def usage(user=None, days=30):
     for row in rows:
         day = time.strftime("%Y-%m-%d", time.localtime(row.at))
         bucket = daily.setdefault(day, {"day": day, "tokens": 0, "cost": 0.0,
-                                        "baseline": 0.0, "n": 0})
+                                        "baseline": 0.0, "seconds": 0.0, "n": 0})
         bucket["tokens"] += row.input_tokens + row.output_tokens
+        bucket["seconds"] += row.seconds
         bucket["cost"] += row.total_cost
         bucket["baseline"] += row.baseline_cost
         bucket["n"] += 1
@@ -388,6 +397,7 @@ def usage(user=None, days=30):
         "totals": {
             "cases": len(rows),
             "calls": sum(r.calls for r in rows),
+            "seconds": sum(r.seconds for r in rows),
             "tokens": sum(r.input_tokens + r.output_tokens for r in rows),
             "cost": spent,
             "baseline": baseline,

@@ -543,3 +543,40 @@ def test_adaptation_is_recorded_so_it_can_be_checked(ledger, offline):
     assert cheap.record.adapted is True
     split = memory.quality("u")["by_adaptation"]
     assert "adapted" in split and split["adapted"]["n"] == 1
+
+
+# -------------------------------------------------------------------- timing
+
+
+def test_every_step_reports_when_it_happened_and_how_long_it_took(ledger, offline):
+    """A cost tracker that cannot say how long anything took is half an
+    instrument. Under load, latency is the incident before cost is."""
+    seen = []
+    result = pipeline.run("write a short email", user="u", watch=seen.append)
+
+    calls = [e for e in seen if e["kind"] == "call"]
+    assert calls, "no call was reported"
+    for event in calls:
+        assert event["seconds"] >= 0
+        assert event["at"] >= 0
+    assert result.record.seconds >= 0
+    assert result.calls[0].seconds >= 0
+
+
+def test_a_refused_call_is_not_given_a_duration():
+    """Timing a call the gate stopped would report how long nothing took."""
+    case = bureau.CaseFile(authorised="mid")
+    agent = FakeAgent()
+    case.assign(agent, "max")
+    case.gate(FakeEvent(agent))
+    assert id(agent) not in case._started
+
+
+def test_latency_is_reported_beside_cost(ledger):
+    memory.save(memory.Record("r", "u", "email", "cheap", "cheap", 0.0,
+                              0.001, 0.001, 10, 5, 1.0, seconds=2.5))
+    memory.save(memory.Record("s", "u", "email", "cheap", "cheap", 0.0,
+                              0.001, 0.001, 10, 5, 2.0, seconds=1.5))
+    tier = memory.quality("u")["by_tier"]["cheap"]
+    assert tier["seconds"] == pytest.approx(4.0)
+    assert tier["seconds_per_request"] == pytest.approx(2.0)

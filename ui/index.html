@@ -240,6 +240,26 @@ textarea::placeholder{color:var(--faint)}
 .learned{font-family:var(--mono);font-size:11px;color:var(--gold);margin-left:4px}
 .waiting{font-family:var(--mono);font-size:11px;color:var(--faint)}
 
+/* The working notes. Collapsed by default: it is diagnostics, not the answer. */
+.think{display:grid;gap:6px;margin-bottom:10px}
+.think-head{display:inline-flex;align-items:center;gap:7px;background:none;border:0;
+  padding:0;cursor:pointer;font-family:var(--mono);font-size:11px;color:var(--faint);
+  justify-self:start}
+.think-head:hover{color:var(--ink)}
+.think-head:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.think-head .arrow{transition:transform .18s ease}
+.think-head[aria-expanded="true"] .arrow{transform:rotate(90deg)}
+.steps{display:grid;gap:3px;padding:9px 12px;border-radius:9px;
+  background:rgba(20,22,27,.035);font-family:var(--mono);font-size:11px;
+  color:var(--faint)}
+.steps div{display:flex;align-items:baseline;gap:9px}
+.steps b{color:var(--dim);font-weight:400;min-width:92px}
+.steps .n{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--dim)}
+.steps .stop{color:var(--gold)}
+.steps .live{color:var(--ink)}
+@keyframes tick{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:none}}
+.steps div{animation:tick .16s ease-out both}
+
 .forensic{max-width:720px;width:100%;margin:0 auto;display:flex;gap:11px;padding:13px 15px;
   border-radius:12px;border:1px solid rgba(138,106,30,.28);background:rgba(255,251,240,.72);
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
@@ -384,6 +404,8 @@ let MODELS = {}, CASES = [], TURNS = {};
 let offline = false, note = null;
 let openCase = null;     // the conversation on screen; null means a new one
 let waiting = null;      // the turn we are still waiting on
+let steps = [];          // what the hooks have reported for it so far
+let showSteps = false;   // diagnostics stay closed until asked for
 let gate = null;         // a turn the bureau stopped to ask about
 let pick = null, choosing = false, overridden = false;
 let ceiling = "max", habit = "max";
@@ -532,6 +554,41 @@ function rateHtml(turn) {
     </div>`;
 }
 
+function stepsHtml() {
+  /* Every line is one Strands hook. A model call that happened and a tool the
+     coordinator reached for both show up here, so the difference between one
+     agent and six is visible rather than inferred. */
+  if (!steps.length) return "";
+  const rows = steps.map(step => {
+    if (step.kind === "tool") {
+      return step.state === "start"
+        ? `<div class="live"><b>${esc(step.agent)}</b><span>consulting</span></div>`
+        : `<div><b>${esc(step.agent)}</b><span>answered</span>
+           <span class="n">${step.seconds}s</span></div>`;
+    }
+    if (step.kind === "block") {
+      return `<div class="stop"><b>stopped</b><span>${esc(step.reason)}</span></div>`;
+    }
+    return `<div><b>${esc(step.agent)}</b><span>${esc(step.tier)}</span>
+      <span>${step.input_tokens} in, ${step.output_tokens} out</span>
+      <span>${step.seconds}s</span>
+      <span class="n">${usd(step.cost)}</span></div>`;
+  }).join("");
+  const calls = steps.filter(s => s.kind === "call").length;
+  const spent = steps.reduce((t, s) => t + (s.cost || 0), 0);
+  const elapsed = steps.reduce((t, s) => Math.max(t, s.at || 0), 0);
+  return `<div class="think">
+    <button type="button" class="think-head" id="thinkToggle"
+            aria-expanded="${showSteps}">
+      <svg class="arrow" width="9" height="9" viewBox="0 0 8 8" fill="none"
+           aria-hidden="true"><path d="M2.5 1L6 4L2.5 7" stroke="currentColor"
+           stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      ${calls} call${calls === 1 ? "" : "s"}, ${elapsed.toFixed(1)}s, ${usd(spent)}
+    </button>
+    ${showSteps ? `<div class="steps">${rows}</div>` : ""}
+  </div>`;
+}
+
 function approvalCard(ask) {
   return `<div class="approve">
     <span class="k">Your call</span>
@@ -562,7 +619,8 @@ function drawThread() {
   if (waiting) {
     html += `<div class="turn"><div class="you">${esc(waiting.text)}</div></div>`;
     if (gate) html += approvalCard(gate);
-    else html += `<div class="turn"><div class="tbi"><div class="body">
+    else html += `<div class="turn"><div class="tbi">${stepsHtml()}
+        <div class="body">
         <span class="waiting">the bureau is reading the case</span></div></div></div>`;
   }
 
@@ -628,6 +686,11 @@ thread.addEventListener("click", e => {
     input.value = seed.dataset.s;
     input.dispatchEvent(new Event("input"));
     input.focus();
+    return;
+  }
+  if (e.target.closest("#thinkToggle")) {
+    showSteps = !showSteps;
+    drawThread();
     return;
   }
   const open = e.target.closest("[data-open]");
@@ -734,31 +797,53 @@ async function submit(text, approved) {
 
   waiting = {text: asked};
   gate = null;
+  steps = [];
   drawThread();
   document.querySelector(".head img").classList.add("busy");
 
-  let failure = null;
+  let failure = null, finished = null;
   try {
     const res = await fetch("/api/ask", {method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({text: asked, tier: forced, approved: !!approved,
-                            case_id: openCase})});
-    const d = await res.json();
+                            case_id: openCase, stream: true})});
 
-    if (d.needs_approval) {
-      gate = d.needs_approval;
-    } else if (d.error) {
-      failure = d.error;
-    } else if (d.declined) {
-      failure = "Declined. Nothing ran and nothing was billed.";
-    } else {
-      openCase = d.case_id;
+    /* One line of JSON per step, the last one carrying the answer. Reading it
+       as it arrives is what makes the working notes live rather than a
+       replay of something already over. */
+    const reader = res.body.getReader();
+    const decode = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const {value, done} = await reader.read();
+      if (done) break;
+      buffer += decode.decode(value, {stream: true});
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        let parsed;
+        try { parsed = JSON.parse(line); } catch (err) { continue; }
+        if (parsed.step) { steps.push(parsed.step); drawThread(); }
+        if (parsed.done) finished = parsed.done;
+      }
+    }
+  } catch (err) {
+    failure = String(err.message || err);
+  }
+
+  if (finished) {
+    if (finished.needs_approval) gate = finished.needs_approval;
+    else if (finished.error) failure = finished.error;
+    else if (finished.declined) failure = "Declined. Nothing ran and nothing was billed.";
+    else {
+      openCase = finished.case_id;
       await loadCase(openCase);
       waiting = null;
       await refresh(false);
     }
-  } catch (err) {
-    failure = String(err.message || err);
+  } else if (!failure) {
+    failure = "The connection closed before the bureau answered.";
   }
 
   if (failure) {

@@ -17,6 +17,7 @@ agents is committing the exact error it was built to catch.
 """
 
 import os
+import time
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 
@@ -49,6 +50,8 @@ class Call:
     output_tokens: int
     cost: float
     baseline_cost: float
+    seconds: float = 0.0
+    at: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -83,10 +86,12 @@ class CaseFile(HookProvider):
     # loop's own threads, so whatever is on the other end must be thread safe.
     watch: object = None
     max_calls: int = CASE_MAX_CALLS
+    began: float = field(default_factory=time.monotonic)
     calls: list = field(default_factory=list)
     blocks: list = field(default_factory=list)
     _seen: dict = field(default_factory=dict)
     _tiers: dict = field(default_factory=dict)
+    _started: dict = field(default_factory=dict)
 
     def assign(self, agent, tier):
         """Remember which tier an agent was built for. Reading it back off the
@@ -114,9 +119,10 @@ class CaseFile(HookProvider):
                 self.watch = None
 
     def consulting(self, event):
-        """The case officer is handing work to a specialist."""
+        """The coordinator is handing work to a specialist."""
         self.say(kind="tool", state="start",
-                 agent=str(event.tool_use.get("name", "specialist")))
+                 agent=str(event.tool_use.get("name", "specialist")),
+                 at=round(time.monotonic() - self.began, 3))
 
     def consulted(self, event):
         self.say(kind="tool", state="done",
@@ -142,6 +148,10 @@ class CaseFile(HookProvider):
             return self._block(event, agent, tier,
                                f"{tier} tier is above the authorised {self.authorised}")
 
+        # Only once the call is allowed. Timing a refused call would report a
+        # duration for something that never ran.
+        self._started[id(event.agent)] = time.monotonic()
+
     def record(self, event):
         """Read what the provider charged. Never an estimate, never a guess."""
         usage = event.agent.event_loop_metrics.accumulated_usage
@@ -154,6 +164,7 @@ class CaseFile(HookProvider):
         if used.input_tokens <= 0 and used.output_tokens <= 0:
             return
 
+        now = time.monotonic()
         tier = self.tier_of(event.agent)
         call = Call(
             agent=getattr(event.agent, "name", "agent"),
@@ -162,12 +173,20 @@ class CaseFile(HookProvider):
             output_tokens=used.output_tokens,
             cost=memory.price(config.PRICED[tier], used),
             baseline_cost=memory.price(config.PRICED[config.HABIT_TIER], used),
+            seconds=round(now - self._started.get(id(event.agent), now), 3),
+            at=round(now - self.began, 3),
         )
         self.calls.append(call)
         self.say(kind="call", agent=call.agent, tier=call.tier, cost=call.cost,
-                 input_tokens=call.input_tokens, output_tokens=call.output_tokens)
+                 input_tokens=call.input_tokens, output_tokens=call.output_tokens,
+                 seconds=call.seconds, at=call.at)
 
     # ------------------------------------------------------------- the totals
+
+    @property
+    def seconds(self):
+        """Wall clock for the whole case, which is what the person waited."""
+        return time.monotonic() - self.began
 
     @property
     def spent(self):

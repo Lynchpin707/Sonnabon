@@ -14,6 +14,7 @@ Then open http://localhost:8756
 import json
 import mimetypes
 import sys
+import threading
 import time
 from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -194,6 +195,43 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
+    def _stream(self, body, text):
+        """One line of JSON per step, then one carrying the answer.
+
+        The hooks fire on the agent loop's own threads, so the write is behind
+        a lock. Two agents finishing at once would otherwise interleave halfway
+        through a line and the browser would see torn JSON.
+        """
+        self.send_response(200)
+        self.send_header("Content-Type", "application/x-ndjson")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+
+        lock = threading.Lock()
+        alive = [True]
+
+        def send(line):
+            if not alive[0]:
+                return
+            with lock:
+                try:
+                    self.wfile.write((json.dumps(line) + "\n").encode())
+                    self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError, ValueError):
+                    # They closed the tab. Let the work finish and be recorded;
+                    # it was already paid for.
+                    alive[0] = False
+
+        try:
+            payload = ask(text, bool(body.get("approved")), body.get("tier"),
+                          watch=lambda event: send({"step": event}),
+                          case_id=body.get("case_id"))
+        except provider.BackendUnavailable as exc:
+            payload = {"error": str(exc)}
+        except Exception as exc:
+            payload = {"error": f"{type(exc).__name__}: {exc}"}
+        send({"done": payload})
+
     def _send(self, code, body, ctype="application/json"):
         payload = body if isinstance(body, bytes) else json.dumps(body).encode()
         self.send_response(code)
@@ -253,6 +291,9 @@ class Handler(BaseHTTPRequestHandler):
         text = (body.get("text") or "").strip()
         if not text:
             return self._send(400, {"error": "empty request"})
+
+        if body.get("stream"):
+            return self._stream(body, text)
 
         try:
             payload = ask(text, bool(body.get("approved")), body.get("tier"),
