@@ -178,13 +178,13 @@ def _payload(text, result, calls, blocks):
     }
 
 
-def credentials():
+def credentials(fresh=False):
     """Whether a backend is reachable, said plainly, with what to do about it.
 
     This never asks for a key. AWS credentials come from the standard chain,
     and a web form is the wrong place to type a secret.
     """
-    ready, message = provider.health()
+    ready, message = provider.health(fresh=fresh)
     return {"ready": ready, "message": message,
             "how": "Credentials come from the AWS chain: environment "
                    "variables, ~/.aws/credentials, or an IAM role. Run "
@@ -288,7 +288,8 @@ class Handler(BaseHTTPRequestHandler):
                 saved = settings.save(body)
             except (ValueError, KeyError, TypeError) as exc:
                 return self._send(400, {"error": str(exc)})
-            return self._send(200, {**saved, "backend_status": credentials()})
+            return self._send(200, {**saved,
+                                    "backend_status": credentials(fresh=True)})
 
         if self.path == "/api/rate":
             memory.rate(body["id"], USER, body["tier"], body["rating"],

@@ -260,6 +260,7 @@ def prior(user, domain):
     """
     past = [r for r in history(user) if r.domain == domain]
     if not past:
+        # Nothing in this domain, so the ratings file is not worth opening.
         return None
     past.sort(key=lambda r: r.at)
     scored = {f.request_id: f.rating for f in ratings(user)}
@@ -334,13 +335,18 @@ def quality(user=None):
     }
 
 
-def by_tier():
-    grouped = {}
-    for entry in ratings():
-        grouped.setdefault(entry.tier, []).append(entry.rating)
+def by_tier(user=None):
+    """Mean rating per tier, read off the same fold quality already does.
+
+    This used to walk the feedback file again and group it by hand, which is
+    the same question asked a second way. Two folds over the same rows drift
+    apart the moment one of them learns something the other does not.
+    """
+    scored = quality(user)["by_tier"]
     return {
-        tier: {"mean": statistics.mean(scores), "n": len(scores)}
-        for tier, scores in sorted(grouped.items())
+        tier: {"mean": (e["accepted"] - e["rejected"]) / e["rated"],
+               "n": e["rated"]}
+        for tier, e in sorted(scored.items()) if e["rated"]
     }
 
 

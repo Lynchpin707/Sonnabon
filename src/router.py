@@ -1,8 +1,10 @@
-"""One routing decision per request.
+"""One routing decision per request, before any agent is built.
 
-Tier, risk and rewrite all read the same input, so they cost one round trip
-rather than four sequential agents. The model is advisory: a malformed reply
-falls back to the heuristic instead of failing the request.
+Tier, domain and risk come from the same input in a single cheap call, and the
+result decides both which model answers and whether the full team is worth it.
+The model is advisory: a malformed reply falls back to the keyword heuristic
+rather than failing the request, and it may route down but never talk down a
+risk the heuristic flagged.
 """
 
 import hashlib

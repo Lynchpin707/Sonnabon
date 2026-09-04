@@ -1,11 +1,11 @@
-"""The forensics agent.
+"""The auditor.
 
-The one agent in TBI, and the only place an agent belongs. It runs over the
-ledger on a schedule rather than inside a request, so it adds no latency to
-anything a person is waiting for.
+It reads the ledger and reports only what needs a decision. Unlike the other
+agents it answers a question nobody asked, so it is the one place where an
+agent deciding for itself what to look at and when to stop is worth the calls.
 
-It decides for itself what to look at and when to stop looking, which is the
-part a function cannot do. Routing is a classification and stays a function.
+It is built through bureau.agent like everything else, so an audit that runs
+inside a request is charged to that request. The auditor pays for its own time.
 
 Its standing instruction is to say nothing unless something needs a decision.
 """

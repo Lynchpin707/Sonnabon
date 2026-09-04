@@ -21,6 +21,14 @@ from . import config
 TIMEOUT = 120
 RETRIES = 3
 
+# A refused connection is attempted twice, once per address family, so a probe
+# against a dead Ollama costs two timeouts. The interface asks on every poll,
+# which made /api/state block for four seconds. The answer does not change that
+# fast, so it is remembered.
+PROBE_TIMEOUT = 1.0
+HEALTH_TTL = 10.0
+_health = {"at": -1e9, "result": None}
+
 
 class BackendUnavailable(RuntimeError):
     """No model could be reached. Callers say so rather than invent a number."""
@@ -99,12 +107,24 @@ def complete(model, prompt, max_tokens=None):
     return caller(model, prompt, max_tokens)
 
 
-def health():
+def health(fresh=False):
     """Can a model actually be reached, and if not, what should the user do.
 
     The interface promises to say when there is no backend rather than invent
-    numbers. That promise needs something that actually checks.
+    numbers. That promise needs something that actually checks, but not on
+    every single request: the answer is cached for HEALTH_TTL seconds. Pass
+    fresh=True after changing the backend, where the stale answer would be
+    worse than the wait.
     """
+    now = time.monotonic()
+    if not fresh and _health["result"] and now - _health["at"] < HEALTH_TTL:
+        return _health["result"]
+    result = _probe()
+    _health.update(at=now, result=result)
+    return result
+
+
+def _probe():
     if config.USE_AWS:
         try:
             import boto3
