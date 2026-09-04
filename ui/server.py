@@ -245,8 +245,15 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/state":
             return self._send(200, state())
         if path == "/api/usage":
-            return self._send(200, {**memory.usage(USER),
-                                    "quality": memory.quality(USER)})
+            flagged = [{"user": who, "latest": latest, "median": median}
+                       for who, latest, median in memory.anomalies()]
+            return self._send(200, {
+                **memory.usage(USER),
+                "quality": memory.quality(USER),
+                "anomalies": flagged,
+                "habit_model": config.PRICED[config.HABIT_TIER].id,
+                "models": {tier: model.id for tier, model in config.MODELS.items()},
+            })
         if path == "/api/case":
             wanted = self.path.split("id=")[-1] if "id=" in self.path else ""
             return self._send(200, {"case_id": wanted,
