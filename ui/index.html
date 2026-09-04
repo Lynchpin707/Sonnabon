@@ -375,10 +375,13 @@ const attr = x => String(x).replace(/"/g, "&quot;");
    predicts a price or mirrors a routing rule. A copy kept here would drift
    from src/ the first time somebody changed a tier, and a number this file
    invented would look exactly like one a provider actually charged. */
-let MODELS = {}, CASES = [], ANSWERS = {}, CALLS = {};
-let offline = false, note = null, current = 0;
+let MODELS = {}, CASES = [], TURNS = {};
+let offline = false, note = null;
+let openCase = null;     // the conversation on screen; null means a new one
+let waiting = null;      // the turn we are still waiting on
+let gate = null;         // a turn the bureau stopped to ask about
 let pick = null, choosing = false, overridden = false;
-let ceiling = "max", habit = "heavy";
+let ceiling = "max", habit = "max";
 
 const $ = id => document.getElementById(id);
 const thread = $("thread"), input = $("input"), send = $("send"), routeEl = $("route"),
@@ -436,12 +439,14 @@ grip.addEventListener("keydown", e => {
 
 function drawCases() {
   let html = "", last = null;
-  CASES.forEach((c, i) => {
+  CASES.forEach(c => {
     if (c.day !== last) { html += `<div class="grp">${c.day}</div>`; last = c.day; }
-    html += `<button class="case" data-i="${i}" aria-current="${i === current}">
+    const turns = c.turns > 1 ? `<span>${c.turns} turns</span>` : "";
+    html += `<button class="case" data-id="${attr(c.id)}"
+        aria-current="${c.id === openCase}">
       <span class="t">${esc(c.title)}</span>
       <span class="s"><span class="pip" style="background:${COLOR[c.tier] || "var(--mid)"}"></span>${esc(c.tier)}
-        <span>${usd(c.cost)}</span></span></button>`;
+        <span>${usd(c.cost)}</span>${turns}</span></button>`;
   });
   casesEl.innerHTML = html;
 }
@@ -476,31 +481,58 @@ function emptyState() {
 
 /* --------------------------------------------------------------- the record */
 
-function caseFile(c) {
-  /* One row per model call, as the Strands hooks recorded it. The team's own
-     calls are in here: a cost tracker that hides its own overhead is doing the
-     thing it exists to catch. */
-  const calls = CALLS[c.id];
-  if (!calls || !calls.length) return "";
+function turnHtml(turn, index, all) {
+  if (turn.role === "you") {
+    return `<div class="turn"><div class="you">${esc(turn.text)}</div></div>`;
+  }
+  const calls = turn.calls || [];
+  const detail = calls.length
+    ? `<button type="button" class="disclose" data-open="${index}">${calls.length} calls</button>`
+    : "";
   const rows = calls.map(k => `<div><b>${esc(k.agent)}</b>
-    <span>${esc(k.tier)}</span>
-    <span>${k.input_tokens} in, ${k.output_tokens} out</span>
-    <span class="n">${usd(k.cost)}</span></div>`).join("");
-  const stopped = (c.blocks || []).map(b => `<div class="stop"><b>stopped</b>
-    <span>${esc(b.reason)}</span></div>`).join("");
-  const compare = c.baseline > c.cost
+      <span>${esc(k.tier)}</span>
+      <span>${k.input_tokens} in, ${k.output_tokens} out</span>
+      <span class="n">${usd(k.cost)}</span></div>`).join("");
+  const stopped = (turn.blocks || []).map(b => `<div class="stop"><b>stopped</b>
+      <span>${esc(b.reason)}</span></div>`).join("");
+  const compare = turn.baseline > turn.cost
     ? `<div class="sum"><b>on ${esc(MODELS[habit] || habit)}</b>
-       <span class="n">${usd(c.baseline)}</span></div>` : "";
-  return `<div class="calls" id="calls" hidden>${rows}${stopped}${compare}</div>`;
+       <span class="n">${usd(turn.baseline)}</span></div>` : "";
+  const last = index === all.length - 1;
+  return `<div class="turn"><div class="tbi">
+      <div class="stamp">
+        <span class="pip" style="background:${COLOR[turn.tier] || "var(--mid)"}"></span>
+        <b>${esc(turn.tier)}</b><span>${esc(MODELS[turn.tier] || "")}</span>
+        <span>${usd(turn.cost)}</span>
+        ${turn.path ? `<span>${esc(turn.path)}</span>` : ""}${detail}
+      </div>
+      <div class="calls" id="calls${index}" hidden>${rows}${stopped}${compare}</div>
+      <div class="body"><p>${esc(turn.text)}</p></div>
+      ${last ? rateHtml(turn) : ""}
+    </div></div>`;
 }
 
-function approvalCard(c) {
-  const a = c.approve;
+function rateHtml(turn) {
+  return `<div class="acts">
+      <button class="act" data-r="ok" data-id="${attr(turn.id)}"
+              data-tier="${attr(turn.tier)}" aria-label="Good answer">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 8.6l2.6 2.6L12 5.8"
+          stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="act" data-r="bad" data-id="${attr(turn.id)}"
+              data-tier="${attr(turn.tier)}" aria-label="Not good enough">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M5 5l6 6M11 5l-6 6"
+          stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </div>`;
+}
+
+function approvalCard(ask) {
   return `<div class="approve">
     <span class="k">Your call</span>
-    <span class="v">This reads as <b>${esc(a.risk)}</b> risk and wants the
-      <b>${esc(a.tier)}</b> tier (${esc(a.model)}), above your standing ceiling
-      of <b>${esc(a.ceiling)}</b>. Nothing has run and nothing has been billed.</span>
+    <span class="v">This reads as <b>${esc(ask.risk)}</b> risk and wants the
+      <b>${esc(ask.tier)}</b> tier (${esc(ask.model)}), above your standing ceiling
+      of <b>${esc(ask.ceiling)}</b>. Nothing has run and nothing has been billed.</span>
     <div class="row">
       <button type="button" class="yes" data-ok="1">Authorise</button>
       <button type="button" data-ok="0">Decline</button>
@@ -510,56 +542,28 @@ function approvalCard(c) {
 
 function drawThread() {
   raiseSpiders();
-  const c = CASES[current];
-  if (!c) { emptyState(); return; }
-  $("title").textContent = c.title;
-  const you = `<div class="turn"><div class="you">${esc(c.title)}</div></div>`;
+  const turns = (openCase && TURNS[openCase]) || [];
 
-  if (c.pending) {
-    thread.innerHTML = you +
-      `<div class="turn"><div class="tbi"><div class="body" id="pend">
-         <span class="waiting">the bureau is reading the case</span>
-       </div></div></div>`;
-    lowerSpiders();
-    return;
+  if (!turns.length && !waiting && !gate) { emptyState(); return; }
+
+  const head = CASES.find(c => c.id === openCase);
+  $("title").textContent = head ? head.title
+    : (waiting ? waiting.text : "New case");
+
+  let html = note ? `<div class="forensic"><span class="k">Forensics</span>
+      <span class="v">${esc(note)}</span></div>` : "";
+  html += turns.map((t, i) => turnHtml(t, i, turns)).join("");
+
+  if (waiting) {
+    html += `<div class="turn"><div class="you">${esc(waiting.text)}</div></div>`;
+    if (gate) html += approvalCard(gate);
+    else html += `<div class="turn"><div class="tbi"><div class="body">
+        <span class="waiting">the bureau is reading the case</span></div></div></div>`;
   }
-  if (c.approve) { thread.innerHTML = you + approvalCard(c); return; }
-  if (c.failed) {
-    thread.innerHTML = you + `<div class="turn"><div class="tbi"><div class="forensic">
-      <span class="k">Stopped</span><span class="v">${esc(c.failed)}</span></div></div></div>`;
-    return;
-  }
 
-  const answer = ANSWERS[c.id];
-  const noted = c.r === "bad"
-    ? `<span class="learned">noted, this work moves up a tier</span>` : "";
-  const detail = CALLS[c.id] && CALLS[c.id].length
-    ? `<button type="button" class="disclose" id="show">${CALLS[c.id].length} calls</button>` : "";
-
-  thread.innerHTML = (note ? `<div class="forensic"><span class="k">Forensics</span>
-      <span class="v">${esc(note)}</span></div>` : "")
-    + you
-    + `<div class="turn"><div class="tbi">
-      <div class="stamp">
-        <span class="pip" style="background:${COLOR[c.tier] || "var(--mid)"}"></span>
-        <b>${esc(c.tier)}</b><span>${esc(MODELS[c.tier] || "")}</span>
-        <span>${usd(c.cost)}</span>${c.path ? `<span>${esc(c.path)}</span>` : ""}${detail}
-      </div>
-      ${caseFile(c)}
-      <div class="body"><p>${esc(answer ||
-        "This case is in the ledger. The answer itself is not stored.")}</p></div>
-      <div class="acts">
-        <button class="act" data-r="ok" aria-pressed="${c.r === "ok"}" aria-label="Good answer">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 8.6l2.6 2.6L12 5.8"
-            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-        <button class="act" data-r="bad" aria-pressed="${c.r === "bad"}" aria-label="Not good enough">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M5 5l6 6M11 5l-6 6"
-            stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-        </button>${noted}
-      </div>
-    </div></div>`;
-  thread.scrollTop = 0;
+  thread.innerHTML = html;
+  if (waiting && !gate) lowerSpiders();
+  thread.scrollTop = thread.scrollHeight;
 }
 
 /* --------------------------------------------------------------- the spider */
@@ -627,45 +631,57 @@ thread.addEventListener("click", e => {
     input.focus();
     return;
   }
-  if (e.target.closest("#show")) {
-    const box = $("calls");
+  const open = e.target.closest("[data-open]");
+  if (open) {
+    const box = $("calls" + open.dataset.open);
     if (box) box.hidden = !box.hidden;
     return;
   }
-  const gate = e.target.closest("[data-ok]");
-  if (gate) {
-    const c = CASES[current];
-    if (gate.dataset.ok === "1") { submit(c.title, true); return; }
-    CASES[current] = {...c, approve: null,
-                      failed: "Declined. Nothing ran and nothing was billed."};
+  const answer = e.target.closest("[data-ok]");
+  if (answer) {
+    if (answer.dataset.ok === "1") { submit(waiting.text, true); return; }
+    gate = null;
+    waiting = null;
     drawThread();
     return;
   }
   const act = e.target.closest(".act");
-  if (act && CASES[current]) {
-    const c = CASES[current];
-    c.r = c.r === act.dataset.r ? null : act.dataset.r;
+  if (act) {
+    const on = act.getAttribute("aria-pressed") === "true";
+    [...act.parentElement.children].forEach(b =>
+      b.setAttribute("aria-pressed", String(b === act && !on)));
+    if (on) return;
     /* memory.escalate reads a negative mean, so a rejection is -1. Sending 0
        would record the complaint and change nothing. */
-    if (c.id && c.id !== "pending" && c.r) fetch("/api/rate", {method: "POST",
+    fetch("/api/rate", {method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({id: c.id, tier: c.tier, rating: c.r === "ok" ? 1 : -1})
-    }).catch(() => {});
-    drawThread();
+      body: JSON.stringify({id: act.dataset.id, tier: act.dataset.tier,
+                            rating: act.dataset.r === "ok" ? 1 : -1})
+    }).then(() => refresh(false)).catch(() => {});
   }
 });
 
-casesEl.addEventListener("click", e => {
-  const b = e.target.closest(".case");
-  if (!b) return;
-  current = +b.dataset.i;
+casesEl.addEventListener("click", async e => {
+  const button = e.target.closest(".case");
+  if (!button) return;
+  openCase = button.dataset.id;
+  waiting = gate = null;
+  await loadCase(openCase);
   drawCases();
   drawThread();
 });
+
 $("new").addEventListener("click", () => {
-  current = -1; overridden = false; pick = null;
+  openCase = null; waiting = gate = null; overridden = false; pick = null;
   drawCases(); drawThread(); input.focus();
 });
+
+async function loadCase(id) {
+  try {
+    const d = await (await fetch("/api/case?id=" + encodeURIComponent(id))).json();
+    TURNS[id] = d.turns || [];
+  } catch (err) { TURNS[id] = TURNS[id] || []; }
+}
 
 /* The bureau chooses the model, because six agent calls against one is a
    latency decision as much as a cost one. The override is here because
@@ -710,51 +726,57 @@ send.addEventListener("click", () => submit());
 /* ------------------------------------------------------------------ sending */
 
 async function submit(text, approved) {
-  const t = (text !== undefined ? text : input.value).trim();
-  if (!t) return;
+  const asked = (text !== undefined ? text : input.value).trim();
+  if (!asked) return;
   const forced = overridden ? pick : null;
   if (text === undefined) { input.value = ""; input.style.height = "auto"; }
   send.disabled = true;
   routeEl.classList.remove("on");
 
-  if (approved) CASES[current] = {...CASES[current], approve: null, pending: true};
-  else {
-    CASES.unshift({id: "pending", day: "Today", title: t,
-                   tier: forced || "mid", cost: 0, pending: true});
-    current = 0;
-  }
-  drawCases(); drawThread();
+  waiting = {text: asked};
+  gate = null;
+  drawThread();
   document.querySelector(".head img").classList.add("busy");
 
+  let failure = null;
   try {
     const res = await fetch("/api/ask", {method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({text: t, tier: forced, approved: !!approved})});
+      body: JSON.stringify({text: asked, tier: forced, approved: !!approved,
+                            case_id: openCase})});
     const d = await res.json();
 
     if (d.needs_approval) {
-      CASES[current] = {id: "pending", day: "Today", title: t, cost: 0,
-                        tier: d.needs_approval.tier, approve: d.needs_approval};
+      gate = d.needs_approval;
     } else if (d.error) {
-      throw new Error(d.error);
+      failure = d.error;
     } else if (d.declined) {
-      CASES[current] = {...CASES[current], pending: false, approve: null,
-                        failed: "Declined. Nothing ran and nothing was billed."};
+      failure = "Declined. Nothing ran and nothing was billed.";
     } else {
-      ANSWERS[d.id] = d.text;
-      CALLS[d.id] = d.calls || [];
-      CASES[current] = {id: d.id, day: "Today", title: t, tier: d.tier, asked: d.asked,
-                        cost: d.cost, baseline: d.baseline, domain: d.domain,
-                        risk: d.risk, path: d.path, blocks: d.blocks || []};
+      openCase = d.case_id;
+      await loadCase(openCase);
+      waiting = null;
       await refresh(false);
     }
   } catch (err) {
-    CASES[current] = {...CASES[current], pending: false, approve: null,
-                      failed: String(err.message || err)};
+    failure = String(err.message || err);
+  }
+
+  if (failure) {
+    waiting = null;
+    gate = null;
+    thread.innerHTML = `<div class="turn"><div class="you">${esc(asked)}</div></div>
+      <div class="turn"><div class="tbi"><div class="forensic">
+        <span class="k">Stopped</span><span class="v">${esc(failure)}</span>
+      </div></div></div>`;
+    raiseSpiders();
+  } else {
+    drawCases();
+    drawThread();
   }
   overridden = false; pick = null;
+  send.disabled = !input.value.trim();
   document.querySelector(".head img").classList.remove("busy");
-  drawCases(); drawThread();
 }
 
 /* ------------------------------------------------------------------ reading */
@@ -769,11 +791,7 @@ async function refresh(redraw = true) {
     /* A case still waiting on the model is not in the ledger yet. The health
        probe makes this request slow, so without this a reply that lands while
        the page is loading gets erased by the load. */
-    const live = CASES.filter(c => c.pending || c.failed || c.approve);
-    const filed = d.history.map(h => ({id: h.id, day: h.day, title: h.title, tier: h.tier,
-      asked: h.asked, cost: h.cost, baseline: h.baseline, domain: h.domain,
-      r: h.rating === 1 ? "ok" : h.rating === -1 ? "bad" : null}));
-    CASES = live.concat(filed);
+    CASES = d.history;
     $("today").textContent = $("fToday").textContent = usd(d.today);
     $("fMonth").textContent = usd(d.month);
     $("fSaved").textContent = d.saved == null ? "--" : d.saved + "%";

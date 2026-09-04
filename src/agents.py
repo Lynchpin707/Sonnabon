@@ -128,21 +128,21 @@ def auditor_agent(user: str) -> str:
     return forensics.review(user) or "nothing to report"
 
 
-def solo(text, decision):
+def solo(text, decision, case_id=None):
     """One agent, no tools, for work with a known shape.
 
     Still a Strands agent, so the hooks record it and the gate can stop it.
     The saving is in the number of calls, not in skipping the controls.
     """
     ran = config.runnable(decision.tier)
-    agent = bureau.agent(EXECUTION, ran, "assistant")
-    return str(agent(router.adapt(text, decision.tier)))
+    assistant = bureau.agent(EXECUTION, ran, "assistant", case_id=case_id)
+    return str(assistant(router.adapt(text, decision.tier)))
 
 
-def team(text, user="demo"):
+def team(text, user="demo", case_id=None):
     """A coordinator and four specialists, for work that needs judgement."""
     coordinator = bureau.agent(
-        SUPERVISOR, "mid", "coordinator",
+        SUPERVISOR, "mid", "coordinator", case_id=case_id,
         tools=[scenario_agent, allocator_agent, execution_agent, auditor_agent],
     )
     return str(coordinator(f"user: {user}\n\nrequest: {text}"))

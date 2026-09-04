@@ -13,8 +13,9 @@ wheels/
 # Runtime output
 ledger.jsonl
 feedback.jsonl
-ui/.titles.json
+ui/.cases.json
 settings.json
 .claude/
 server.out
 server.err
+.sessions/

@@ -27,21 +27,23 @@ from src import (bureau, config, forensics, memory,  # noqa: E402
 
 USER = "demo"
 PORT = 8756
-TITLES = HERE / ".titles.json"
+TRANSCRIPT = HERE / ".cases.json"
 DAY, MONTH = 86400, 2592000
 
 
-def titles():
+def transcript():
+    """What was said, per case. The ledger holds what it cost; this holds what
+    it was. Keeping them apart is why no figure here can come from the text."""
     try:
-        return json.loads(TITLES.read_text(encoding="utf-8"))
+        return json.loads(TRANSCRIPT.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
 
-def remember_title(request_id, text):
-    index = titles()
-    index[request_id] = text[:160]
-    TITLES.write_text(json.dumps(index), encoding="utf-8")
+def remember(case_id, turn):
+    saved = transcript()
+    saved.setdefault(case_id, []).append(turn)
+    TRANSCRIPT.write_text(json.dumps(saved), encoding="utf-8")
 
 
 def day_of(at):
@@ -59,32 +61,36 @@ def state():
     otherwise have opened. Comparing spend in one window against a baseline
     drawn from all of history would report a number that means nothing.
     """
-    index = titles()
+    said = transcript()
     rated = {f.request_id: f.rating for f in memory.ratings(USER)}
-    history = []
     now = time.time()
     spent = {DAY: 0.0, MONTH: 0.0}
     baseline = {DAY: 0.0, MONTH: 0.0}
 
-    for record in sorted(memory.history(USER), key=lambda r: r.at, reverse=True):
+    for record in memory.history(USER):
         age = now - record.at
         for window in (DAY, MONTH):
             if age < window:
                 spent[window] += record.total_cost
                 baseline[window] += record.baseline_cost
+
+    history = []
+    for case in memory.cases(USER):
+        turns = said.get(case["case_id"], [])
+        opening = next((t["text"] for t in turns if t["role"] == "you"), None)
+        last = next((t for t in reversed(turns) if t["role"] == "tbi"), {})
         history.append({
-            "id": record.request_id,
-            "day": day_of(record.at),
-            "title": index.get(record.request_id, record.domain.replace("_", " ")),
-            "tier": record.ran_tier,
-            "asked": record.tier,
-            "cost": record.total_cost,
-            "decided": record.decided_cost,
-            "baseline": record.baseline_cost,
-            "saved": record.saved,
-            "calls": record.calls,
-            "domain": record.domain,
-            "rating": rated.get(record.request_id),
+            "id": case["case_id"],
+            "day": day_of(case["at"]),
+            "title": opening or case["domain"].replace("_", " "),
+            "tier": case["tier"],
+            "turns": case["turns"],
+            "cost": case["cost"],
+            "baseline": case["baseline"],
+            "saved": max(case["baseline"] - case["cost"], 0.0),
+            "calls": case["calls"],
+            "domain": case["domain"],
+            "rating": rated.get(last.get("id")),
         })
 
     ready, detail = provider.health()
@@ -109,7 +115,7 @@ def state():
     }
 
 
-def ask(text, approved, forced=None, watch=None):
+def ask(text, approved, forced=None, watch=None, case_id=None):
     """Run one request. Returns the payload the browser gets.
 
     Nobody is asked to choose between the agent team and one agent. The team
@@ -122,12 +128,13 @@ def ask(text, approved, forced=None, watch=None):
     ledger would never see.
     """
     result = pipeline.run(text, user=USER, tier=forced, watch=watch,
+                          case_id=case_id,
                           approve=(lambda _: True) if approved else None)
 
     if not result.approved:
         if approved:
-            return {"declined": True}
-        return {"needs_approval": {
+            return {"declined": True, "case_id": result.case_id}
+        return {"case_id": result.case_id, "needs_approval": {
             "tier": result.decision.tier,
             "risk": result.decision.risk,
             "domain": result.decision.domain,
@@ -135,18 +142,25 @@ def ask(text, approved, forced=None, watch=None):
             "ceiling": config.CEILING,
         }}
 
-    return _payload(text, result.record, result.text, result.decision, result.path,
-                    [asdict(call) for call in result.calls],
-                    [asdict(block) for block in result.blocks],
-                    ask_rating=result.ask_rating)
+    return _payload(text, result, [asdict(c) for c in result.calls],
+                    [asdict(b) for b in result.blocks])
 
 
-def _payload(text, record, answer, decision, path, calls, blocks, ask_rating=False):
-    remember_title(record.request_id, text)
+def _payload(text, result, calls, blocks):
+    record, decision = result.record, result.decision
+    remember(result.case_id, {"role": "you", "text": text, "id": record.request_id})
+    remember(result.case_id, {
+        "role": "tbi", "text": result.text, "id": record.request_id,
+        "tier": record.ran_tier, "cost": record.total_cost,
+        "baseline": record.baseline_cost, "path": result.path,
+        "calls": calls, "blocks": blocks,
+    })
     return {
         "id": record.request_id,
-        "text": answer,
-        "path": path,
+        "case_id": result.case_id,
+        "turns": len(transcript().get(result.case_id, [])),
+        "text": result.text,
+        "path": result.path,
         "tier": record.ran_tier,
         "asked": decision.tier,
         "domain": decision.domain,
@@ -159,7 +173,7 @@ def _payload(text, record, answer, decision, path, calls, blocks, ask_rating=Fal
         "output_tokens": record.output_tokens,
         "calls": calls,
         "blocks": blocks,
-        "ask_rating": ask_rating,
+        "ask_rating": result.ask_rating,
     }
 
 
@@ -194,6 +208,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, state())
         if path == "/api/usage":
             return self._send(200, memory.usage(USER))
+        if path == "/api/case":
+            wanted = self.path.split("id=")[-1] if "id=" in self.path else ""
+            return self._send(200, {"case_id": wanted,
+                                    "turns": transcript().get(wanted, [])})
         if path == "/api/settings":
             return self._send(200, {**settings.load(), "backend_status": credentials()})
         if path == "/api/forensics":
@@ -236,7 +254,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(400, {"error": "empty request"})
 
         try:
-            payload = ask(text, bool(body.get("approved")), body.get("tier"))
+            payload = ask(text, bool(body.get("approved")), body.get("tier"),
+                          case_id=body.get("case_id"))
         except provider.BackendUnavailable as exc:
             return self._send(200, {"error": str(exc)})
         except Exception as exc:  # the browser needs to say what broke

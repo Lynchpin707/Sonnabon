@@ -51,6 +51,9 @@ class Record:
     # open. Defaulted so ledgers written before this field still load.
     baseline_cost: float = 0.0
     calls: int = 1
+    # Which conversation this turn belongs to. Blank on rows written before
+    # cases had turns, which is why it has a default.
+    case_id: str = ""
 
     @property
     def total_cost(self):
@@ -137,6 +140,31 @@ def history(user):
     return _query("CASE#", Record, LEDGER, user=user)
 
 
+def cases(user):
+    """One entry per conversation, newest first, with its turns folded in.
+
+    The sidebar lists cases, not turns. A case that took six exchanges is one
+    line with what the whole thing cost, which is the number somebody actually
+    wants when they are deciding whether it was worth it.
+    """
+    grouped = {}
+    for row in history(user):
+        key = row.case_id or row.request_id
+        entry = grouped.setdefault(key, {"case_id": key, "turns": 0, "cost": 0.0,
+                                         "baseline": 0.0, "calls": 0, "at": row.at,
+                                         "tier": row.ran_tier, "domain": row.domain,
+                                         "first": row.request_id})
+        entry["turns"] += 1
+        entry["cost"] += row.total_cost
+        entry["baseline"] += row.baseline_cost
+        entry["calls"] += row.calls
+        if row.at >= entry["at"]:
+            entry["at"] = row.at
+            entry["tier"] = row.ran_tier
+            entry["domain"] = row.domain
+    return sorted(grouped.values(), key=lambda e: e["at"], reverse=True)
+
+
 def save(record):
     return _put(record, f"CASE#{record.at}#{record.request_id}", LEDGER)
 
@@ -183,7 +211,8 @@ def build(request_id, user, decision, ran_tier, router_completion, task_completi
     )
 
 
-def build_case(request_id, user, decision, case, router_completion=None):
+def build_case(request_id, user, decision, case, router_completion=None,
+               case_id=""):
     """One ledger row for a whole run, summed from what the hooks saw.
 
     The agents' own calls are in here, and so is the classifier that chose the
@@ -204,6 +233,7 @@ def build_case(request_id, user, decision, case, router_completion=None):
         output_tokens=sum(c.output_tokens for c in case.calls),
         at=time.time(),
         calls=len(case.calls),
+        case_id=case_id,
     )
 
 

@@ -53,6 +53,15 @@ TIER_ORDER = tuple(PRICED)
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 
+# Where a case keeps its turns. One directory per case, written by Strands.
+SESSION_DIR = os.getenv("SESSION_DIR", ".sessions")
+
+# How much of a long case gets summarised away, and how many recent turns stay
+# verbatim. Compressing costs a cheap call and saves expensive input tokens on
+# every turn after it, which is the whole trade.
+SUMMARY_RATIO = float(os.getenv("SUMMARY_RATIO", "0.4"))
+KEEP_RECENT_TURNS = int(os.getenv("KEEP_RECENT_TURNS", "6"))
+
 # Length below which the free keyword heuristic decides on its own.
 #
 # This used to be 400, which saved a fraction of a cent and cost the product

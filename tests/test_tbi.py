@@ -80,7 +80,8 @@ def offline(monkeypatch):
 
     monkeypatch.setattr(router, "complete", fake_classifier)
 
-    def fake_agent(system_prompt, tier="cheap", name="agent", tools=None):
+    def fake_agent(system_prompt, tier="cheap", name="agent", tools=None,
+                   case_id=None):
         case = bureau._CASE.get()
         agent = StubAgent(name, tier, case)
         if case:
@@ -329,7 +330,7 @@ def server(ledger):
     spec = importlib.util.spec_from_file_location("tbi_server", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    module.TITLES = ledger / ".titles.json"
+    module.TRANSCRIPT = ledger / ".cases.json"
     return module
 
 
@@ -450,3 +451,44 @@ def test_a_looping_agent_is_stopped_by_call_count_not_only_by_cost():
     case.gate(event := FakeEvent(agent))
     assert "loop" in str(event.cancel)
     assert case.spent == 0.0
+
+
+# ------------------------------------------------------------------ sessions
+
+
+def test_a_case_keeps_its_id_across_turns(ledger, offline):
+    """A case is a conversation. Turn two belongs to the same file as turn one."""
+    first = pipeline.run("write a short email", user="u")
+    second = pipeline.run("make it shorter", user="u", case_id=first.case_id)
+    assert second.case_id == first.case_id
+    assert first.record.request_id != second.record.request_id
+    assert {r.case_id for r in memory.records()} == {first.case_id}
+
+
+def test_a_new_request_opens_a_new_case(ledger, offline):
+    a = pipeline.run("write a short email", user="u")
+    b = pipeline.run("write another one", user="u")
+    assert a.case_id != b.case_id
+
+
+def test_the_sidebar_lists_cases_not_turns(ledger, offline):
+    """Six exchanges are one line, costed as a whole."""
+    first = pipeline.run("write a short email", user="u")
+    for _ in range(2):
+        pipeline.run("again please", user="u", case_id=first.case_id)
+    pipeline.run("something else entirely", user="u")
+
+    cases = memory.cases("u")
+    assert len(cases) == 2
+    opened = next(c for c in cases if c["case_id"] == first.case_id)
+    assert opened["turns"] == 3
+    assert opened["cost"] == pytest.approx(
+        sum(r.total_cost for r in memory.records() if r.case_id == first.case_id))
+
+
+def test_a_declined_request_still_names_its_case(ledger, offline):
+    """The refusal belongs to a conversation too, or the interface loses it."""
+    result = pipeline.run("Should we terminate the Lisbon contract this quarter?",
+                          user="u", approve=None)
+    assert not result.approved
+    assert result.case_id

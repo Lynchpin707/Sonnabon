@@ -29,6 +29,7 @@ class Result:
     text: str
     decision: router.Decision
     record: memory.Record | None
+    case_id: str = ""
     path: str = "solo"
     calls: tuple = ()
     blocks: tuple = ()
@@ -68,38 +69,42 @@ def classify(text, user, tier=None):
     return replace(decision, tier=raised), completion
 
 
-def run(text, user="demo", approve=None, tier=None, watch=None):
-    """One request, start to finish.
+def run(text, user="demo", approve=None, tier=None, watch=None, case_id=None):
+    """One turn of one case, start to finish.
 
-    ``watch`` is called with each step as it happens, so an interface can show
-    the work while it is being done rather than after.
+    A case is a conversation, not a single question. Pass the case_id back to
+    continue it and the agent sees what was already said; leave it out and a
+    new case is opened. ``watch`` is called with each step as it happens, so an
+    interface can show the work while it is being done rather than after.
     """
     request_id = uuid.uuid4().hex
+    case_id = case_id or uuid.uuid4().hex
     decision, router_completion = classify(text, user, tier)
 
     # The same rule the agent team uses, from the same function. Two entry
     # points that disagree about what needs permission is how a gate gets
     # bypassed without anybody deciding to bypass it.
     if bureau.needs_approval(decision) and not (approve and approve(decision)):
-        return Result("", decision, None, approved=False)
+        return Result("", decision, None, case_id=case_id, approved=False)
 
     case = bureau.CaseFile(user=user, authorised=config.runnable(decision.tier),
                            watch=watch)
     token = bureau.open_case(case)
     try:
         if router.needs_team(decision):
-            answer, path = agents.team(text, user), "team"
+            answer, path = agents.team(text, user, case_id), "team"
         else:
-            answer, path = agents.solo(text, decision), "solo"
+            answer, path = agents.solo(text, decision, case_id), "solo"
     finally:
         bureau.close_case(token)
 
     record = memory.save(memory.build_case(
-        request_id, user, decision, case, router_completion))
+        request_id, user, decision, case, router_completion, case_id))
     return Result(
         answer,
         decision,
         record,
+        case_id=case_id,
         path=path,
         calls=tuple(case.calls),
         blocks=tuple(case.blocks),

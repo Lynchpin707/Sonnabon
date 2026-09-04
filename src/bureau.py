@@ -236,15 +236,53 @@ def model(tier):
     return OllamaModel(host=config.OLLAMA_HOST, model_id=config.MODELS[tier].id)
 
 
-def agent(system_prompt, tier="cheap", name="agent", tools=None):
-    """Every agent in the bureau is built here, so every agent is watched."""
+COMPRESSOR = """You shorten the earlier part of a conversation so it can be
+carried forward cheaply.
+
+Keep what a colleague would need to pick the work up: what was asked, what was
+decided, the numbers, the names, and anything still open. Drop pleasantries,
+restatements and anything already superseded.
+
+Write it as notes, not prose. No preamble."""
+
+
+def _session(case_id):
+    """Where this case keeps its turns, and how it stays affordable.
+
+    The summariser is one of our own agents on the cheap tier, so compressing
+    is recorded by the same hooks as everything else. A compressor whose own
+    cost is invisible is just a different way of losing track of the money.
+    """
+    from strands.agent.conversation_manager import SummarizingConversationManager
+    from strands.session.file_session_manager import FileSessionManager
+
+    return (
+        FileSessionManager(session_id=case_id, storage_dir=config.SESSION_DIR),
+        SummarizingConversationManager(
+            summary_ratio=config.SUMMARY_RATIO,
+            preserve_recent_messages=config.KEEP_RECENT_TURNS,
+            summarization_agent=agent(COMPRESSOR, "cheap", "compressor"),
+        ),
+    )
+
+
+def agent(system_prompt, tier="cheap", name="agent", tools=None, case_id=None):
+    """Every agent is built here, so every agent is watched.
+
+    Only the agent that faces the person gets a session. The specialists it
+    calls are stateless on purpose: they answer one question about one request,
+    and giving them shared history would blur whose turn is whose.
+    """
     case = _CASE.get()
+    session, conversation = _session(case_id) if case_id else (None, None)
     built = Agent(
         model=model(tier),
         system_prompt=system_prompt,
         tools=tools or [],
         name=name,
         hooks=[case] if case else [],
+        session_manager=session,
+        conversation_manager=conversation,
     )
     if case:
         case.assign(built, tier)
