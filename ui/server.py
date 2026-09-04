@@ -320,6 +320,10 @@ if __name__ == "__main__":
     ready, where = provider.health()
     print(f"TBI on http://localhost:{PORT}")
     print(f"  backend  {where}{'' if ready else '   [not ready]'}")
+    if ready and not config.USE_AWS:
+        for tier, name in config.MODELS.items():
+            pinned = " (pinned)" if config.PINNED.get(tier) else ""
+            print(f"    {tier:<7} {name.id}{pinned}")
     print(f"  ceiling  {config.CEILING}   habit {config.HABIT_TIER}   "
           f"case budget ${bureau.CASE_BUDGET:.2f}")
     ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()

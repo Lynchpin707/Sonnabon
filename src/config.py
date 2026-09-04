@@ -31,16 +31,44 @@ BEDROCK = {
     "max": Model("anthropic.claude-opus-4-8", 5.00, 25.00),
 }
 
-# What runs locally. The coordinator is the only agent that calls tools, and
-# small models are unreliable at that, so OLLAMA_MID is the one worth raising
-# if the team lane misbehaves: qwen2.5:7b handles tool calling far better than
-# 3b, at about 5GB of memory instead of 2GB.
-OLLAMA = {
-    "cheap": Model(os.getenv("OLLAMA_CHEAP", "qwen2.5:1.5b"), 0.0, 0.0),
-    "mid": Model(os.getenv("OLLAMA_MID", "qwen2.5:3b"), 0.0, 0.0),
-    "heavy": Model(os.getenv("OLLAMA_HEAVY", "qwen2.5:3b"), 0.0, 0.0),
-    "max": Model(os.getenv("OLLAMA_MAX", "qwen2.5:3b"), 0.0, 0.0),
-}
+# What runs locally. Nothing here is a requirement: adopt_ollama replaces any
+# tier you have not pinned with a model you already have installed. These are
+# only what gets suggested when Ollama has nothing at all.
+_SUGGESTED = {"cheap": "qwen2.5:1.5b", "mid": "qwen2.5:3b",
+              "heavy": "qwen2.5:3b", "max": "qwen2.5:3b"}
+
+# A tier named in the environment is a decision, and decisions are not
+# overwritten by discovery.
+PINNED = {tier: os.getenv(f"OLLAMA_{tier.upper()}") for tier in _SUGGESTED}
+
+OLLAMA = {tier: Model(PINNED[tier] or name, 0.0, 0.0)
+          for tier, name in _SUGGESTED.items()}
+
+
+def adopt_ollama(installed):
+    """Point the unpinned local tiers at models that are actually there.
+
+    ``installed`` is (name, size in bytes), as Ollama reports it. The smallest
+    answers the cheap tier and the largest answers the rest: the only agent
+    that calls tools runs on mid, and larger models are markedly better at it.
+
+    Returns what each tier ended up on, so the caller can say so. Choosing a
+    model on somebody's behalf and not telling them is how a demo ends up
+    quietly running on something nobody expected.
+    """
+    global OLLAMA, MODELS
+    if not installed:
+        return {tier: model.id for tier, model in OLLAMA.items()}
+
+    by_size = sorted(installed, key=lambda pair: pair[1])
+    smallest, largest = by_size[0][0], by_size[-1][0]
+    chosen = {"cheap": smallest, "mid": largest, "heavy": largest, "max": largest}
+
+    OLLAMA = {tier: Model(PINNED[tier] or chosen[tier], 0.0, 0.0)
+              for tier in _SUGGESTED}
+    if not USE_AWS:
+        MODELS = OLLAMA
+    return {tier: model.id for tier, model in OLLAMA.items()}
 
 MODELS = BEDROCK if USE_AWS else OLLAMA
 

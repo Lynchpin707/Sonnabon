@@ -115,15 +115,30 @@ def health():
             return False, f"bedrock unavailable: {exc}"
         return True, f"bedrock, {config.AWS_REGION}"
 
-    try:
-        with urllib.request.urlopen(f"{config.OLLAMA_HOST}/api/tags", timeout=2) as res:
-            installed = {m["name"] for m in json.load(res).get("models", [])}
-    except (urllib.error.URLError, TimeoutError, OSError):
+    found = installed()
+    if found is None:
         return False, (f"ollama is not answering at {config.OLLAMA_HOST}. "
                        "Start it, or run with USE_AWS=true")
+    if not found:
+        return False, ("ollama is running but has no models. Pull any one you "
+                       "like, for example: ollama pull qwen2.5:3b")
 
-    missing = sorted({m.id for m in config.MODELS.values()} - installed)
+    # Whatever is there gets used, so the only real failure left is a tier
+    # somebody pinned by hand to something that is not installed.
+    chosen = config.adopt_ollama(found)
+    have = {name for name, _ in found}
+    missing = sorted({name for name in chosen.values()} - have)
     if missing:
-        return False, "ollama is up but missing: " + ", ".join(
+        return False, "pinned but not installed: " + ", ".join(
             f"ollama pull {name}" for name in missing)
     return True, f"ollama, {config.OLLAMA_HOST}"
+
+
+def installed():
+    """What Ollama has, as (name, size in bytes). None if it is not answering."""
+    try:
+        with urllib.request.urlopen(f"{config.OLLAMA_HOST}/api/tags", timeout=2) as res:
+            models = json.load(res).get("models", [])
+    except (urllib.error.URLError, TimeoutError, OSError):
+        return None
+    return [(m["name"], int(m.get("size", 0))) for m in models if m.get("name")]

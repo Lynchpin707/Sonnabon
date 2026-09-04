@@ -663,3 +663,49 @@ def test_a_closed_tab_does_not_take_the_case_with_it(server, monkeypatch):
     handler.wfile.write = explode
     handler._stream({}, "anything")
     assert finished == [True]
+
+
+# ------------------------------------------------------- whatever is installed
+
+
+@pytest.fixture
+def local(monkeypatch):
+    """Restore the tier map, since adopting rewrites module state."""
+    before, models = dict(config.OLLAMA), dict(config.MODELS)
+    monkeypatch.setattr(config, "PINNED", {t: None for t in config.TIER_ORDER})
+    yield
+    config.OLLAMA, config.MODELS = before, models
+
+
+def test_it_uses_the_models_you_already_have(local):
+    """Nobody should have to download a particular model to try this."""
+    chosen = config.adopt_ollama([("llama3.2:3b", 2_000_000_000),
+                                  ("mistral:7b", 4_100_000_000),
+                                  ("phi3:mini", 2_300_000_000)])
+    # Smallest answers the cheap tier; the largest takes the rest, because the
+    # only agent that calls tools runs on mid and bigger models are better at it.
+    assert chosen["cheap"] == "llama3.2:3b"
+    assert chosen["mid"] == chosen["heavy"] == chosen["max"] == "mistral:7b"
+
+
+def test_one_model_is_enough_to_run(local):
+    chosen = config.adopt_ollama([("gemma2:2b", 1_600_000_000)])
+    assert set(chosen.values()) == {"gemma2:2b"}
+
+
+def test_a_pinned_tier_is_never_overwritten(local, monkeypatch):
+    """Naming a model in the environment is a decision, and discovery does not
+    get to overrule a decision."""
+    monkeypatch.setattr(config, "PINNED",
+                        {"cheap": None, "mid": "mistral:7b",
+                         "heavy": None, "max": None})
+    chosen = config.adopt_ollama([("tiny:1b", 900_000_000),
+                                  ("huge:70b", 40_000_000_000)])
+    assert chosen["mid"] == "mistral:7b"
+    assert chosen["cheap"] == "tiny:1b"
+    assert chosen["heavy"] == "huge:70b"
+
+
+def test_nothing_installed_changes_nothing(local):
+    before = {t: m.id for t, m in config.OLLAMA.items()}
+    assert config.adopt_ollama([]) == before
