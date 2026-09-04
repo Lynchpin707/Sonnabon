@@ -143,7 +143,10 @@ textarea::placeholder{color:var(--faint)}
 .opt:hover,.opt[aria-pressed="true"]{color:var(--ink)}
 .opt:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
-.panel{position:fixed;top:64px;right:24px;z-index:5;width:230px;padding:15px 17px;
+.panel{position:fixed;top:64px;right:24px;z-index:5;width:268px;padding:16px 18px;
+  /* Denser than the rest of the glass on purpose. This is a menu, and the
+     heading behind it was reading straight through the frost. */
+  background:rgba(255,255,255,.96);max-height:calc(100vh - 96px);overflow-y:auto;
   border-radius:13px;font-family:var(--mono);font-size:11px;color:var(--dim);
   opacity:0;transform:translateY(-6px);pointer-events:none;transition:opacity .2s,transform .2s}
 .panel.on{opacity:1;transform:none;pointer-events:auto}
@@ -202,10 +205,12 @@ textarea::placeholder{color:var(--faint)}
 .runner{position:absolute;top:0;bottom:12px;left:0;right:0;
   overflow:hidden;pointer-events:none;z-index:2}
 .strand{position:absolute;top:14px;transform-origin:50% 0}
-@keyframes swing{from{transform:rotate(var(--arc))}to{transform:rotate(calc(0deg - var(--arc)))}}
-.mother{--arc:5deg;animation:swing .8s ease-in-out infinite alternate;
+@keyframes swing{0%,100%{transform:rotate(0)}
+                 25%{transform:rotate(var(--arc))}
+                 75%{transform:rotate(calc(0deg - var(--arc)))}}
+.mother{--arc:4deg;top:14px;animation:swing 1.6s ease-in-out 3.4s infinite;
   left:max(14px, calc(50% - 400px - 152px));width:60px}
-.baby{--arc:7deg;animation:swing .62s ease-in-out infinite alternate;
+.baby{--arc:6.5deg;top:40px;animation:swing 1.15s ease-in-out 6.2s infinite;
   left:max(84px, calc(50% - 400px - 68px));width:36px}
 .runner.done .strand{animation:none}
 /* Narrow windows have no margin to hang them in, so make one. */
@@ -355,6 +360,13 @@ textarea::placeholder{color:var(--faint)}
   border-radius:8px;padding:6px 8px}
 .panel label{display:block;font-size:11px;color:var(--faint);letter-spacing:.12em;
   text-transform:uppercase;margin-bottom:5px}
+.panel .cat{display:grid;gap:4px;margin:10px 0 12px}
+.panel .cat div{display:flex;gap:8px;align-items:baseline}
+.panel .cat b{font-weight:400;color:var(--dim);min-width:42px}
+.panel .cat span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:var(--ink)}
+.panel .foot-note{border-top:1px solid var(--hair);padding-top:10px;margin-top:2px;
+  font-size:10.5px;line-height:1.5;color:var(--faint)}
 
 @media(max-width:820px){
   .app{grid-template-columns:1fr}
@@ -445,7 +457,13 @@ textarea::placeholder{color:var(--faint)}
     <option value="cheap">cheap</option><option value="mid">mid</option>
     <option value="heavy">heavy</option><option value="max">max</option>
   </select>
+  <h2>Answering right now</h2>
+  <div class="cat" id="catalogue"></div>
   <div class="row"><span>cases today</span><b id="nCases">0</b></div>
+  <div class="row"><span>backend</span><b id="panelBackend">--</b></div>
+  <p class="foot-note">Which models exist, and any keys they need, live in
+     <code>src/config.py</code>. A running instance cannot point itself
+     somewhere new from a web form.</p>
 </div>
 
 <script>
@@ -942,6 +960,8 @@ async function refresh(redraw = true) {
     $("nCases").textContent = d.history.filter(h => h.day === "Today").length;
     $("backend").textContent = d.backend;
     $("backend").title = d.backend_detail || "";
+    $("panelBackend").textContent = d.backend;
+    $("panelBackend").title = d.backend_detail || "";
     drawSettings();
     if (redraw) { drawCases(); drawThread(); }
   } catch (err) {
@@ -1134,6 +1154,13 @@ function drawSettings() {
     `<button type="button" class="opt" data-c="${k}" aria-pressed="${k === ceiling}">${k}</button>`
   ).join("");
   if ($("habit").value !== habit) $("habit").value = habit;
+
+  /* What each tier actually reaches, read from the server rather than written
+     here. A list kept in this file would disagree with config.py the first
+     time somebody changed a model, and disagree silently. */
+  $("catalogue").innerHTML = ORDER.map(k => `<div>
+      <b>${k}</b><span title="${attr(MODELS[k] || "")}">${esc(MODELS[k] || "--")}</span>
+    </div>`).join("");
 }
 
 async function saveSettings(patch) {
