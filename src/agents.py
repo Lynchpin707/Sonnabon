@@ -1,8 +1,8 @@
 """The agent team.
 
-Four specialists and a case officer that decides who to call. Each specialist
-is its own Strands agent with one job and one system prompt. The case officer
-sees them as tools, which is how a team is assembled in Strands.
+Two lanes, both Strands. ``solo`` is one agent with no tools and handles most
+traffic. ``team`` is a case officer with four specialists exposed to it as
+tools, which is how a team is assembled in Strands.
 
 Every agent here is built by ``bureau.agent``, so every agent is wired to the
 same case file. Nobody in this building can make a model call off the books.
@@ -10,25 +10,9 @@ same case file. Nobody in this building can make a model call off the books.
 Names say the job. Nothing here is called a prosecutor.
 """
 
-import uuid
-from dataclasses import dataclass
-
 from strands import tool
 
 from . import bureau, config, forensics, memory, router
-
-
-@dataclass(frozen=True)
-class Case:
-    """What one request produced, and what it cost to produce it."""
-
-    answer: str
-    decision: router.Decision
-    record: memory.Record | None
-    calls: tuple = ()
-    blocks: tuple = ()
-    approved: bool = True
-
 
 SCENARIO = """You read a request and say what it actually is.
 
@@ -69,6 +53,18 @@ EXECUTION = """You do the work the request asks for.
 Answer the request itself. Do not describe what you are about to do, do not
 restate the question, and do not offer further help at the end."""
 
+SUPERVISOR = """You are the case officer at the Tokens Bureau of Investigation.
+
+You have a team. Use them in this order:
+
+  scenario_agent   first, always. You cannot route what you have not read
+  routing_agent    next, to pick the tier. Pass it the scenario report
+  execution_agent  to do the work, once you have a tier
+  forensics_agent  only when the person asks about their spending
+
+Report the answer to the work, not your process. Nobody wants to read which
+tools you called. They want the email written or the question answered."""
+
 
 @tool
 def scenario_agent(request: str) -> str:
@@ -97,8 +93,8 @@ def execution_agent(tier: str, request: str) -> str:
     if tier not in config.TIER_ORDER:
         tier = "mid"
     ran = config.runnable(tier)
-    answer = bureau.agent(EXECUTION, ran, "execution")(router.adapt(request, tier))
-    return str(answer)
+    return str(bureau.agent(EXECUTION, ran, "execution")(
+        router.adapt(request, tier)))
 
 
 @tool
@@ -107,46 +103,21 @@ def forensics_agent(user: str) -> str:
     return forensics.review(user) or "nothing to report"
 
 
-SUPERVISOR = """You are the case officer at the Tokens Bureau of Investigation.
+def solo(text, decision):
+    """One agent, no tools, for work with a known shape.
 
-You have a team. Use them in this order:
-
-  scenario_agent   first, always. You cannot route what you have not read
-  routing_agent    next, to pick the tier. Pass it the scenario report
-  execution_agent  to actually do the work, once you have a tier
-  forensics_agent  only when the person asks about their spending
-
-Report the answer to the work, not your process. Nobody wants to read which
-tools you called. They want the email written or the question answered."""
-
-
-def handle(request, user="demo", approve=None):
-    """Run one request through the team.
-
-    Two controls, and neither of them is a sentence in a system prompt. The
-    owner is asked before anything above the standing ceiling runs, using the
-    same rule the fast path uses. Then the case file's hooks enforce it call by
-    call inside the agent loop, where a model cannot talk its way past it.
+    Still a Strands agent, so the hooks record it and the gate can stop it.
+    The saving is in the number of calls, not in skipping the controls.
     """
-    decision = router.heuristic(request)
-    authorised = config.CEILING
+    ran = config.runnable(decision.tier)
+    officer = bureau.agent(EXECUTION, ran, "duty officer")
+    return str(officer(router.adapt(text, decision.tier)))
 
-    if bureau.needs_approval(decision):
-        if approve is None or not approve(decision):
-            return Case("", decision, None, approved=False)
-        authorised = decision.tier
 
-    case = bureau.CaseFile(user=user, authorised=authorised)
-    token = bureau.open_case(case)
-    try:
-        officer = bureau.agent(
-            SUPERVISOR, "mid", "case officer",
-            tools=[scenario_agent, routing_agent, execution_agent, forensics_agent],
-        )
-        answer = str(officer(f"user: {user}\n\nrequest: {request}"))
-    finally:
-        bureau.close_case(token)
-
-    record = memory.save(
-        memory.build_case(uuid.uuid4().hex, user, decision, case))
-    return Case(answer, decision, record, tuple(case.calls), tuple(case.blocks))
+def team(text, user="demo"):
+    """A case officer and four specialists, for work that needs judgement."""
+    officer = bureau.agent(
+        SUPERVISOR, "mid", "case officer",
+        tools=[scenario_agent, routing_agent, execution_agent, forensics_agent],
+    )
+    return str(officer(f"user: {user}\n\nrequest: {text}"))

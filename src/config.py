@@ -49,9 +49,15 @@ TIER_ORDER = tuple(PRICED)
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 
-# The router pays output rates to save input rates. Under this length it can
-# never recover its own cost, so the deterministic heuristic decides instead.
-ROUTER_MIN_CHARS = int(os.getenv("ROUTER_MIN_CHARS", "400"))
+# Length below which the free keyword heuristic decides on its own.
+#
+# This used to be 400, which saved a fraction of a cent and cost the product
+# its two best features: under that length every request came back domain
+# "unclassified" and risk "low", so nothing was ever learned per domain and
+# neither the approval gate nor the agent team could ever fire. Classifying on
+# the cheapest model costs about $0.0001. Set it back above zero if you would
+# rather have the fraction of a cent.
+ROUTER_MIN_CHARS = int(os.getenv("ROUTER_MIN_CHARS", "0"))
 
 MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "1024"))
 
@@ -67,7 +73,10 @@ def _tier(name, default):
 # The highest tier we can afford to actually call. Routing still decides the
 # true tier and the ledger still records what it would have cost, but execution
 # is clamped to this. A student budget changes what we run, not what we measure.
-CEILING = _tier(os.getenv("TIER_CEILING", "mid"), "mid")
+#
+# heavy rather than mid, so judgement work can run without stopping to ask.
+# Only the top tier and genuinely irreversible work need the owner.
+CEILING = _tier(os.getenv("TIER_CEILING", "heavy"), "heavy")
 
 # The tab somebody already had open. Savings are measured against sending the
 # same request here, because that is the thing TBI actually replaces. Comparing

@@ -20,10 +20,24 @@ _FILLER = re.compile(
     r"|agis comme un expert|merci d'avance)\b",
     re.IGNORECASE,
 )
-_HEAVY = ("strategy", "strategie", "budget", "legal", "contract", "audit", "forecast")
-_MID = ("code", "debug", "refactor", "analyse", "analyze", "sql", "schema")
+_HEAVY = ("strategy", "strategie", "budget", "legal", "contract", "audit",
+          "forecast", "negotiat", "negocia", "pricing", "margin",
+          "valuation", "tax", "compliance", "dispute")
+_MID = ("code", "debug", "refactor", "analyse", "analyze", "sql", "schema",
+        "spreadsheet", "formula", "script", "query", "calculate")
 _CHEAP = ("email", "caption", "translate", "reply", "newsletter", "summar",
-          "post", "rediger", "redige")
+          "post", "rediger", "redige", "thank", "remind", "invite")
+
+# Work you cannot take back. Deliberately narrow: every term here stops the
+# request and asks the owner, so a loose list turns the gate into noise and
+# people learn to click through it.
+_RISK = re.compile(
+    r"\b(terminate|end (our|the) (\w+ ){1,3}(relationship|contract|agreement)"
+    r"|cancel the (contract|order|agreement)|break the (contract|lease)"
+    r"|sue|lawsuit|litigat|sign (the|this|off on)|wire (the )?(funds|money)"
+    r"|acquisition|acquire the|merge with|lay off|make redundant|dismiss"
+    r"|resign|dissolve|liquidat|breach of)\b",
+    re.IGNORECASE)
 
 _PROMPT = """Return JSON only, no prose.
 
@@ -82,6 +96,10 @@ def heuristic(text):
     Overrouting wastes fractions of a cent. Underrouting sends reasoning work
     to a model that cannot do it, and the user pays in frustration, which no
     ledger records. So cheap requires positive evidence and mid is the default.
+
+    Risk is read here rather than assumed. It used to be the literal string
+    "low" on every request, which quietly made the approval gate and the agent
+    team unreachable: both of them key off it.
     """
     lowered = text.lower()
     if len(text) > 2000 or any(word in lowered for word in _HEAVY):
@@ -92,9 +110,10 @@ def heuristic(text):
         tier = "cheap"
     else:
         tier = "mid"
+    risk = "high" if _RISK.search(text) else "low"
     # Never escalates to max. Only an explicit model decision spends top tier
     # money, so a parse failure cannot become an expensive one.
-    return Decision(tier, "unclassified", "low", normalise(text))
+    return Decision(tier, "unclassified", risk, normalise(text))
 
 
 def apply_rules(decision):
@@ -110,9 +129,13 @@ def apply_rules(decision):
 def needs_team(decision):
     """Whether this request is worth the full agent team.
 
-    The team costs about six model calls; the fast path costs one or two. That
-    is a latency decision as much as a cost one, so the system makes it, not
-    the person waiting. Judgement work earns the team. Formulaic work does not.
+    The team costs about six model calls; a solo agent costs one. That is a
+    latency decision as much as a cost one, so the system makes it rather than
+    the person waiting. Judgement work earns the team; formulaic work does not.
+
+    Both lanes are Strands agents either way, so the ledger, the budget cap and
+    the approval gate are the same whichever runs. This only decides how many
+    heads look at the problem.
     """
     return decision.risk == "high" or decision.tier in ("heavy", "max")
 
@@ -137,7 +160,13 @@ def decide(text):
         completion = complete(
             config.MODELS["cheap"], _PROMPT.format(text=text), max_tokens=64
         )
-        decision = _parse(completion.text, text) or decision
+        parsed = _parse(completion.text, text)
+        if parsed:
+            # A model may route the tier down, which is the whole point. It may
+            # not talk down a risk the deterministic rule already flagged. The
+            # keyword list is narrow on purpose, and whether an action can be
+            # undone is not a matter of opinion.
+            decision = replace(parsed, risk="high")                 if decision.risk == "high" else parsed
 
     if len(_cache) > 1000:
         _cache.clear()

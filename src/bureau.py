@@ -21,7 +21,9 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 
 from strands import Agent
-from strands.hooks import AfterModelCallEvent, BeforeModelCallEvent, HookProvider
+from strands.hooks import (AfterModelCallEvent, AfterToolCallEvent,
+                           BeforeModelCallEvent, BeforeToolCallEvent,
+                           HookProvider)
 
 from . import config, memory
 
@@ -70,6 +72,10 @@ class CaseFile(HookProvider):
     user: str = "demo"
     authorised: str = config.CEILING
     budget: float = CASE_BUDGET
+    # Called with each step as it happens, so an interface can show the work
+    # being done instead of only the receipt afterwards. Fired from the agent
+    # loop's own threads, so whatever is on the other end must be thread safe.
+    watch: object = None
     calls: list = field(default_factory=list)
     blocks: list = field(default_factory=list)
     _seen: dict = field(default_factory=dict)
@@ -89,6 +95,26 @@ class CaseFile(HookProvider):
     def register_hooks(self, registry, **kwargs):
         registry.add_callback(BeforeModelCallEvent, self.gate)
         registry.add_callback(AfterModelCallEvent, self.record)
+        registry.add_callback(BeforeToolCallEvent, self.consulting)
+        registry.add_callback(AfterToolCallEvent, self.consulted)
+
+    def say(self, **event):
+        if self.watch:
+            try:
+                self.watch(event)
+            except Exception:
+                # A viewer that has gone away must not take the case with it.
+                self.watch = None
+
+    def consulting(self, event):
+        """The case officer is handing work to a specialist."""
+        self.say(kind="tool", state="start",
+                 agent=str(event.tool_use.get("name", "specialist")))
+
+    def consulted(self, event):
+        self.say(kind="tool", state="done",
+                 agent=str(event.tool_use.get("name", "specialist")),
+                 seconds=round(event.duration or 0, 2))
 
     def gate(self, event):
         """Refuse the call, before it is billed, if it is not allowed."""
@@ -117,14 +143,17 @@ class CaseFile(HookProvider):
             return
 
         tier = self.tier_of(event.agent)
-        self.calls.append(Call(
+        call = Call(
             agent=getattr(event.agent, "name", "agent"),
             tier=tier,
             input_tokens=used.input_tokens,
             output_tokens=used.output_tokens,
             cost=memory.price(config.PRICED[tier], used),
             baseline_cost=memory.price(config.PRICED[config.HABIT_TIER], used),
-        ))
+        )
+        self.calls.append(call)
+        self.say(kind="call", agent=call.agent, tier=call.tier, cost=call.cost,
+                 input_tokens=call.input_tokens, output_tokens=call.output_tokens)
 
     # ------------------------------------------------------------- the totals
 
@@ -140,6 +169,7 @@ class CaseFile(HookProvider):
     def _block(self, event, agent, tier, reason):
         event.cancel = reason
         self.blocks.append(Block(agent, tier, reason))
+        self.say(kind="block", agent=agent, tier=tier, reason=reason)
 
 
 @dataclass(frozen=True)

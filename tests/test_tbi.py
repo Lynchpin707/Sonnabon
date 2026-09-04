@@ -29,16 +29,65 @@ def ledger(tmp_path, monkeypatch):
     return tmp_path
 
 
+class StubAgent:
+    """Stands in for a Strands agent and drives the same hooks it would.
+
+    Both lanes are real agents now, so faking provider.complete no longer
+    intercepts anything: Strands talks to its own model object. Faking the
+    agent instead keeps the gate and the ledger on the real code path.
+    """
+
+    def __init__(self, name, tier, case, used=(1000, 500)):
+        self.name = name
+        self.tier = tier
+        self.case = case
+        self.used = used
+        self.event_loop_metrics = type("M", (), {"accumulated_usage": {
+            "inputTokens": 0, "outputTokens": 0, "totalTokens": 0}})()
+        self.model = type("Mod", (), {
+            "get_config": lambda self: {"model_id": "stub"}})()
+
+    def __call__(self, prompt):
+        event = FakeEvent(self)
+        if self.case:
+            self.case.gate(event)
+            if event.cancel:
+                return "stopped: " + str(event.cancel)
+        usage = self.event_loop_metrics.accumulated_usage
+        usage["inputTokens"] += self.used[0]
+        usage["outputTokens"] += self.used[1]
+        if self.case:
+            self.case.record(FakeEvent(self))
+        return "ok"
+
+
 @pytest.fixture
 def offline(monkeypatch):
-    """One fixed completion for every model call, so costs are checkable.
+    """No network anywhere: the classifier and every agent are doubles.
 
     router imports complete by name, so patching provider alone would leave the
-    router free to reach the network on any request over ROUTER_MIN_CHARS.
+    classifier free to reach out on every request.
     """
     monkeypatch.setattr(provider, "complete", lambda *a, **k: FakeCompletion())
-    monkeypatch.setattr(router, "complete", lambda *a, **k: FakeCompletion(
-        '{"tier": "cheap", "domain": "email", "risk": "low"}'))
+
+    def fake_classifier(model, prompt, max_tokens=None):
+        """A stand in that agrees with the keyword rules, which is what a
+        working classifier does on the obvious cases."""
+        text = prompt.split("Request:", 1)[-1].strip()
+        guess = router.heuristic(text)
+        return FakeCompletion(json.dumps(
+            {"tier": guess.tier, "domain": "email", "risk": guess.risk}))
+
+    monkeypatch.setattr(router, "complete", fake_classifier)
+
+    def fake_agent(system_prompt, tier="cheap", name="agent", tools=None):
+        case = bureau._CASE.get()
+        agent = StubAgent(name, tier, case)
+        if case:
+            case.assign(agent, tier)
+        return agent
+
+    monkeypatch.setattr(bureau, "agent", fake_agent)
     router._cache.clear()
 
 
@@ -100,8 +149,7 @@ def test_both_entry_points_ask_the_same_question():
 
 
 def test_nothing_runs_when_approval_is_needed_and_absent(ledger, offline):
-    result = pipeline.run("We are deciding whether to end our main supplier "
-                          "relationship. Walk through the legal strategy.",
+    result = pipeline.run("Should we terminate the Lisbon contract this quarter?",
                           user="u", approve=None)
     assert not result.approved
     assert result.record is None
@@ -109,7 +157,7 @@ def test_nothing_runs_when_approval_is_needed_and_absent(ledger, offline):
 
 
 def test_a_refusal_stops_the_call(ledger, offline):
-    result = pipeline.run("Legal strategy for ending the supplier contract",
+    result = pipeline.run("Should we terminate the Lisbon contract this quarter?",
                           user="u", approve=lambda d: False)
     assert not result.approved
     assert memory.records() == []
@@ -223,14 +271,30 @@ def test_tokens_in_the_ledger_come_from_the_provider(ledger, offline):
     result = pipeline.run("write a short email to a supplier", user="u")
     assert result.record.input_tokens == 1000
     assert result.record.output_tokens == 500
+    assert result.path == "solo"
     assert memory.records()[0].request_id == result.record.request_id
 
 
-def test_the_router_pays_for_itself_and_the_ledger_says_so(ledger, offline):
-    """Over the length threshold the router calls a model, and that call is a
-    cost like any other. Hiding it would make routing look free."""
-    long_request = "Summarise these meeting notes. " + "detail " * 200
-    result = pipeline.run(long_request, user="u")
+def test_the_system_sends_judgement_work_to_the_team(ledger, offline):
+    """The lane is chosen for you, and the ledger says which one ran."""
+    result = pipeline.run("Negotiate the packaging supplier's new terms",
+                          user="u", approve=lambda d: True)
+    assert result.path == "team"
+    assert result.record.calls >= 1
+
+
+def test_every_lane_is_watched(ledger, offline):
+    """A solo agent is still an agent, so the hooks still record it."""
+    seen = []
+    pipeline.run("write a short email", user="u", watch=seen.append)
+    assert [e["kind"] for e in seen] == ["call"]
+    assert seen[0]["agent"] == "duty officer"
+
+
+def test_the_classifier_pays_for_itself_and_the_ledger_says_so(ledger, offline):
+    """Choosing the tier costs a model call, and that call is a cost like any
+    other. Recording it as zero would make routing look free."""
+    result = pipeline.run("Summarise these meeting notes please", user="u")
     assert result.record.router_cost > 0
     assert result.record.total_cost > result.record.task_cost
 
@@ -298,8 +362,7 @@ def test_an_empty_ledger_reports_no_saving_rather_than_zero(server):
 
 def test_the_interface_asks_before_it_spends(server, offline):
     """The gate returns the question, and runs nothing."""
-    answer = server.ask("Decide whether to end the supplier contract: legal "
-                        "strategy and audit of the risks involved.",
+    answer = server.ask("Should we terminate the Lisbon contract this quarter?",
                         approved=False)
     assert "needs_approval" in answer
     assert memory.records() == []

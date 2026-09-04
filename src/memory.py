@@ -183,18 +183,20 @@ def build(request_id, user, decision, ran_tier, router_completion, task_completi
     )
 
 
-def build_case(request_id, user, decision, case):
-    """One ledger row for a whole agent run, summed from what the hooks saw.
+def build_case(request_id, user, decision, case, router_completion=None):
+    """One ledger row for a whole run, summed from what the hooks saw.
 
-    The team's own calls are in here. Counting only the answer would flatter us
-    by exactly the overhead the product is supposed to be honest about."""
+    The agents' own calls are in here, and so is the classifier that chose the
+    tier. Counting only the answer would flatter us by exactly the overhead the
+    product exists to be honest about."""
     return Record(
         request_id=request_id,
         user=user,
         domain=decision.domain,
         tier=decision.tier,
         ran_tier=max(case.calls, key=lambda c: c.cost).tier if case.calls else decision.tier,
-        router_cost=0.0,
+        router_cost=price(config.PRICED["cheap"], router_completion)
+        if router_completion else 0.0,
         task_cost=case.spent,
         decided_cost=case.spent,
         baseline_cost=case.baseline,

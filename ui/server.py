@@ -22,7 +22,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
-from src import (agents, bureau, config, forensics, memory,  # noqa: E402
+from src import (bureau, config, forensics, memory,  # noqa: E402
                  pipeline, provider, router, settings)
 
 USER = "demo"
@@ -109,49 +109,36 @@ def state():
     }
 
 
-def ask(text, approved, forced=None):
+def ask(text, approved, forced=None, watch=None):
     """Run one request. Returns the payload the browser gets.
 
-    Nobody is asked to choose between the agent team and the fast path. The
-    team costs about six model calls and the fast path costs one, so that is a
+    Nobody is asked to choose between the agent team and one agent. The team
+    costs about six model calls and a solo agent costs one, so that is a
     latency decision as much as a cost one, and the system owns it. The answer
     says which ran, because a choice made for you should still be visible.
 
-    When the request needs the owner's say-so this returns the question rather
-    than the answer, and runs nothing. A gate the server can answer on the
-    user's behalf is not a gate.
+    Classification happens once, inside pipeline.run. Asking here as well
+    would spend a second classifier call that the cache would hide and the
+    ledger would never see.
     """
-    if forced:
-        # An override is the person's own decision, so skip classification and
-        # run the tier they asked for. It is still recorded the same way.
-        decision = router.Decision(forced, "override", "low", text)
-    else:
-        decision, _ = router.decide(text)
+    result = pipeline.run(text, user=USER, tier=forced, watch=watch,
+                          approve=(lambda _: True) if approved else None)
 
-    if bureau.needs_approval(decision) and not approved:
+    if not result.approved:
+        if approved:
+            return {"declined": True}
         return {"needs_approval": {
-            "tier": decision.tier,
-            "risk": decision.risk,
-            "domain": decision.domain,
-            "model": config.PRICED[decision.tier].id,
+            "tier": result.decision.tier,
+            "risk": result.decision.risk,
+            "domain": result.decision.domain,
+            "model": config.PRICED[result.decision.tier].id,
             "ceiling": config.CEILING,
         }}
 
-    approve = (lambda _: True) if approved else None
-
-    if not forced and router.needs_team(decision):
-        case = agents.handle(text, user=USER, approve=approve)
-        if not case.approved:
-            return {"declined": True}
-        return _payload(text, case.record, case.answer, case.decision, "team",
-                        [asdict(call) for call in case.calls],
-                        [asdict(block) for block in case.blocks])
-
-    result = pipeline.run(text, user=USER, approve=approve, tier=forced)
-    if not result.approved:
-        return {"declined": True}
-    return _payload(text, result.record, result.text, result.decision, "fast",
-                    [], [], ask_rating=result.ask_rating)
+    return _payload(text, result.record, result.text, result.decision, result.path,
+                    [asdict(call) for call in result.calls],
+                    [asdict(block) for block in result.blocks],
+                    ask_rating=result.ask_rating)
 
 
 def _payload(text, record, answer, decision, path, calls, blocks, ask_rating=False):
