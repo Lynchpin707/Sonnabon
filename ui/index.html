@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TBI</title>
+<link rel="preload" as="image" href="spider.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -220,7 +221,7 @@ textarea::placeholder{color:var(--faint)}
    a constant arc repeating forever reads as animation, not as a spider. */
 .strand{position:absolute;top:16px;transform-origin:50% 0;
   left:max(14px, calc(50% - 400px - 64px));width:48px;
-  animation:settle 4.6s cubic-bezier(.36,0,.64,1) 9.4s forwards}
+  animation:settle 3.6s cubic-bezier(.36,0,.64,1) 5.8s forwards}
 @keyframes settle{
    0%{transform:rotate(0deg)}
    10%{transform:rotate(4.2deg)}
@@ -240,7 +241,7 @@ textarea::placeholder{color:var(--faint)}
    recoil apiece is worth watching for a few seconds; one smooth slide is not.
    --reach is set per case, because how far she may go depends on the panel. */
 .bug{position:absolute;top:0;left:0;width:48px;height:80px;
-  animation:descend 13s linear forwards}
+  animation:descend 8s linear forwards}
 @keyframes descend{
     0%{transform:translateY(0)}
     6%{transform:translateY(calc(var(--reach, 120px) * .34))}
@@ -264,7 +265,7 @@ textarea::placeholder{color:var(--faint)}
   image-rendering:pixelated;background-image:url(spider.png);
   background-repeat:no-repeat;background-size:204px 80px;
   filter:invert(1) drop-shadow(0 0 1.4px rgba(20,22,27,.95));
-  animation:twitch .34s steps(1) infinite}
+  animation:twitch .26s steps(1) infinite}
 @keyframes twitch{0%,32%{background-position:0 0}
                   33%,65%{background-position:-52px 0}
                   66%,100%{background-position:-104px 0}}
