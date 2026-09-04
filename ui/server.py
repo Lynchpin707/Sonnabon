@@ -207,7 +207,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/state":
             return self._send(200, state())
         if path == "/api/usage":
-            return self._send(200, memory.usage(USER))
+            return self._send(200, {**memory.usage(USER),
+                                    "quality": memory.quality(USER)})
         if path == "/api/case":
             wanted = self.path.split("id=")[-1] if "id=" in self.path else ""
             return self._send(200, {"case_id": wanted,

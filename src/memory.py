@@ -54,6 +54,10 @@ class Record:
     # Which conversation this turn belongs to. Blank on rows written before
     # cases had turns, which is why it has a default.
     case_id: str = ""
+    # Whether router.adapt rewrote the prompt for the tier that answered.
+    # Recorded so "does fitting the prompt help" can be measured against
+    # ratings instead of assumed.
+    adapted: bool = False
 
     @property
     def total_cost(self):
@@ -212,7 +216,7 @@ def build(request_id, user, decision, ran_tier, router_completion, task_completi
 
 
 def build_case(request_id, user, decision, case, router_completion=None,
-               case_id=""):
+               case_id="", adapted=False):
     """One ledger row for a whole run, summed from what the hooks saw.
 
     The agents' own calls are in here, and so is the classifier that chose the
@@ -234,6 +238,7 @@ def build_case(request_id, user, decision, case, router_completion=None,
         at=time.time(),
         calls=len(case.calls),
         case_id=case_id,
+        adapted=adapted,
     )
 
 
@@ -271,6 +276,54 @@ def escalate(tier, past):
         return tier
     index = config.TIER_ORDER.index(tier)
     return config.TIER_ORDER[min(index + 1, len(config.TIER_ORDER) - 1)]
+
+
+def quality(user=None):
+    """What each tier cost, and whether the answers were wanted.
+
+    cost_per_accepted is the figure the whole argument rests on: spend divided
+    by the answers somebody actually accepted. A cheap tier rejected half the
+    time can cost more per useful answer than a dearer tier that lands, and no
+    billing dashboard will ever tell you that, because it cannot see the
+    rejections.
+
+    None where there is nothing to divide by. An unrated tier has no known
+    quality, which is different from a quality of zero.
+    """
+    scored = {f.request_id: f.rating for f in ratings(user)}
+    rows = _query("CASE#", Record, LEDGER, user=user)
+
+    def fold(key):
+        groups = {}
+        for row in rows:
+            entry = groups.setdefault(key(row), {
+                "n": 0, "cost": 0.0, "baseline": 0.0,
+                "rated": 0, "accepted": 0, "rejected": 0})
+            entry["n"] += 1
+            entry["cost"] += row.total_cost
+            entry["baseline"] += row.baseline_cost
+            mark = scored.get(row.request_id)
+            if mark is None:
+                continue
+            entry["rated"] += 1
+            entry["accepted" if mark > 0 else "rejected"] += 1
+
+        for entry in groups.values():
+            entry["accept_rate"] = (entry["accepted"] / entry["rated"]
+                                    if entry["rated"] else None)
+            entry["cost_per_accepted"] = (entry["cost"] / entry["accepted"]
+                                          if entry["accepted"] else None)
+            entry["cost_per_request"] = entry["cost"] / entry["n"]
+        return groups
+
+    adapted = fold(lambda r: "adapted" if r.adapted else "as written")
+    return {
+        "by_tier": fold(lambda r: r.ran_tier),
+        "by_domain": fold(lambda r: r.domain),
+        # The control. Same measure, split by whether the prompt was fitted to
+        # the model answering it, so the claim can be checked rather than made.
+        "by_adaptation": adapted,
+    }
 
 
 def by_tier():

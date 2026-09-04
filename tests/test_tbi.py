@@ -492,3 +492,54 @@ def test_a_declined_request_still_names_its_case(ledger, offline):
                           user="u", approve=None)
     assert not result.approved
     assert result.case_id
+
+
+# ------------------------------------------------------------------- quality
+
+
+def test_cost_per_accepted_answer_is_the_number_the_pitch_rests_on(ledger):
+    """A cheap tier nobody accepts can cost more per useful answer than a
+    dearer tier that lands. No billing dashboard can see that."""
+    import time as clock
+
+    now = clock.time()
+    # Four cheap answers at $0.001, only one accepted.
+    for i in range(4):
+        memory.save(memory.Record(f"c{i}", "u", "email", "cheap", "cheap",
+                                  0.0, 0.001, 0.001, 10, 5, now - i,
+                                  baseline_cost=0.01))
+    memory.rate("c0", "u", "cheap", 1)
+    for i in range(1, 4):
+        memory.rate(f"c{i}", "u", "cheap", -1)
+
+    # Two mid answers at $0.004, both accepted.
+    for i in range(2):
+        memory.save(memory.Record(f"m{i}", "u", "email", "mid", "mid",
+                                  0.0, 0.004, 0.004, 10, 5, now - i,
+                                  baseline_cost=0.01))
+        memory.rate(f"m{i}", "u", "mid", 1)
+
+    tiers = memory.quality("u")["by_tier"]
+    assert tiers["cheap"]["cost_per_request"] == pytest.approx(0.001)
+    assert tiers["mid"]["cost_per_request"] == pytest.approx(0.004)
+    # Cheap looks four times cheaper per request and is dearer per useful answer.
+    assert tiers["cheap"]["cost_per_accepted"] == pytest.approx(0.004)
+    assert tiers["mid"]["cost_per_accepted"] == pytest.approx(0.004)
+    assert tiers["cheap"]["accept_rate"] == pytest.approx(0.25)
+    assert tiers["mid"]["accept_rate"] == pytest.approx(1.0)
+
+
+def test_an_unrated_tier_has_no_known_quality_rather_than_zero(ledger):
+    memory.save(memory.Record("x", "u", "email", "cheap", "cheap",
+                              0.0, 0.001, 0.001, 10, 5, 1.0))
+    entry = memory.quality("u")["by_tier"]["cheap"]
+    assert entry["accept_rate"] is None
+    assert entry["cost_per_accepted"] is None
+
+
+def test_adaptation_is_recorded_so_it_can_be_checked(ledger, offline):
+    """Whether fitting the prompt to the model helps is a measurement."""
+    cheap = pipeline.run("write a short email to a supplier", user="u")
+    assert cheap.record.adapted is True
+    split = memory.quality("u")["by_adaptation"]
+    assert "adapted" in split and split["adapted"]["n"] == 1

@@ -95,11 +95,12 @@ def run(text, user="demo", approve=None, tier=None, watch=None, case_id=None):
             answer, path = agents.team(text, user, case_id), "team"
         else:
             answer, path = agents.solo(text, decision, case_id), "solo"
+        adapted = router.adapt(text, decision.tier) != text
     finally:
         bureau.close_case(token)
 
     record = memory.save(memory.build_case(
-        request_id, user, decision, case, router_completion, case_id))
+        request_id, user, decision, case, router_completion, case_id, adapted))
     return Result(
         answer,
         decision,
