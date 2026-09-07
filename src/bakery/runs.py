@@ -132,7 +132,7 @@ def brief(run):
     return body
 
 
-def with_agent(run_kind, model=None, watch=None):
+def with_agent(run_kind, model=None, watch=None, prompt=None):
     """Hand the run to the agent and let it decide and write.
 
     The scripted runs above are correct but blunt. This is the same work with
@@ -149,9 +149,11 @@ def with_agent(run_kind, model=None, watch=None):
                    "out has cost, and what is coming on the calendar. Bring the "
                    "owner one recommendation, not a list."),
     }
-    if run_kind not in tasks:
-        raise ValueError(f"{run_kind!r} is not a run. Use {sorted(tasks)}.")
+    task = prompt or tasks.get(run_kind)
+    if not task:
+        raise ValueError(f"{run_kind!r} is not a run. Use {sorted(tasks)}, "
+                         "or pass a prompt of your own.")
 
     built, ledger = agent.build(model=model, watch=watch)
-    result = built(tasks[run_kind])
+    result = built(task)
     return {"kind": run_kind, "said": str(result), "ledger": ledger.report()}

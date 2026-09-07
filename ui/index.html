@@ -2,1294 +2,686 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TBI</title>
-<link rel="preload" as="image" href="spider.png">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your operations manager</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
 :root{
-  --side:288px;
-  --ink:#14161B;
-  --dim:#5C6169;
-  --faint:#666B72;
-  --hair:rgba(20,22,27,.09);
-  --glass:rgba(255,255,255,.55);
-  --glass-hi:rgba(255,255,255,.9);
-  --gold:#8A6A1E;
-  --cheap:#3E7EA6; --mid:#6E7684; --heavy:#C08A2E; --max:#7A4E17;
-  --sans:"Instrument Sans",system-ui,-apple-system,sans-serif;
-  --mono:"IBM Plex Mono",ui-monospace,monospace;
+  --cream:#FAF7F4; --cocoa:#3A2A20; --cocoa-2:#6E5949; --cocoa-3:#A08C7C;
+  --caramel:#D89A4E; --pistachio:#84A96A; --raspberry:#D95C74; --blueberry:#6C86C4;
+  --glass:rgba(255,252,246,.62); --glass-2:rgba(255,252,246,.40);
+  --edge:rgba(58,42,32,.10);
+  --shadow:0 20px 45px -32px rgba(58,42,32,.75);
+  --display:"Fraunces",Georgia,serif;
+  --sans:"Outfit",-apple-system,"Segoe UI",Helvetica,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  --r:18px;
 }
 *{box-sizing:border-box}
-[hidden]{display:none!important}
-html,body{height:100%}
-body{margin:0;background:#fff;color:var(--ink);font-family:var(--sans);font-size:16px;
-  -webkit-font-smoothing:antialiased;overflow:hidden}
-#shader{position:fixed;inset:0;width:100%;height:100%;z-index:0}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--cream);color:var(--cocoa);font-family:var(--sans);
+  font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh}
+#shader{position:fixed;inset:0;z-index:-2;width:100%;height:100%;display:block}
+.app{max-width:1180px;margin:0 auto;padding:clamp(1rem,2.4vw,1.7rem) clamp(.8rem,2.4vw,1.5rem) 6rem;
+  display:flex;flex-direction:column;gap:clamp(.8rem,1.7vw,1.1rem)}
 
-.app{position:relative;z-index:1;height:100%;display:grid;
-  grid-template-columns:var(--side,288px) 1fr;gap:12px;padding:12px}
+/* ── bar ───────────────────────────────────────────────────── */
+.bar{display:flex;flex-wrap:wrap;gap:.8rem 1.4rem;align-items:center;justify-content:space-between}
+.logo{width:40px;height:40px;border-radius:13px;flex:none;
+  background:conic-gradient(from 205deg,var(--caramel),var(--raspberry),var(--pistachio),var(--caramel));
+  box-shadow:0 6px 18px -6px rgba(216,154,78,.8)}
+.pulse{display:flex;gap:.5rem;flex-wrap:wrap}
+.chip{background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid var(--edge);border-radius:999px;padding:.35rem .95rem;text-align:center}
+.chip b{font-family:var(--display);font-weight:600;font-size:1rem;display:block;line-height:1.15}
+.chip i{font-style:normal;font-family:var(--mono);font-size:.55rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--cocoa-3)}
 
-/* Drag to resize, double click to reset, arrow keys when focused. The width
-   is this viewer's own preference, so it lives in their browser and never
-   reaches the ledger. */
-.grip{position:absolute;top:12px;bottom:12px;width:13px;z-index:4;cursor:col-resize;
-  left:calc(12px + var(--side,288px) + 2px);border-radius:5px;
-  transition:background .18s}
-.grip:hover,.grip.on{background:rgba(20,22,27,.12)}
-.grip:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+nav{display:flex;gap:.3rem;flex-wrap:wrap}
+nav button{font-family:var(--sans);font-weight:500;font-size:.88rem;border:1px solid transparent;
+  background:transparent;color:var(--cocoa-2);padding:.42rem .95rem;border-radius:999px;cursor:pointer}
+nav button:hover{color:var(--cocoa);background:var(--glass-2)}
+nav button[aria-selected=true]{background:var(--glass);border-color:var(--edge);color:var(--cocoa);
+  box-shadow:0 6px 16px -12px rgba(58,42,32,.8)}
+nav button:focus-visible{outline:2px solid var(--caramel);outline-offset:2px}
+nav .n{font-family:var(--mono);font-size:.62rem;color:var(--raspberry);margin-left:.3rem}
 
-/* ---------- glass ---------- */
-.g{border:1px solid var(--glass-hi);border-radius:16px;background:var(--glass);
-  backdrop-filter:blur(30px) saturate(1.9);-webkit-backdrop-filter:blur(30px) saturate(1.9);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.95),
-             inset 0 -1px 0 rgba(20,22,27,.05),
-             0 12px 34px rgba(28,32,40,.10)}
+.view{display:none;flex-direction:column;gap:clamp(.8rem,1.7vw,1.1rem)}
+.view.on{display:flex}
+.card{background:var(--glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid var(--edge);border-radius:var(--r);padding:clamp(.95rem,2vw,1.3rem);
+  box-shadow:var(--shadow)}
+.card > header{display:flex;flex-wrap:wrap;gap:.3rem 1rem;align-items:baseline;
+  justify-content:space-between;margin-bottom:.75rem}
+h2{font-family:var(--display);font-weight:600;font-size:1.02rem;margin:0;letter-spacing:-.01em}
+.note{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--cocoa-3)}
+.idle{color:var(--cocoa-3)}
+.grid{display:grid;gap:clamp(.8rem,1.7vw,1.1rem);align-items:start}
+@media(min-width:880px){.g-2{grid-template-columns:1fr 1fr}
+  .g-side{grid-template-columns:minmax(280px,330px) 1fr}}
 
-/* ---------- sidebar ---------- */
-.side{display:flex;flex-direction:column;min-height:0;padding:18px 14px;
-  overflow:hidden}
-/* Shut: the panel goes, the handle stays where you can grab it. */
-.app.shut .side{display:none}
-.app.shut{grid-template-columns:0 1fr}
-.app.shut .grip{left:6px;background:rgba(20,22,27,.10)}
-.head{display:flex;align-items:center;gap:12px;padding:2px 6px 20px}
-.head img{width:52px;height:52px;object-fit:contain;flex:none}
-.head .n{font-size:15px;font-family:var(--mono);letter-spacing:.18em;color:var(--dim)}
-.new{display:flex;align-items:center;gap:9px;width:100%;padding:12px 13px;margin-bottom:18px;
-  border-radius:10px;border:1px solid var(--hair);background:rgba(255,255,255,.5);
-  cursor:pointer;font-family:var(--sans);font-size:14px;color:var(--ink);text-align:left;
-  transition:background .2s,border-color .2s}
-.new:hover{background:#fff;border-color:rgba(20,22,27,.18)}
-.new:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+/* ── brief bar ─────────────────────────────────────────────── */
+.brief{background:var(--glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid var(--edge);border-radius:var(--r);padding:.5rem .55rem .5rem 1.05rem;
+  display:flex;gap:.6rem;align-items:center;box-shadow:var(--shadow)}
+.brief input{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:.95rem;
+  color:var(--cocoa);padding:.45rem 0}
+.brief input::placeholder{color:var(--cocoa-3)}
+.brief input:focus{outline:none}
+.hints{display:flex;gap:.4rem;flex-wrap:wrap}
+.hint{font-family:var(--sans);font-size:.78rem;color:var(--cocoa-2);background:var(--glass-2);
+  border:1px solid var(--edge);border-radius:999px;padding:.26rem .75rem;cursor:pointer}
+.hint:hover{background:var(--glass);color:var(--cocoa)}
 
-.cases{flex:1;overflow-y:auto;min-height:0;margin:0 -4px;padding:0 4px}
-.cases::-webkit-scrollbar{width:6px}
-.cases::-webkit-scrollbar-thumb{background:rgba(20,22,27,.14);border-radius:3px}
-.grp{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;
-  color:var(--faint);padding:12px 8px 6px}
-.case{display:block;width:100%;text-align:left;border:0;background:none;cursor:pointer;
-  padding:11px 11px;border-radius:10px;transition:background .18s}
-.case:hover{background:rgba(255,255,255,.62)}
-.case[aria-current="true"]{background:rgba(255,255,255,.85)}
-.case:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
-.case .t{font-size:15px;line-height:1.35;color:var(--ink);
-  display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
-.case .s{display:flex;align-items:center;gap:6px;margin-top:4px;
-  font-family:var(--mono);font-size:12px;color:var(--faint)}
-.pip{width:6px;height:6px;border-radius:50%;flex:none}
+.act{font-family:var(--sans);font-size:.83rem;font-weight:500;cursor:pointer;border-radius:999px;
+  border:1px solid var(--edge);background:var(--glass-2);color:var(--cocoa);padding:.36rem .95rem;
+  text-decoration:none;display:inline-block}
+.act:hover{background:var(--glass)}
+.act.go{background:var(--cocoa);color:var(--cream);border-color:var(--cocoa)}
+.act.go:hover{background:#4b3729}
+.act:focus-visible{outline:2px solid var(--caramel);outline-offset:2px}
+.act[disabled]{opacity:.4;cursor:default}
+.row{display:flex;gap:.4rem;flex-wrap:wrap}
 
-.foot{border-top:1px solid var(--hair);padding-top:12px;margin-top:8px;
-  font-family:var(--mono);font-size:12px;color:var(--faint);display:grid;gap:6px}
-.foot div{display:flex;justify-content:space-between}
-.foot b{color:var(--ink);font-weight:400}
+/* ── the day at a glance ───────────────────────────────────── */
+.figs{display:flex;flex-wrap:wrap;gap:1.6rem;margin-bottom:1rem}
+.fig b{font-family:var(--display);font-weight:700;font-size:clamp(1.5rem,3.4vw,2.05rem);
+  display:block;line-height:1;letter-spacing:-.02em}
+.fig i{font-style:normal;font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--cocoa-3)}
+.fig.warn b{color:var(--raspberry)}
 
-/* ---------- main ---------- */
-.main{display:flex;flex-direction:column;min-height:0;min-width:0}
-.top{display:flex;align-items:center;justify-content:space-between;gap:12px;
-  padding:16px 24px;border-bottom:1px solid var(--hair)}
-.title{font-size:19px;font-weight:600}
-.top .r{display:flex;align-items:center;gap:14px;font-family:var(--mono);font-size:12px;
-  color:var(--dim)}
-.top .r b{color:var(--ink);font-weight:400}
-.gear{background:none;border:0;width:34px;height:34px;border-radius:9px;cursor:pointer;color:var(--dim);
-  display:grid;place-items:center;transition:background .2s,color .2s}
-.gear:hover,.gear[aria-expanded="true"]{background:rgba(20,22,27,.07);color:var(--ink)}
-.gear:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.bars{display:flex;flex-direction:column;gap:.34rem}
+.brow{display:grid;grid-template-columns:minmax(96px,150px) 1fr auto;gap:.7rem;align-items:center;
+  font-size:.86rem}
+.brow .lane{height:20px;border-radius:6px;background:rgba(58,42,32,.06);position:relative;overflow:visible}
+.brow .fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:var(--caramel);
+  transition:width .5s ease-out}
+.brow.out .fill{background:var(--raspberry)}
+.brow .ghost{position:absolute;top:0;bottom:0;border-radius:6px;
+  background:repeating-linear-gradient(115deg,rgba(217,92,116,.30) 0 5px,transparent 5px 10px);
+  border:1px dashed rgba(217,92,116,.55);border-left:0}
+.brow .num{font-family:var(--mono);font-size:.8rem;font-variant-numeric:tabular-nums;min-width:3.4rem;
+  text-align:right}
+.brow .flag{font-family:var(--mono);font-size:.58rem;color:var(--raspberry);white-space:nowrap;
+  position:absolute;right:6px;top:50%;transform:translateY(-50%)}
 
-.thread{position:relative;flex:1;overflow-y:auto;min-height:0;padding:28px 24px;
-  transition:padding-left .25s ease;display:flex;
-  flex-direction:column;gap:22px}
-.thread::-webkit-scrollbar{width:8px}
-.thread::-webkit-scrollbar-thumb{background:rgba(20,22,27,.13);border-radius:4px}
-.turn{max-width:800px;width:100%;margin:0 auto;display:grid;gap:10px}
-.you{justify-self:end;max-width:76%;padding:11px 15px;border-radius:14px 14px 4px 14px;
-  background:rgba(255,255,255,.78);border:1px solid var(--glass-hi);
-  box-shadow:0 2px 8px rgba(28,32,40,.06);font-size:16.5px;line-height:1.55}
-.tbi{display:grid;gap:8px}
-.stamp{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:12px;
-  color:var(--faint)}
-.stamp b{color:var(--dim);font-weight:400}
-.body{font-size:17px;line-height:1.65;color:var(--ink);max-width:68ch}
-.body p{margin:0 0 9px}.body p:last-child{margin:0}
+/* ── sell-out story ────────────────────────────────────────── */
+.say{font-family:var(--display);font-weight:700;letter-spacing:-.02em;line-height:1.12;
+  font-size:clamp(1.2rem,2.7vw,1.6rem);margin:0 0 .2rem;max-width:26ch}
+.say b{color:var(--raspberry)}
+.sub{color:var(--cocoa-2);font-size:.91rem;margin:0 0 .85rem;max-width:50ch}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.chartwrap{display:grid;gap:1rem}
+@media(min-width:800px){.chartwrap{grid-template-columns:1fr 185px;align-items:center}}
+.key{display:flex;flex-direction:column;gap:.6rem}
+.key div{display:flex;gap:.5rem;align-items:flex-start;font-size:.82rem;line-height:1.35}
+.key .sw{width:19px;flex:none;margin-top:.5rem}
+.key .sw.a{border-top:3px solid var(--cocoa)}
+.key .sw.b{border-top:3px dashed var(--raspberry)}
+.key .sw.c{border-top:11px solid rgba(217,92,116,.22);margin-top:.3rem}
+.key em{font-style:normal;color:var(--cocoa-3);display:block;font-family:var(--mono);font-size:.67rem}
 
-/* ---------- composer ---------- */
-.composer{padding:12px 20px 18px}
-.wrap{max-width:800px;margin:0 auto;display:grid;gap:10px}
-.field{display:flex;align-items:flex-end;gap:10px;padding:12px 12px 12px 17px;
-  border-radius:15px;border:1px solid var(--glass-hi);background:rgba(255,255,255,.62);
-  backdrop-filter:blur(24px) saturate(1.8);-webkit-backdrop-filter:blur(24px) saturate(1.8);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.95),0 8px 26px rgba(28,32,40,.10);
-  transition:border-color .25s,box-shadow .25s}
-.field:focus-within{border-color:#fff;
-  box-shadow:inset 0 1px 0 #fff,0 10px 32px rgba(28,32,40,.15),0 0 0 3px rgba(138,106,30,.13)}
-textarea{flex:1;border:0;background:none;resize:none;color:var(--ink);font-family:var(--sans);
-  font-size:17px;line-height:1.55;max-height:200px;padding:6px 0;outline:none}
-textarea::placeholder{color:var(--faint)}
-.send{flex:none;width:40px;height:40px;border-radius:50%;border:0;cursor:pointer;
-  color:var(--faint);background:rgba(20,22,27,.06);display:grid;place-items:center;
-  transition:background .2s,color .2s}
-.send:not(:disabled){background:var(--ink);color:#fff}
-.send:not(:disabled):hover{background:#343841}
-.send:disabled{cursor:default}
-.send:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.route{display:flex;align-items:center;justify-content:center;gap:7px;min-height:15px;
-  font-family:var(--mono);font-size:11px;color:var(--faint);opacity:0;transition:opacity .4s}
-.route.on{opacity:1}
-.route b{color:var(--ink);font-weight:400}
-.link{background:none;border:0;padding:7px 10px;cursor:pointer;color:var(--faint);
-  font-family:var(--mono);font-size:12.5px;text-decoration:underline;
-  text-underline-offset:3px;border-radius:8px}
-.link:hover{background:rgba(20,22,27,.06)}
-.link:hover{color:var(--ink)}
-.link:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.opts{display:flex;gap:14px}
-.opt{background:none;border:0;padding:7px 10px;border-radius:8px;cursor:pointer;
-  color:var(--faint);font-family:var(--mono);font-size:12.5px;
-  transition:color .2s,background .2s}
-.opt:hover{background:rgba(20,22,27,.06)}
-.opt:hover,.opt[aria-pressed="true"]{color:var(--ink)}
-.opt:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+/* ── plan / lists ──────────────────────────────────────────── */
+.line{display:grid;grid-template-columns:1fr auto auto;gap:.45rem .7rem;align-items:baseline;
+  padding:.42rem 0;border-top:1px solid var(--edge);font-size:.9rem}
+.line:first-child{border-top:0}
+.qty{font-family:var(--display);font-weight:600;font-size:1.05rem;font-variant-numeric:tabular-nums}
+.why{font-family:var(--mono);font-size:.63rem;color:var(--cocoa-3);white-space:nowrap}
+.line.lift .qty,.line.lift .why{color:var(--caramel)}
+.rest{font-family:var(--mono);font-size:.68rem;color:var(--cocoa-3);padding-top:.5rem}
+.total{display:flex;justify-content:space-between;border-top:1px solid var(--edge);
+  margin-top:.5rem;padding-top:.5rem;font-family:var(--mono);font-size:.78rem;font-weight:500}
+.ask{margin-top:.85rem;border-radius:14px;padding:.8rem .9rem;
+  background:linear-gradient(135deg,rgba(216,154,78,.20),rgba(217,92,116,.13));
+  border:1px solid rgba(216,154,78,.4)}
+.ask .label{font-family:var(--mono);font-size:.56rem;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--caramel);font-weight:500}
+.ask p{margin:.3rem 0 .65rem;font-size:.87rem;line-height:1.42}
 
-.panel{position:fixed;top:64px;right:24px;z-index:5;width:268px;padding:16px 18px;
-  /* Denser than the rest of the glass on purpose. This is a menu, and the
-     heading behind it was reading straight through the frost. */
-  background:rgba(255,255,255,.96);max-height:calc(100vh - 96px);overflow-y:auto;
-  border-radius:13px;font-family:var(--mono);font-size:11px;color:var(--dim);
-  opacity:0;transform:translateY(-6px);pointer-events:none;transition:opacity .2s,transform .2s}
-.panel.on{opacity:1;transform:none;pointer-events:auto}
-.panel h2{font-size:11px;font-weight:400;color:var(--faint);margin:0 0 10px;letter-spacing:.12em;
-  text-transform:uppercase}
-.panel .opts{margin-bottom:14px}
-.panel .row{display:flex;justify-content:space-between;padding-top:11px;
-  border-top:1px solid var(--hair)}
-.panel .row b{color:var(--ink);font-weight:400}
+.move{display:grid;grid-template-columns:1fr 88px 3.2rem;gap:.7rem;align-items:center;
+  padding:.42rem 0;border-top:1px solid var(--edge);font-size:.88rem}
+.move:first-child{border-top:0}
+.track{height:6px;border-radius:3px;background:rgba(58,42,32,.09);position:relative}
+.track i{position:absolute;top:0;bottom:0;display:block;border-radius:3px}
+.track i.up{left:50%;background:var(--pistachio)} .track i.down{right:50%;background:var(--raspberry)}
+.track::after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--cocoa-3)}
+.pct{font-family:var(--mono);font-weight:500;font-size:.77rem;text-align:right}
+.pct.up{color:var(--pistachio)} .pct.down{color:var(--raspberry)}
 
-.work{display:inline-flex;align-items:center;gap:8px}
-.avatar{width:17px;height:17px;image-rendering:pixelated;animation:bob .6s ease-in-out infinite}
-.dotb{width:5px;height:5px;border-radius:50%;background:var(--dim);
-  animation:bob .6s ease-in-out infinite}
-@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+.occ{display:flex;justify-content:space-between;gap:.8rem;align-items:baseline;padding:.6rem .85rem;
+  border-radius:12px;background:rgba(108,134,196,.13);border:1px solid rgba(108,134,196,.26);margin-bottom:.5rem}
+.occ b{font-family:var(--display);font-weight:600;font-size:.98rem}
+.occ span{font-family:var(--mono);font-size:.69rem;color:var(--cocoa-2);white-space:nowrap}
+.job{display:grid;grid-template-columns:5rem 1fr;gap:.55rem;font-size:.84rem;color:var(--cocoa-2);padding:.22rem 0}
+.job .d{font-family:var(--mono);font-size:.69rem;color:var(--cocoa-3)}
+.pill{font-family:var(--mono);font-size:.56rem;letter-spacing:.06em;text-transform:uppercase;
+  padding:.07rem .45rem;border-radius:999px;margin-left:.35rem}
+.pill.late{color:var(--raspberry);background:rgba(217,92,116,.15)}
+.pill.occasion{color:var(--caramel);background:rgba(216,154,78,.2)}
 
-/* ---------- empty state ---------- */
-.empty{flex:1;display:grid;place-items:center;padding:24px}
-.empty-in{display:grid;justify-items:center;gap:24px;max-width:580px;text-align:center}
-.empty img{width:148px;height:148px;object-fit:contain;
-  filter:drop-shadow(0 10px 26px rgba(28,32,40,.22));
-  animation:stamp .85s cubic-bezier(.2,1.5,.4,1) both, float 7s ease-in-out 1s infinite}
-.empty h1{font-size:36px;font-weight:500;letter-spacing:-.024em;margin:0;color:var(--ink)}
-.empty p{margin:0;color:var(--faint);font-size:16px;max-width:48ch;line-height:1.6}
-.empty p b{color:var(--ink);font-weight:500}
-.cmd{font-family:var(--mono);font-size:12.5px;color:var(--ink);margin:0;
-  background:rgba(20,22,27,.05);border:1px solid var(--hair);border-radius:8px;
-  padding:9px 13px;user-select:all}
-.seeds{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:2px}
-.seed{border:1px solid var(--hair);background:rgba(255,255,255,.6);border-radius:9999px;
-  padding:10px 18px;cursor:pointer;font-family:var(--sans);font-size:15px;color:var(--dim);
-  display:inline-flex;align-items:center;gap:7px;transition:background .2s,border-color .2s,color .2s}
-.seed:hover{background:#fff;color:var(--ink);border-color:rgba(20,22,27,.2)}
-.seed:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.seed .pip{width:5px;height:5px}
+/* ── board ─────────────────────────────────────────────────── */
+.people{display:grid;gap:clamp(.8rem,1.7vw,1.1rem)}
+@media(min-width:760px){.people{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:1050px){.people{grid-template-columns:repeat(4,1fr)}}
+.person > header{display:flex;flex-direction:column;gap:.1rem;
+  border-bottom:1px solid var(--edge);padding-bottom:.5rem;margin-bottom:.6rem}
+.person h3{font-family:var(--display);font-weight:600;font-size:1.02rem;margin:0}
+.person .role{font-family:var(--mono);font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--cocoa-3)}
+.tick{display:flex;gap:.55rem;align-items:flex-start;font-size:.86rem;padding:.3rem 0;cursor:pointer}
+.tick .box{width:15px;height:15px;border-radius:5px;border:1.5px solid var(--cocoa-3);flex:none;
+  margin-top:.15rem;display:grid;place-items:center;font-size:.7rem;color:var(--cream)}
+.tick.bake .box{border-color:var(--caramel)} .tick.prep .box{border-color:var(--blueberry)}
+.tick.done .box{background:var(--pistachio);border-color:var(--pistachio)}
+.tick.done span{text-decoration:line-through;color:var(--cocoa-3)}
 
-@keyframes stamp{from{opacity:0;transform:scale(1.5) rotate(-9deg)}
-                 to{opacity:1;transform:none}}
-@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-/* The seal breathes while the bureau is working. One thing moving in the
-   header is a status; two would be decoration. */
-@keyframes breathe{0%,100%{transform:scale(1);opacity:.8}
-                   50%{transform:scale(1.16);opacity:1}}
-.head img{transition:transform .3s ease}
-.head img.busy{animation:breathe 1.15s ease-in-out infinite}
+.msg{border-radius:12px;padding:.7rem .9rem;margin-bottom:.6rem;background:var(--glass-2);
+  border:1px solid var(--edge)}
+.msg.decision{border-color:rgba(216,154,78,.45);background:rgba(216,154,78,.14)}
+.msg h4{font-family:var(--display);font-weight:600;font-size:.95rem;margin:0}
+.msg .meta{font-family:var(--mono);font-size:.63rem;color:var(--cocoa-3)}
+.msg p{margin:.35rem 0 0;font-size:.86rem;white-space:pre-wrap;color:var(--cocoa-2)}
 
-/* ---------- the spider ----------
-   DungeonSpider.png by SpinachChicken, CC0, opengameart.org. 51x20 with four
-   12px frames at a 13px pitch. Frames 0 to 2 move her legs; frame 3 draws her
-   own silk, which is the clue that she belongs vertically rather than walking
-   a floor.
-
-   The rope hangs upward off her back from inside the element that moves, so
-   it is attached by construction. Two elements with two transitions had to
-   agree on where she was, and they never quite did. */
-.runner{position:absolute;top:0;bottom:12px;left:0;right:0;
-  overflow:hidden;pointer-events:none;z-index:2}
-
-/* Right against the answer column rather than out in the margin: her whole
-   job is to hold the wait, and something in peripheral vision cannot do that.
-   The swing runs once and damps to rest, because a pendulum bleeds energy and
-   a constant arc repeating forever reads as animation, not as a spider. */
-.strand{position:absolute;top:16px;transform-origin:50% 0;
-  left:max(14px, calc(50% - 400px - 64px));width:48px;
-  animation:settle 3.6s cubic-bezier(.36,0,.64,1) 5.8s forwards}
-@keyframes settle{
-   0%{transform:rotate(0deg)}
-   10%{transform:rotate(4.2deg)}
-   24%{transform:rotate(-3.3deg)}
-   38%{transform:rotate(2.5deg)}
-   52%{transform:rotate(-1.8deg)}
-   66%{transform:rotate(1.2deg)}
-   79%{transform:rotate(-.7deg)}
-   90%{transform:rotate(.3deg)}
-  100%{transform:rotate(0deg)}}
-.runner.done .strand{animation:none}
-/* Narrow windows have no margin to hang her in, so make one. */
-@media(max-width:1000px){.thread.busy{padding-left:76px}}
-
-/* Spiders do not glide down a thread, they drop in bursts and stop, and the
-   silk is elastic so each stop overshoots and pulls back. Three drops with a
-   recoil apiece is worth watching for a few seconds; one smooth slide is not.
-   --reach is set per case, because how far she may go depends on the panel. */
-.bug{position:absolute;top:0;left:0;width:48px;height:80px;
-  animation:descend 8s linear forwards}
-@keyframes descend{
-    0%{transform:translateY(0)}
-    6%{transform:translateY(calc(var(--reach, 120px) * .34))}
-    9%{transform:translateY(calc(var(--reach, 120px) * .29))}
-   11%{transform:translateY(calc(var(--reach, 120px) * .32))}
-   30%{transform:translateY(calc(var(--reach, 120px) * .32))}
-   37%{transform:translateY(calc(var(--reach, 120px) * .68))}
-   40%{transform:translateY(calc(var(--reach, 120px) * .63))}
-   42%{transform:translateY(calc(var(--reach, 120px) * .66))}
-   62%{transform:translateY(calc(var(--reach, 120px) * .66))}
-   69%{transform:translateY(var(--reach, 120px))}
-   72%{transform:translateY(calc(var(--reach, 120px) * .95))}
-   75%{transform:translateY(calc(var(--reach, 120px) * .98))}
-  100%{transform:translateY(calc(var(--reach, 120px) * .98))}}
-.silk{position:absolute;width:1px;height:3000px;top:auto;left:24px;bottom:24px;
-  background:#16181C}
-
-/* Inverted to white. One shadow only, as an edge: chaining more shadows makes
-   each one shadow the last and she fills in to a blob. */
-.sprite{position:absolute;top:0;left:0;width:48px;height:80px;
-  image-rendering:pixelated;background-image:url(spider.png);
-  background-repeat:no-repeat;background-size:204px 80px;
-  filter:invert(1) drop-shadow(0 0 1.4px rgba(20,22,27,.95));
-  animation:twitch .26s steps(1) infinite}
-@keyframes twitch{0%,32%{background-position:0 0}
-                  33%,65%{background-position:-52px 0}
-                  66%,100%{background-position:-104px 0}}
-
-/* ---------- rating + forensics ---------- */
-.acts{display:flex;align-items:center;gap:6px;margin-top:4px}
-.act{border:0;background:none;width:38px;height:38px;border-radius:10px;cursor:pointer;
-  color:var(--faint);display:grid;place-items:center;
-  transition:background .18s,color .18s}
-.act:hover{background:rgba(20,22,27,.06);color:var(--ink)}
-.act[aria-pressed="true"]{color:var(--ink);background:rgba(20,22,27,.08)}
-.act:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.learned{font-family:var(--mono);font-size:11px;color:var(--gold);margin-left:4px}
-.waiting{font-family:var(--mono);font-size:11px;color:var(--faint)}
-
-/* The working notes. Collapsed by default: it is diagnostics, not the answer. */
-.think{display:grid;gap:6px;margin-bottom:10px}
-.think-head{display:inline-flex;align-items:center;gap:8px;background:none;border:0;
-  padding:7px 11px 7px 9px;border-radius:9px;cursor:pointer;font-family:var(--mono);
-  font-size:13px;color:var(--faint);justify-self:start;margin-left:-9px;
-  transition:background .18s,color .18s}
-.think-head:hover{background:rgba(20,22,27,.06)}
-.think-head:hover{color:var(--ink)}
-.think-head:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.think-head .arrow{transition:transform .18s ease}
-.think-head[aria-expanded="true"] .arrow{transform:rotate(90deg)}
-.steps{display:grid;gap:4px;padding:11px 14px;border-radius:9px;
-  background:rgba(20,22,27,.035);font-family:var(--mono);font-size:12.5px;
-  color:var(--faint)}
-.steps div{display:flex;align-items:baseline;gap:9px}
-.steps b{color:var(--dim);font-weight:400;min-width:92px}
-.steps .n{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--dim)}
-.steps .stop{color:var(--gold)}
-.steps .live{color:var(--ink)}
-@keyframes tick{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:none}}
-.steps div{animation:tick .16s ease-out both}
-
-.forensic{max-width:800px;width:100%;margin:0 auto;display:flex;gap:11px;padding:13px 15px;
-  border-radius:12px;border:1px solid rgba(138,106,30,.28);background:rgba(255,251,240,.72);
-  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
-.forensic .k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--gold);flex:none;padding-top:2px}
-.forensic .v{font-size:15px;line-height:1.6;color:var(--ink)}
-.forensic b{font-weight:500}
-.adapted{font-family:var(--mono);font-size:11px;color:var(--faint);
-  border:1px solid var(--hair);border-radius:5px;padding:1px 5px;cursor:help}
-
-/* ---------- the spending view ---------- */
-.views{display:flex;gap:2px}
-.views button{background:none;border:0;padding:8px 14px;border-radius:9px;cursor:pointer;
-  font-family:var(--mono);font-size:11px;color:var(--faint);transition:background .18s,color .18s}
-.views button:hover{color:var(--ink)}
-.views button[aria-pressed="true"]{background:rgba(20,22,27,.07);color:var(--ink)}
-.views button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-
-.dash{flex:1;overflow-y:auto;min-height:0;padding:22px 26px 40px}
-.dash::-webkit-scrollbar{width:8px}
-.dash::-webkit-scrollbar-thumb{background:rgba(20,22,27,.13);border-radius:4px}
-.dash-in{max-width:820px;margin:0 auto;display:grid;gap:34px}
-
-.head-figs{display:flex;flex-wrap:wrap;gap:34px;align-items:flex-end}
-.fig{display:grid;gap:3px}
-.fig .v{font-size:34px;font-weight:500;letter-spacing:-.02em;line-height:1;
-  font-variant-numeric:tabular-nums}
-.fig .k{font-family:var(--mono);font-size:12px;color:var(--faint)}
-.fig.quiet .v{font-size:19px;color:var(--dim);font-weight:400}
-
-.sect{display:grid;gap:11px}
-.sect h2{font-family:var(--mono);font-size:12px;letter-spacing:.15em;
-  text-transform:uppercase;color:var(--faint);font-weight:400}
-.sect .why{font-size:15px;color:var(--faint);line-height:1.55;margin:-4px 0 2px}
-
-.grid{display:grid;gap:9px;font-family:var(--mono);font-size:12.5px}
-.grid .hd{display:grid;grid-template-columns:74px 1fr 74px 84px 62px;gap:10px;
-  color:var(--faint);padding-bottom:5px;border-bottom:1px solid var(--hair)}
-.grid .rw{display:grid;grid-template-columns:74px 1fr 74px 84px 62px;gap:10px;
-  align-items:center}
-.grid .rw span:nth-child(n+3){text-align:right;font-variant-numeric:tabular-nums}
-.bar{height:7px;border-radius:4px;background:rgba(20,22,27,.07);overflow:hidden}
-.bar i{display:block;height:100%;border-radius:4px}
-.tag{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.09em;
-  text-transform:uppercase;padding:1px 5px;border-radius:3px;color:#fff;
-  font-family:var(--sans)}
-
-.days{display:flex;align-items:flex-end;gap:3px;height:74px}
-.day{flex:1;min-width:3px;background:rgba(20,22,27,.14);border-radius:2px 2px 0 0}
-.day.hot{background:var(--gold)}
-.axis{display:flex;justify-content:space-between;font-family:var(--mono);
-  font-size:10.5px;color:var(--faint)}
-
-.blank{font-size:14px;color:var(--faint);border:1px dashed var(--hair);
-  border-radius:9px;padding:13px 15px;line-height:1.5}
-.blank b{color:var(--ink);font-weight:500}
-
-/* One row per model call, as the Strands hooks recorded it. */
-.calls{font-family:var(--mono);font-size:11px;color:var(--faint);display:grid;gap:4px;
-  margin-top:8px;padding:9px 12px;border-radius:9px;background:rgba(20,22,27,.035)}
-.calls div{display:flex;align-items:baseline;gap:10px}
-.calls b{color:var(--dim);font-weight:400;min-width:96px}
-.calls .n{margin-left:auto;color:var(--dim);font-variant-numeric:tabular-nums}
-.calls .stop b,.calls .stop{color:var(--gold)}
-.calls .sum{border-top:1px solid var(--hair);padding-top:5px;margin-top:2px;color:var(--dim)}
-.disclose{background:none;border:0;padding:0;cursor:pointer;color:var(--faint);
-  font-family:var(--mono);font-size:11px;text-decoration:underline;text-underline-offset:3px}
-.disclose{padding:6px 9px;border-radius:8px;margin:-6px -9px}
-.disclose:hover{color:var(--ink);background:rgba(20,22,27,.06)}
-.disclose:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-
-.approve{max-width:800px;width:100%;margin:0 auto;display:grid;gap:11px;padding:14px 16px;
-  border-radius:12px;border:1px solid rgba(138,106,30,.34);background:rgba(255,251,240,.78);
-  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
-.approve .k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;
-  text-transform:uppercase;color:var(--gold)}
-.approve .v{font-size:15px;line-height:1.6}
-.approve .row{display:flex;gap:9px}
-.approve button{border:1px solid var(--hair);background:rgba(255,255,255,.7);
-  border-radius:10px;padding:11px 22px;cursor:pointer;font-family:var(--sans);
-  font-size:14.5px;color:var(--ink)}
-.approve button.yes{background:var(--ink);color:#fff;border-color:var(--ink)}
-.approve button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-
-.panel select{width:100%;margin-bottom:12px;font-family:var(--mono);font-size:11px;
-  color:var(--ink);background:rgba(255,255,255,.7);border:1px solid var(--hair);
-  border-radius:8px;padding:6px 8px}
-.panel label{display:block;font-size:11px;color:var(--faint);letter-spacing:.12em;
-  text-transform:uppercase;margin-bottom:5px}
-.panel .cat{display:grid;gap:4px;margin:10px 0 12px}
-.panel .cat div{display:flex;gap:8px;align-items:baseline}
-.panel .cat b{font-weight:400;color:var(--dim);min-width:42px}
-.panel .cat span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  color:var(--ink)}
-.panel .foot-note{border-top:1px solid var(--hair);padding-top:10px;margin-top:2px;
-  font-size:10.5px;line-height:1.5;color:var(--faint)}
-
-@media(max-width:820px){
-  .app{grid-template-columns:1fr}
-  .side,.grip{display:none}
+/* ── setup ─────────────────────────────────────────────────── */
+.pipe{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;margin:.4rem 0 1rem}
+.node{background:var(--glass-2);border:1px solid var(--edge);border-radius:12px;padding:.55rem .85rem;
+  font-size:.85rem;text-align:center;min-width:110px}
+.node b{display:block;font-family:var(--display);font-weight:600;font-size:.9rem}
+.node i{font-style:normal;font-family:var(--mono);font-size:.58rem;color:var(--cocoa-3)}
+.node.live{border-color:var(--pistachio);background:rgba(132,169,106,.14)}
+.arrow{color:var(--cocoa-3);font-size:1rem}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--pistachio);display:inline-block;
+  margin-right:.35rem;vertical-align:middle}
+@media (prefers-reduced-motion:no-preference){
+  .dot{animation:beat 2s ease-in-out infinite}
+  @keyframes beat{0%,100%{opacity:1}50%{opacity:.35}}
 }
-@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:.35rem 1.1rem;font-size:.85rem}
+.kv dt{font-family:var(--mono);font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--cocoa-3);white-space:nowrap}
+.kv dd{margin:0;font-family:var(--mono);font-size:.8rem;word-break:break-all}
+
+/* ── floating ask ──────────────────────────────────────────── */
+.fab{position:fixed;right:clamp(.9rem,3vw,1.8rem);bottom:clamp(.9rem,3vw,1.8rem);z-index:20;
+  width:54px;height:54px;border-radius:50%;border:0;cursor:pointer;color:var(--cream);
+  background:var(--cocoa);box-shadow:0 12px 28px -10px rgba(58,42,32,.75);
+  font-size:1.25rem;display:grid;place-items:center}
+.fab:hover{background:#4b3729}
+.fab:focus-visible{outline:3px solid var(--caramel);outline-offset:3px}
+.panel{position:fixed;right:clamp(.9rem,3vw,1.8rem);bottom:calc(clamp(.9rem,3vw,1.8rem) + 66px);
+  z-index:20;width:min(430px,calc(100vw - 2rem));background:var(--glass);border:1px solid var(--edge);
+  border-radius:var(--r);box-shadow:0 26px 60px -30px rgba(58,42,32,.85);padding:1rem;
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);display:none;flex-direction:column;gap:.7rem}
+.panel.on{display:flex}
+#log{font-family:var(--mono);font-size:.73rem;line-height:1.8;margin:0;white-space:pre-wrap;
+  color:var(--cocoa-2);max-height:260px;overflow-y:auto;border-top:1px solid var(--edge);padding-top:.6rem}
+#log .t{color:var(--cocoa)} #log .b{color:var(--raspberry)} #log .s{color:var(--pistachio)}
+@media (prefers-reduced-motion:no-preference){
+  #log > span{animation:in .16s ease-out}
+  @keyframes in{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:none}}
+  .draw{stroke-dasharray:1200;stroke-dashoffset:1200;animation:draw 1.1s .2s ease-out forwards}
+  @keyframes draw{to{stroke-dashoffset:0}}
+}
 </style>
 </head>
 <body>
 <canvas id="shader" aria-hidden="true"></canvas>
 
 <div class="app">
-  <div class="grip" id="grip" role="separator" aria-orientation="vertical"
-       aria-label="Resize sidebar" tabindex="0"></div>
-  <aside class="g side">
-    <div class="head">
-      <img src="logo.png" alt="">
-      <span class="n">TBI</span>
-    </div>
-    <button class="new" id="new">
-      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        <path d="M8 3.5v9M3.5 8h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
-      New case
-    </button>
-    <div class="cases" id="cases"></div>
-    <div class="foot">
-      <div><span>today</span><b id="fToday">--</b></div>
-      <div><span>this month</span><b id="fMonth">--</b></div>
-      <div><span>saved by routing</span><b id="fSaved">--</b></div>
-      <div><span>backend</span><b id="backend">--</b></div>
-    </div>
-  </aside>
 
-  <section class="g main">
-    <div class="top">
-      <span class="title" id="title">New case</span>
-      <div class="r">
-        <div class="views" id="views">
-          <button type="button" data-view="cases" aria-pressed="true">cases</button>
-          <button type="button" data-view="spend" aria-pressed="false">spending</button>
-        </div>
-        <span>today <b id="today">--</b></span>
-        <button class="gear" id="gear" aria-expanded="false" aria-controls="panel" aria-label="Settings">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <circle cx="8" cy="8" r="2.4" stroke="currentColor" stroke-width="1.3"/>
-            <path d="M8 1.6v1.7M8 12.7v1.7M14.4 8h-1.7M3.3 8H1.6M12.5 3.5l-1.2 1.2M4.7 11.3l-1.2 1.2M12.5 12.5l-1.2-1.2M4.7 4.7L3.5 3.5"
-                  stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-          </svg>
-        </button>
-      </div>
+  <div class="bar">
+    <span class="logo" aria-label="Logo placeholder"></span>
+    <div class="pulse">
+      <div class="chip"><b id="pRuns">–</b><i>runs this week</i></div>
+      <div class="chip"><b id="pSpoke">–</b><i>reached you</i></div>
+      <div class="chip"><b id="pCost">–</b><i>cost to run</i></div>
     </div>
-
-    <div class="thread" id="thread"></div>
-    <div class="dash" id="dash" hidden></div>
-<template id="spriteTpl">
-  <div class="runner" aria-hidden="true">
-    <div class="strand"><div class="bug">
-      <div class="silk"></div><div class="sprite"></div></div></div>
   </div>
-</template>
 
-    <div class="composer">
-      <div class="wrap">
-        <div class="field">
-          <textarea id="input" rows="1" placeholder="What do you need done?"
-                    aria-label="Your request"></textarea>
-          <button class="send" id="send" type="button" disabled aria-label="Send">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M8 13V3M8 3L3.5 7.5M8 3l4.5 4.5" stroke="currentColor"
-                    stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-        </div>
-        <div class="route" id="route" role="status" aria-live="polite"></div>
-      </div>
+  <nav role="tablist">
+    <button role="tab" data-view="today" aria-selected="true">Today</button>
+    <button role="tab" data-view="board" aria-selected="false">Board</button>
+    <button role="tab" data-view="diary" aria-selected="false">Diary</button>
+    <button role="tab" data-view="reports" aria-selected="false">Reports</button>
+    <button role="tab" data-view="setup" aria-selected="false">Setup</button>
+  </nav>
+
+  <!-- ══ TODAY ══ -->
+  <div class="view on" id="v-today">
+    <div class="brief">
+      <input id="prompt" type="text" autocomplete="off"
+        placeholder="Tell your manager what to look after, then leave it to work…"
+        aria-label="Brief your operations manager">
+      <button class="act go" id="send">Brief it</button>
     </div>
-  </section>
+    <div class="hints">
+      <button class="hint" data-p="Read today, plan tomorrow's production, and email me only if something needs deciding.">Plan tomorrow</button>
+      <button class="hint" data-p="What is growing and what is dying? Give me one recommendation.">What is moving</button>
+      <button class="hint" data-p="Halloween is coming. Work out what to make, order against it, and tell the team.">Get ready for Halloween</button>
+      <button class="hint" data-p="What did running out cost me last month, and which product is worst?">What running out cost</button>
+    </div>
+
+    <section class="card">
+      <header><h2>The day so far</h2><span class="note" id="dayNote"></span></header>
+      <div class="figs" id="figs"></div>
+      <div class="bars" id="bars"></div>
+    </section>
+
+    <div class="grid g-side">
+      <section class="card">
+        <header><h2>Tomorrow's bake</h2><span class="note" id="planday"></span></header>
+        <div id="plan"></div>
+        <div class="total"><span>Total units</span><span id="planTotal">—</span></div>
+        <div id="askBox"></div>
+      </section>
+      <section class="card">
+        <header><h2>What the till could not tell you</h2><span class="note" id="heroDay"></span></header>
+        <p class="say" id="heroSay">Reading the till…</p>
+        <p class="sub" id="heroSub"></p>
+        <div class="chartwrap">
+          <div id="chart"></div>
+          <div class="key">
+            <div><span class="sw a"></span><span>What sold<em id="kSold">—</em></span></div>
+            <div><span class="sw b"></span><span>What a normal day would have done<em id="kWould">—</em></span></div>
+            <div><span class="sw c"></span><span>The people who left<em id="kGap">—</em></span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ══ BOARD ══ -->
+  <div class="view" id="v-board">
+    <section class="card">
+      <header><h2>Assigned</h2><span class="note" id="teamDay"></span></header>
+      <div class="people" id="people"></div>
+    </section>
+  </div>
+
+  <!-- ══ DIARY ══ -->
+  <div class="view" id="v-diary">
+    <div class="grid g-2">
+      <section class="card">
+        <header><h2>Coming up</h2><span class="note">lead time, not dates</span></header>
+        <div id="diary"></div>
+      </section>
+      <section class="card">
+        <header><h2>Local events</h2><span class="note">markets and fairs worth a stall</span></header>
+        <p class="idle" id="events">Web search is not configured yet. Set TAVILY_API_KEY and it will look for markets, note the application deadlines and stall fees, and tell you what last year's attendance actually was.</p>
+      </section>
+    </div>
+  </div>
+
+  <!-- ══ REPORTS ══ -->
+  <div class="view" id="v-reports">
+    <section class="card">
+      <header><h2>The week</h2>
+        <a class="act go" href="/api/report" target="_blank" rel="noopener">Open the printable report</a></header>
+      <div id="weekSaid"></div>
+    </section>
+    <div class="grid g-2">
+      <section class="card">
+        <header><h2>What is moving</h2><span class="note">on demand, not on sales</span></header>
+        <div id="moves"></div>
+      </section>
+      <section class="card">
+        <header><h2>Best sellers</h2><span class="note">three ways</span></header>
+        <div id="sellers"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ══ SETUP ══ -->
+  <div class="view" id="v-setup">
+    <section class="card">
+      <header><h2>Where the numbers come from</h2><span class="note" id="live"></span></header>
+      <div class="pipe">
+        <div class="node live"><b>Till</b><i>bills, with times</i></div>
+        <span class="arrow">→</span>
+        <div class="node live"><b>Your manager</b><i>reads, corrects, decides</i></div>
+        <span class="arrow">→</span>
+        <div class="node live"><b>The team</b><i>lists and orders</i></div>
+        <span class="arrow">→</span>
+        <div class="node live"><b>You</b><i>only when it matters</i></div>
+      </div>
+      <dl class="kv" id="source"></dl>
+    </section>
+    <section class="card">
+      <header><h2>When it wakes</h2><span class="note">nobody opens this app</span></header>
+      <div id="schedule"></div>
+    </section>
+    <section class="card">
+      <header><h2>What it sent you</h2><span class="note">it writes only when something needs you</span></header>
+      <div id="post"></div>
+    </section>
+  </div>
+
 </div>
 
-<div class="g panel" id="panel" role="dialog" aria-label="Settings">
-  <h2>Never route above</h2>
-  <div class="opts" id="ceil"></div>
-  <label for="habit">Compare against</label>
-  <select id="habit">
-    <option value="cheap">cheap</option><option value="mid">mid</option>
-    <option value="heavy">heavy</option><option value="max">max</option>
-  </select>
-  <h2>Answering right now</h2>
-  <div class="cat" id="catalogue"></div>
-  <div class="row"><span>cases today</span><b id="nCases">0</b></div>
-  <div class="row"><span>backend</span><b id="panelBackend">--</b></div>
-  <p class="foot-note">Which models exist, and any keys they need, live in
-     <code>src/config.py</code>. A running instance cannot point itself
-     somewhere new from a web form.</p>
+<button class="fab" id="fab" aria-label="Ask your manager" aria-expanded="false">✳</button>
+<div class="panel" id="panel" role="dialog" aria-label="Ask your manager">
+  <div class="brief" style="box-shadow:none;padding-left:.9rem">
+    <input id="prompt2" type="text" autocomplete="off" placeholder="Ask, or tell it what to do…"
+      aria-label="Ask your manager">
+    <button class="act go" id="send2">Ask</button>
+  </div>
+  <div class="row">
+    <button class="act" id="runNight">Run this evening</button>
+    <button class="act" id="runWeek">Weekly review</button>
+  </div>
+  <pre id="log" class="idle">It wakes on its own at close of trade, before the night shift, and at each supplier cutoff. Ask it something, or watch a run.</pre>
 </div>
 
 <script>
-const ORDER = ["cheap", "mid", "heavy", "max"];
-const COLOR = {cheap:"var(--cheap)", mid:"var(--mid)", heavy:"var(--heavy)", max:"var(--max)"};
-const usd = v => v < 0.001 ? "$" + v.toFixed(6) : "$" + v.toFixed(4);
-const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g,
-  x => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[x]));
-const attr = x => String(x).replace(/"/g, "&quot;");
-
-/* Model names, tiers and costs all come from the server. Nothing on this page
-   predicts a price or mirrors a routing rule. A copy kept here would drift
-   from src/ the first time somebody changed a tier, and a number this file
-   invented would look exactly like one a provider actually charged. */
-let MODELS = {}, CASES = [], TURNS = {};
-let offline = false, note = null;
-let openCase = null;     // the conversation on screen; null means a new one
-let waiting = null;      // the turn we are still waiting on
-let steps = [];          // what the hooks have reported for it so far
-let showSteps = false;   // diagnostics stay closed until asked for
-let gate = null;         // a turn the bureau stopped to ask about
-let pick = null, choosing = false, overridden = false;
-let ceiling = "max", habit = "max";
-
-const $ = id => document.getElementById(id);
-const thread = $("thread"), input = $("input"), send = $("send"), routeEl = $("route"),
-      casesEl = $("cases"), panel = $("panel"), gear = $("gear"), ceilEl = $("ceil");
-
-/* One per lane, in order: cheap and solo, mid and solo, heavy and the full
-   team, then one the bureau stops and asks you about first. */
-const SEEDS = [
-  "Summarise this sales call transcript into next steps and owners",
-  "Write the SQL for monthly active users by plan tier",
-  "Review the vendor contract redline and flag what I should push back on",
-  "Should we terminate the reseller agreement this quarter"
-];
-
-/* ------------------------------------------------------------ sidebar width */
-
-/* It goes all the way to nothing. Below the snap point it collapses rather
-   than sitting at an awkward width where the case titles are unreadable, and
-   the handle stays put at the edge so it can be pulled back out. */
-const SIDE_MIN = 0, SIDE_MAX = 720, SIDE_DEFAULT = 288, SIDE_SNAP = 116;
-const grip = $("grip");
-
-function setSide(width) {
-  let w = Math.max(SIDE_MIN, Math.min(SIDE_MAX, Math.round(width)));
-  if (w < SIDE_SNAP) w = 0;
-  document.documentElement.style.setProperty("--side", w + "px");
-  document.querySelector(".app").classList.toggle("shut", w === 0);
-  grip.setAttribute("aria-valuenow", w);
-  try { localStorage.setItem("tbi.side", w); } catch (err) { /* private window */ }
-}
-function currentSide() {
-  return parseInt(getComputedStyle(document.documentElement)
-    .getPropertyValue("--side")) || SIDE_DEFAULT;
-}
-try {
-  const saved = Number(localStorage.getItem("tbi.side"));
-  if (saved) setSide(saved);
-} catch (err) { /* storage can be blocked; the default width is fine */ }
-
-grip.addEventListener("pointerdown", e => {
-  e.preventDefault();
-  grip.setPointerCapture(e.pointerId);
-  grip.classList.add("on");
-  document.body.style.cursor = "col-resize";
-  document.body.style.userSelect = "none";
-
-  const move = ev => setSide(ev.clientX - 12);
-  const up = ev => {
-    grip.classList.remove("on");
-    document.body.style.cursor = "";
-    document.body.style.userSelect = "";
-    try { grip.releasePointerCapture(ev.pointerId); } catch (err) { /* gone */ }
-    grip.removeEventListener("pointermove", move);
-    grip.removeEventListener("pointerup", up);
-    grip.removeEventListener("pointercancel", up);
-  };
-  /* Capture puts the events on the handle, so a drag that outruns it keeps
-     going instead of stopping the moment the cursor leaves. */
-  grip.addEventListener("pointermove", move);
-  grip.addEventListener("pointerup", up);
-  grip.addEventListener("pointercancel", up);
-});
-grip.addEventListener("dblclick", () =>
-  setSide(currentSide() === 0 ? SIDE_DEFAULT : 0));
-grip.addEventListener("keydown", e => {
-  if (e.key === "ArrowLeft") { setSide(currentSide() - 24); e.preventDefault(); }
-  if (e.key === "ArrowRight") {
-    setSide(Math.max(currentSide() + 24, SIDE_SNAP)); e.preventDefault();
-  }
-  if (e.key === "Home") { setSide(SIDE_DEFAULT); e.preventDefault(); }
-});
-
-/* ------------------------------------------------------------------ sidebar */
-
-function drawCases() {
-  let html = "", last = null;
-  CASES.forEach(c => {
-    if (c.day !== last) { html += `<div class="grp">${c.day}</div>`; last = c.day; }
-    const turns = c.turns > 1 ? `<span>${c.turns} turns</span>` : "";
-    html += `<button class="case" data-id="${attr(c.id)}"
-        aria-current="${c.id === openCase}">
-      <span class="t">${esc(c.title)}</span>
-      <span class="s"><span class="pip" style="background:${COLOR[c.tier] || "var(--mid)"}"></span>${esc(c.tier)}
-        <span>${usd(c.cost)}</span>${turns}</span></button>`;
-  });
-  casesEl.innerHTML = html;
-}
-
-/* ------------------------------------------------------------- empty states */
-
-function emptyState() {
-  $("title").textContent = "New case";
-  if (offline) {
-    thread.innerHTML = `<div class="empty"><div class="empty-in">
-      <img src="logo.png" alt="">
-      <h1>Not connected</h1>
-      <p>The interface is open but the bureau is not running, so there is nothing
-         real to show and nothing invented in its place. Start it and reload:</p>
-      <pre class="cmd">python ui/server.py</pre>
-      <p>That serves this page at <b>localhost:8756</b> and runs every request
-         through the same code the tests use. Add <b>USE_AWS=true</b> for Bedrock;
-         without it, requests go to Ollama on localhost:11434 and cost nothing.</p>
-    </div></div>`;
-    return;
-  }
-  thread.innerHTML = `<div class="empty"><div class="empty-in">
-    <img src="logo.png" alt="">
-    <h1>What do you need done?</h1>
-    <p>Write it the way you would say it. The bureau reads it, picks the model the
-       work actually needs, and keeps the receipt.</p>
-    <div class="seeds">${SEEDS.map(x =>
-      `<button class="seed" data-s="${attr(x)}">${esc(x)}</button>`).join("")}
-    </div>
-  </div></div>`;
-}
-
-/* --------------------------------------------------------------- the record */
-
-function turnHtml(turn, index, all) {
-  if (turn.role === "you") {
-    return `<div class="turn"><div class="you">${esc(turn.text)}</div></div>`;
-  }
-  const calls = turn.calls || [];
-  const detail = calls.length
-    ? `<button type="button" class="disclose" data-open="${index}">${calls.length} calls</button>`
-    : "";
-  const rows = calls.map(k => `<div><b>${esc(k.agent)}</b>
-      <span>${esc(k.tier)}</span>
-      <span>${k.input_tokens} in, ${k.output_tokens} out</span>
-      <span class="n">${usd(k.cost)}</span></div>`).join("");
-  const stopped = (turn.blocks || []).map(b => `<div class="stop"><b>stopped</b>
-      <span>${esc(b.reason)}</span></div>`).join("");
-  const compare = turn.baseline > turn.cost
-    ? `<div class="sum"><b>on ${esc(MODELS[habit] || habit)}</b>
-       <span class="n">${usd(turn.baseline)}</span></div>` : "";
-  const last = index === all.length - 1;
-  return `<div class="turn"><div class="tbi">
-      <div class="stamp">
-        <span class="pip" style="background:${COLOR[turn.tier] || "var(--mid)"}"></span>
-        <b>${esc(turn.tier)}</b><span>${esc(MODELS[turn.tier] || "")}</span>
-        <span>${usd(turn.cost)}</span>
-        ${turn.path ? `<span>${esc(turn.path)}</span>` : ""}${detail}
-      </div>
-      <div class="calls" id="calls${index}" hidden>${rows}${stopped}${compare}</div>
-      <div class="body"><p>${esc(turn.text)}</p></div>
-      ${last ? rateHtml(turn) : ""}
-    </div></div>`;
-}
-
-function rateHtml(turn) {
-  return `<div class="acts">
-      <button class="act" data-r="ok" data-id="${attr(turn.id)}"
-              data-tier="${attr(turn.tier)}" aria-label="Good answer">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 8.6l2.6 2.6L12 5.8"
-          stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <button class="act" data-r="bad" data-id="${attr(turn.id)}"
-              data-tier="${attr(turn.tier)}" aria-label="Not good enough">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M5 5l6 6M11 5l-6 6"
-          stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-      </button>
-    </div>`;
-}
-
-function stepsHtml() {
-  /* Every line is one Strands hook. A model call that happened and a tool the
-     coordinator reached for both show up here, so the difference between one
-     agent and six is visible rather than inferred. */
-  if (!steps.length) return "";
-  const rows = steps.map(step => {
-    if (step.kind === "tool") {
-      return step.state === "start"
-        ? `<div class="live"><b>${esc(step.agent)}</b><span>consulting</span></div>`
-        : `<div><b>${esc(step.agent)}</b><span>answered</span>
-           <span class="n">${step.seconds}s</span></div>`;
-    }
-    if (step.kind === "block") {
-      return `<div class="stop"><b>stopped</b><span>${esc(step.reason)}</span></div>`;
-    }
-    return `<div><b>${esc(step.agent)}</b><span>${esc(step.tier)}</span>
-      <span>${step.input_tokens} in, ${step.output_tokens} out</span>
-      <span>${step.seconds}s</span>
-      <span class="n">${usd(step.cost)}</span></div>`;
-  }).join("");
-  const calls = steps.filter(s => s.kind === "call").length;
-  const spent = steps.reduce((t, s) => t + (s.cost || 0), 0);
-  const elapsed = steps.reduce((t, s) => Math.max(t, s.at || 0), 0);
-  return `<div class="think">
-    <button type="button" class="think-head" id="thinkToggle"
-            aria-expanded="${showSteps}">
-      <svg class="arrow" width="9" height="9" viewBox="0 0 8 8" fill="none"
-           aria-hidden="true"><path d="M2.5 1L6 4L2.5 7" stroke="currentColor"
-           stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      ${calls} call${calls === 1 ? "" : "s"}, ${elapsed.toFixed(1)}s, ${usd(spent)}
-    </button>
-    ${showSteps ? `<div class="steps">${rows}</div>` : ""}
-  </div>`;
-}
-
-function approvalCard(ask) {
-  return `<div class="approve">
-    <span class="k">Your call</span>
-    <span class="v">This reads as <b>${esc(ask.risk)}</b> risk and wants the
-      <b>${esc(ask.tier)}</b> tier (${esc(ask.model)}), above your standing ceiling
-      of <b>${esc(ask.ceiling)}</b>. Nothing has run and nothing has been billed.</span>
-    <div class="row">
-      <button type="button" class="yes" data-ok="1">Authorise</button>
-      <button type="button" data-ok="0">Decline</button>
-    </div>
-  </div>`;
-}
-
-function drawThread() {
-  raiseSpiders();
-  const turns = (openCase && TURNS[openCase]) || [];
-
-  if (!turns.length && !waiting && !gate) { emptyState(); return; }
-
-  const head = CASES.find(c => c.id === openCase);
-  $("title").textContent = head ? head.title
-    : (waiting ? waiting.text : "New case");
-
-  let html = note ? `<div class="forensic"><span class="k">Forensics</span>
-      <span class="v">${esc(note)}</span></div>` : "";
-  html += turns.map((t, i) => turnHtml(t, i, turns)).join("");
-
-  if (waiting) {
-    html += `<div class="turn"><div class="you">${esc(waiting.text)}</div></div>`;
-    if (gate) html += approvalCard(gate);
-    else html += `<div class="turn"><div class="tbi">${stepsHtml()}
-        <div class="body">
-        <span class="waiting">the bureau is reading the case</span></div></div></div>`;
-  }
-
-  thread.innerHTML = html;
-  if (waiting && !gate) lowerSpiders();
-  thread.scrollTop = thread.scrollHeight;
-}
-
-/* --------------------------------------------------------------- the spider */
-
-let spiderStop = null;
-
-/* How far each may go and how long she takes. The easing is a strong ease
-   out, so most of the distance goes early and they creep afterwards: a two
-   second call and a forty second call both read, and neither reaches the
-   bottom. The browser runs the transition, so it keeps going when the tab is
-   in the background. requestAnimationFrame does not. */
-const DROP_MAX = 132;
-
-function lowerSpiders() {
-  raiseSpiders();
-  thread.classList.add("busy");
-  thread.appendChild($("spriteTpl").content.cloneNode(true));
-  const runner = thread.querySelector(".runner");
-
-  const bug = runner.querySelector(".bug");
-  const reach = Math.min(DROP_MAX, Math.max(runner.clientHeight - 108, 24));
-  bug.style.setProperty("--reach", reach + "px");
-
-  spiderStop = () => {
-    /* They let go: the threads whip up and both fall out of frame. */
-    runner.classList.add("done");
-    const fall = runner.clientHeight + 120;
-    bug.style.animation = "none";
-    bug.style.transition = "transform .5s cubic-bezier(.55,0,.9,.45), " +
-                           "opacity .4s ease-in .2s";
-    bug.getBoundingClientRect();            // keep where she was, then let go
-    bug.style.transform = "translateY(" + fall + "px)";
-    bug.style.opacity = "0";
-    setTimeout(() => runner.remove(), 700);
-    spiderStop = null;
-  };
-}
-
-function raiseSpiders() {
-  if (spiderStop) spiderStop();
-  thread.classList.remove("busy");
-  thread.querySelectorAll(".runner").forEach(node => node.remove());
-}
-
-/* -------------------------------------------------------------- interaction */
-
-thread.addEventListener("click", e => {
-  const seed = e.target.closest(".seed");
-  if (seed) {
-    input.value = seed.dataset.s;
-    input.dispatchEvent(new Event("input"));
-    input.focus();
-    return;
-  }
-  if (e.target.closest("#thinkToggle")) {
-    showSteps = !showSteps;
-    drawThread();
-    return;
-  }
-  const open = e.target.closest("[data-open]");
-  if (open) {
-    const box = $("calls" + open.dataset.open);
-    if (box) box.hidden = !box.hidden;
-    return;
-  }
-  const answer = e.target.closest("[data-ok]");
-  if (answer) {
-    if (answer.dataset.ok === "1") { submit(waiting.text, true); return; }
-    gate = null;
-    waiting = null;
-    drawThread();
-    return;
-  }
-  const act = e.target.closest(".act");
-  if (act) {
-    const on = act.getAttribute("aria-pressed") === "true";
-    [...act.parentElement.children].forEach(b =>
-      b.setAttribute("aria-pressed", String(b === act && !on)));
-    if (on) return;
-    /* memory.escalate reads a negative mean, so a rejection is -1. Sending 0
-       would record the complaint and change nothing. */
-    fetch("/api/rate", {method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({id: act.dataset.id, tier: act.dataset.tier,
-                            rating: act.dataset.r === "ok" ? 1 : -1})
-    }).then(() => refresh(false)).catch(() => {});
-  }
-});
-
-casesEl.addEventListener("click", async e => {
-  const button = e.target.closest(".case");
-  if (!button) return;
-  openCase = button.dataset.id;
-  waiting = gate = null;
-  await loadCase(openCase);
-  drawCases();
-  drawThread();
-});
-
-$("new").addEventListener("click", () => {
-  openCase = null; waiting = gate = null; overridden = false; pick = null;
-  drawCases(); drawThread(); input.focus();
-});
-
-async function loadCase(id) {
-  try {
-    const d = await (await fetch("/api/case?id=" + encodeURIComponent(id))).json();
-    TURNS[id] = d.turns || [];
-  } catch (err) { TURNS[id] = TURNS[id] || []; }
-}
-
-/* The bureau chooses the model, because six agent calls against one is a
-   latency decision as much as a cost one. The override is here because
-   somebody who knows the work beats a guess about it, but it is opt in, and
-   it never shows a price before a provider has charged one. */
-function drawRoute() {
-  if (!input.value.trim()) { routeEl.classList.remove("on"); return; }
-  routeEl.classList.add("on");
-  routeEl.innerHTML = choosing
-    ? '<span class="opts">' + ORDER.map(k =>
-        `<button type="button" class="opt" data-k="${k}" aria-pressed="${k === pick}">${k}</button>`
-      ).join("") + '</span>'
-    : overridden
-      ? `<b>${esc(pick)}</b><span>${esc(MODELS[pick] || "")}</span>
-         <button type="button" class="link" id="chg">let the bureau choose</button>`
-      : `<span>the bureau picks the model</span>
-         <button type="button" class="link" id="chg">choose it yourself</button>`;
-}
-
-input.addEventListener("input", () => {
-  input.style.height = "auto";
-  input.style.height = input.scrollHeight + "px";
-  send.disabled = !input.value.trim();
-  drawRoute();
-});
-routeEl.addEventListener("click", e => {
-  if (e.target.id === "chg") {
-    if (overridden) { overridden = false; pick = null; drawRoute(); return; }
-    choosing = true;
-    drawRoute();
-    routeEl.querySelector(".opt").focus();
-    return;
-  }
-  const o = e.target.closest(".opt");
-  if (o) { pick = o.dataset.k; overridden = true; choosing = false; drawRoute(); }
-});
-input.addEventListener("keydown", e => {
-  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
-});
-send.addEventListener("click", () => submit());
-
-/* ------------------------------------------------------------------ sending */
-
-async function submit(text, approved) {
-  const asked = (text !== undefined ? text : input.value).trim();
-  if (!asked) return;
-  const forced = overridden ? pick : null;
-  if (text === undefined) { input.value = ""; input.style.height = "auto"; }
-  send.disabled = true;
-  routeEl.classList.remove("on");
-
-  waiting = {text: asked};
-  gate = null;
-  steps = [];
-  drawThread();
-  document.querySelector(".head img").classList.add("busy");
-
-  let failure = null, finished = null;
-  try {
-    const res = await fetch("/api/ask", {method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({text: asked, tier: forced, approved: !!approved,
-                            case_id: openCase, stream: true})});
-
-    /* One line of JSON per step, the last one carrying the answer. Reading it
-       as it arrives is what makes the working notes live rather than a
-       replay of something already over. */
-    const reader = res.body.getReader();
-    const decode = new TextDecoder();
-    let buffer = "";
-    while (true) {
-      const {value, done} = await reader.read();
-      if (done) break;
-      buffer += decode.decode(value, {stream: true});
-      const lines = buffer.split("\n");
-      buffer = lines.pop();
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        let parsed;
-        try { parsed = JSON.parse(line); } catch (err) { continue; }
-        if (parsed.step) { steps.push(parsed.step); drawThread(); }
-        if (parsed.done) finished = parsed.done;
-      }
-    }
-  } catch (err) {
-    failure = String(err.message || err);
-  }
-
-  if (finished) {
-    if (finished.needs_approval) gate = finished.needs_approval;
-    else if (finished.error) failure = finished.error;
-    else if (finished.declined) failure = "Declined. Nothing ran and nothing was billed.";
-    else {
-      openCase = finished.case_id;
-      await loadCase(openCase);
-      waiting = null;
-      await refresh(false);
-    }
-  } else if (!failure) {
-    failure = "The connection closed before the bureau answered.";
-  }
-
-  if (failure) {
-    waiting = null;
-    gate = null;
-    thread.innerHTML = `<div class="turn"><div class="you">${esc(asked)}</div></div>
-      <div class="turn"><div class="tbi"><div class="forensic">
-        <span class="k">Stopped</span><span class="v">${esc(failure)}</span>
-      </div></div></div>`;
-    raiseSpiders();
-  } else {
-    drawCases();
-    drawThread();
-  }
-  overridden = false; pick = null;
-  send.disabled = !input.value.trim();
-  document.querySelector(".head img").classList.remove("busy");
-}
-
-/* ------------------------------------------------------------------ reading */
-
-async function refresh(redraw = true) {
-  try {
-    const d = await (await fetch("/api/state")).json();
-    offline = false;
-    MODELS = d.models || {};
-    ceiling = d.ceiling;
-    habit = d.habit;
-    /* A case still waiting on the model is not in the ledger yet. The health
-       probe makes this request slow, so without this a reply that lands while
-       the page is loading gets erased by the load. */
-    CASES = d.history;
-    $("today").textContent = $("fToday").textContent = usd(d.today);
-    $("fMonth").textContent = usd(d.month);
-    $("fSaved").textContent = d.saved == null ? "--" : d.saved + "%";
-    $("nCases").textContent = d.history.filter(h => h.day === "Today").length;
-    $("backend").textContent = d.backend;
-    $("backend").title = d.backend_detail || "";
-    $("panelBackend").textContent = d.backend;
-    $("panelBackend").title = d.backend_detail || "";
-    drawSettings();
-    if (redraw) { drawCases(); drawThread(); }
-  } catch (err) {
-    offline = true;
-    if (redraw) { drawCases(); drawThread(); }
-  }
-}
-
-/* Speaks only when something needs a decision, so an empty reply shows nothing
-   rather than a reassuring sentence nobody asked for. */
-fetch("/api/forensics").then(r => r.json()).then(d => {
-  if (d && d.note) { note = d.note; drawThread(); }
-}).catch(() => {});
-
-/* ------------------------------------------------------------ the spending */
-
-let view = "cases", usage = null;
-
-const pct = (part, whole) => whole > 0 ? Math.round(100 * part / whole) : 0;
-const secs = v => v >= 10 ? v.toFixed(0) + "s" : v.toFixed(1) + "s";
-
-function setView(next) {
-  view = next;
-  [...$("views").children].forEach(b =>
-    b.setAttribute("aria-pressed", String(b.dataset.view === next)));
-  $("thread").hidden = next !== "cases";
-  $("dash").hidden = next !== "spend";
-  document.querySelector(".composer").hidden = next !== "cases";
-  if (next === "spend") drawDash();
-}
-
-$("views").addEventListener("click", e => {
-  const b = e.target.closest("button[data-view]");
-  if (b) setView(b.dataset.view);
-});
-
-function bars(rows, total, colour) {
-  /* One row per group, widths in proportion to spend. Nothing is drawn for a
-     group with no spend, because a bar of zero width still reads as a bar. */
-  return rows.map(([name, e]) => `<div class="rw">
-      <span>${colour ? `<i class="tag" style="background:${COLOR[name] || "var(--mid)"}">${esc(name)}</i>`
-                     : esc(name.replace(/_/g, " "))}</span>
-      <span class="bar"><i style="width:${pct(e.cost, total)}%;
-        background:${colour ? (COLOR[name] || "var(--mid)") : "var(--dim)"}"></i></span>
-      <span>${usd(e.cost)}</span>
-      <span>${e.cost_per_accepted == null ? "--" : usd(e.cost_per_accepted)}</span>
-      <span>${e.accept_rate == null ? "--" : Math.round(e.accept_rate * 100) + "%"}</span>
-    </div>`).join("");
-}
-
-function worth(quality, spent) {
-  const tiers = Object.entries(quality.by_tier)
-    .sort((a, b) => b[1].cost - a[1].cost);
-  if (!tiers.length) {
-    return `<div class="blank"><b>Nothing measured yet.</b> Run a case and this
-      fills in with what it actually cost.</div>`;
-  }
-  const rated = tiers.some(([, e]) => e.rated > 0);
-  const note = rated ? "" : `<div class="blank">Costs are here, but nothing has
-      been rated yet, so the two columns on the right are still unknown. Rate an
-      answer and this becomes the only number that matters.</div>`;
-  return `<div class="grid">
-      <div class="hd"><span>tier</span><span>share of spend</span><span>spent</span>
-        <span>per accepted</span><span>accepted</span></div>
-      ${bars(tiers, spent, true)}
-    </div>${note}`;
-}
-
-function whereItWent(quality, spent) {
-  const domains = Object.entries(quality.by_domain)
-    .sort((a, b) => b[1].cost - a[1].cost).slice(0, 8);
-  if (!domains.length) {
-    return `<div class="blank"><b>No work recorded yet.</b></div>`;
-  }
-  return `<div class="grid">
-      <div class="hd"><span>work</span><span>share of spend</span><span>spent</span>
-        <span>per accepted</span><span>accepted</span></div>
-      ${bars(domains, spent, false)}
-    </div>`;
-}
-
-function daily(days) {
-  if (!days.length) return `<div class="blank"><b>No days recorded yet.</b></div>`;
-  const peak = Math.max(...days.map(d => d.cost), 0);
-  const median = [...days].map(d => d.cost).sort((a, b) => a - b)[Math.floor(days.length / 2)];
-  return `<div class="days">${days.map(d => {
-      const high = median > 0 && d.cost > median * 2;
-      return `<div class="day${high ? " hot" : ""}" title="${d.day}: ${usd(d.cost)}"
-        style="height:${peak > 0 ? Math.max(3, 100 * d.cost / peak) : 3}%"></div>`;
-    }).join("")}</div>
-    <div class="axis"><span>${esc(days[0].day)}</span>
-      <span>${esc(days[days.length - 1].day)}</span></div>`;
-}
-
-function adaptation(split) {
-  const rows = Object.entries(split);
-  const anyRated = rows.some(([, e]) => e.accepted > 0);
-  if (!rows.length) return `<div class="blank"><b>Nothing recorded yet.</b></div>`;
-  if (!anyRated) {
-    return `<div class="blank">The system fits the wording to the model that
-      answers. Whether that helps is a question about ratings, and nothing has
-      been rated yet. Until then this is an open question, not a claim.</div>`;
-  }
-  return `<div class="grid">
-      <div class="hd"><span>prompt</span><span></span><span>requests</span>
-        <span>per accepted</span><span>accepted</span></div>
-      ${rows.map(([name, e]) => `<div class="rw">
-        <span>${esc(name)}</span><span></span><span>${e.n}</span>
-        <span>${e.cost_per_accepted == null ? "--" : usd(e.cost_per_accepted)}</span>
-        <span>${e.accept_rate == null ? "--" : Math.round(e.accept_rate * 100) + "%"}</span>
-      </div>`).join("")}
-    </div>`;
-}
-
-function changed(flagged) {
-  if (!flagged.length && !note) {
-    return `<div class="blank">Nothing unusual. The bureau speaks only when
-      something needs a decision.</div>`;
-  }
-  const rows = flagged.map(f => `<div class="rw"><span>${esc(f.user)}</span>
-      <span></span><span>${usd(f.latest)}</span><span>${usd(f.median)}</span>
-      <span></span></div>`).join("");
-  return (note ? `<div class="forensic"><span class="k">Forensics</span>
-      <span class="v">${esc(note)}</span></div>` : "")
-    + (rows ? `<div class="grid"><div class="hd"><span>who</span><span></span>
-        <span>latest</span><span>usual</span><span></span></div>${rows}</div>` : "");
-}
-
-async function drawDash() {
-  const box = $("dash");
-  try {
-    usage = await (await fetch("/api/usage")).json();
-  } catch (err) {
-    box.innerHTML = `<div class="dash-in"><div class="blank">
-      <b>Cannot reach the bureau.</b> Nothing is shown rather than something
-      invented.</div></div>`;
-    return;
-  }
-  const t = usage.totals, q = usage.quality;
-  const habit = (usage.habit_model || "").split(".").pop();
-
-  box.innerHTML = `<div class="dash-in">
-    <div class="head-figs">
-      <div class="fig"><span class="v">${usd(t.cost)}</span>
-        <span class="k">spent, last 30 days</span></div>
-      <div class="fig quiet"><span class="v">${usd(t.baseline)}</span>
-        <span class="k">the same work on ${esc(habit || "the usual model")}</span></div>
-      <div class="fig quiet"><span class="v">${t.saved_pct == null ? "--" : t.saved_pct + "%"}</span>
-        <span class="k">less</span></div>
-      <div class="fig quiet"><span class="v">${t.cases}</span>
-        <span class="k">cases, ${t.calls} model calls</span></div>
-      <div class="fig quiet"><span class="v">${t.seconds ? secs(t.seconds) : "--"}</span>
-        <span class="k">spent waiting</span></div>
-    </div>
-
-    <div class="sect">
-      <h2>Was it worth it</h2>
-      <p class="why">Spend divided by the answers you actually accepted. A cheap
-        tier you reject half the time can cost more per useful answer than a
-        dearer one that lands, and no bill can see a rejection.</p>
-      ${worth(q, t.cost)}
-    </div>
-
-    <div class="sect">
-      <h2>Where it went</h2>
-      ${whereItWent(q, t.cost)}
-    </div>
-
-    <div class="sect">
-      <h2>By day</h2>
-      ${daily(usage.daily)}
-    </div>
-
-    <div class="sect">
-      <h2>Does fitting the prompt help</h2>
-      ${adaptation(q.by_adaptation)}
-    </div>
-
-    <div class="sect">
-      <h2>What changed</h2>
-      ${changed(usage.anomalies || [])}
-    </div>
-  </div>`;
-}
-
-/* ----------------------------------------------------------------- settings */
-
-function drawSettings() {
-  ceilEl.innerHTML = ORDER.map(k =>
-    `<button type="button" class="opt" data-c="${k}" aria-pressed="${k === ceiling}">${k}</button>`
-  ).join("");
-  if ($("habit").value !== habit) $("habit").value = habit;
-
-  /* What each tier actually reaches, read from the server rather than written
-     here. A list kept in this file would disagree with config.py the first
-     time somebody changed a model, and disagree silently. */
-  $("catalogue").innerHTML = ORDER.map(k => `<div>
-      <b>${k}</b><span title="${attr(MODELS[k] || "")}">${esc(MODELS[k] || "--")}</span>
-    </div>`).join("");
-}
-
-async function saveSettings(patch) {
-  try {
-    const res = await fetch("/api/settings", {method: "POST",
-      headers: {"Content-Type": "application/json"}, body: JSON.stringify(patch)});
-    const d = await res.json();
-    if (d.error) return;
-    ceiling = d.ceiling;
-    habit = d.habit;
-    drawSettings();
-    refresh(false);
-  } catch (err) { /* the panel keeps showing what the server last confirmed */ }
-}
-
-ceilEl.addEventListener("click", e => {
-  const b = e.target.closest(".opt");
-  if (b) saveSettings({ceiling: b.dataset.c});
-});
-$("habit").addEventListener("change", e => saveSettings({habit: e.target.value}));
-
-gear.addEventListener("click", () =>
-  gear.setAttribute("aria-expanded", panel.classList.toggle("on")));
-addEventListener("keydown", e => {
-  if (e.key === "Escape" && panel.classList.contains("on")) {
-    panel.classList.remove("on");
-    gear.setAttribute("aria-expanded", "false");
-  }
-});
-document.addEventListener("click", e => {
-  if (!panel.contains(e.target) && !gear.contains(e.target)
-      && panel.classList.contains("on")) {
-    panel.classList.remove("on");
-    gear.setAttribute("aria-expanded", "false");
-  }
-});
-
-refresh();
-
-/* Background only: two very large soft fields, blue and gold, on white. The
-   glass above is CSS, which now has real content behind it to blur. */
+/* ── shader ─────────────────────────────────────────────────── */
 (function(){
-  const cv=$("shader"), gl=cv.getContext("webgl",{antialias:false});
-  if(!gl){cv.style.background=
-    "radial-gradient(58% 48% at 78% 22%,#F6E7C0,transparent),"+
-    "radial-gradient(58% 48% at 18% 82%,#CFDDF0,transparent),#fff";return}
-  const fs=`precision highp float;
-  uniform vec2 r; uniform float t;
-  float dither(vec2 p){return fract(52.9829189*fract(dot(p,vec2(.06711056,.00583715))));}
-  void main(){
-    vec2 uv=gl_FragCoord.xy/r; float ar=r.x/r.y;
-    vec2 p=(uv-.5)*vec2(ar,1.);
-    /* A slow swell across the whole field. Two waves at different rates and
-       angles, so it never repeats visibly and never reads as a loop. */
-    p += vec2(sin(p.y*1.7 + t*.19)*.020 + sin(p.y*0.8 - t*.11)*.014,
-              cos(p.x*1.4 + t*.16)*.017 + cos(p.x*0.6 + t*.09)*.012);
-    /* Weight-normalised: two lights combining, not one paint over another.
-       mix() in sequence let the blue erase most of the gold's chroma. */
-    vec2 g=p-vec2(.78+sin(t*.061)*.19, .50+cos(t*.048)*.14);
-    vec2 b=p-vec2(-.82+cos(t*.044)*.21,-.56+sin(t*.053)*.15);
-    /* And each one breathes, so the light is never quite the same size twice. */
-    float wg=exp(-dot(g,g)*(.42+sin(t*.13)*.055))*.95,
-          wb=exp(-dot(b,b)*(.38+cos(t*.10)*.050))*.95;
-    float w=wg+wb;
-    vec3 tint=(vec3(.973,.898,.718)*wg+vec3(.776,.851,.953)*wb)/max(w,1e-4);
-    vec3 c=mix(vec3(1.),tint,min(w,1.));
-    gl_FragColor=vec4(c+(dither(gl_FragCoord.xy)-.5)/255.,1.);
-  }`;
-  const mk=(ty,src)=>{const o=gl.createShader(ty);gl.shaderSource(o,src);gl.compileShader(o);
-    if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(o));return o};
+  const cv=document.getElementById("shader");
+  const gl=cv.getContext("webgl")||cv.getContext("experimental-webgl");
+  if(!gl){document.body.style.background=
+    "radial-gradient(120% 90% at 20% 10%,#FAEDF0,#FAF7F4 60%),radial-gradient(90% 70% at 85% 80%,#F7EFEA,#FAF7F4 65%)";return;}
+  const vs=`attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}`;
+  const fs=`precision highp float;uniform vec2 R;uniform float T;
+  float h(vec2 p){return fract(sin(dot(p,vec2(41.3,289.1)))*43758.5453);}
+  float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+    return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}
+  float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<5;i++){v+=a*n(p);p*=2.03;a*=.5;}return v;}
+  void main(){vec2 uv=gl_FragCoord.xy/R.xy;vec2 q=uv*1.7;q.x*=R.x/R.y;float t=T*.035;
+    vec2 w=vec2(fbm(q+vec2(t,0.)),fbm(q+vec2(1.7,-t)));
+    float f=fbm(q+w*1.6+vec2(0.,t*.6));
+    // Blanc cassé with the faintest pink moving through it. Almost nothing,
+    // which is the point: the background should be felt, not looked at.
+    vec3 base=vec3(.980,.969,.957);
+    vec3 pink=vec3(.965,.906,.914);
+    vec3 warm=vec3(.988,.961,.937);
+    vec3 c=base;
+    c=mix(c,pink,smoothstep(.38,.92,f)*.62);
+    c=mix(c,warm,smoothstep(.45,1.0,fbm(q*.75-w))*.45);
+    c=mix(c,base,.26*smoothstep(0.,.7,uv.y));
+    gl_FragColor=vec4(c,1.);}`;
+  const mk=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o;};
   const pr=gl.createProgram();
-  gl.attachShader(pr,mk(gl.VERTEX_SHADER,"attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}"));
-  gl.attachShader(pr,mk(gl.FRAGMENT_SHADER,fs));
-  gl.linkProgram(pr); gl.useProgram(pr);
-  gl.bindBuffer(gl.ARRAY_BUFFER,gl.createBuffer());
+  gl.attachShader(pr,mk(gl.VERTEX_SHADER,vs));gl.attachShader(pr,mk(gl.FRAGMENT_SHADER,fs));
+  gl.linkProgram(pr);gl.useProgram(pr);
+  const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);
   gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
-  const lp=gl.getAttribLocation(pr,"p");
-  gl.enableVertexAttribArray(lp); gl.vertexAttribPointer(lp,2,gl.FLOAT,false,0,0);
-  const ur=gl.getUniformLocation(pr,"r"),ut=gl.getUniformLocation(pr,"t");
-  const still=matchMedia("(prefers-reduced-motion:reduce)").matches;
-  const size=()=>{const d=Math.min(devicePixelRatio||1,2);
-    cv.width=innerWidth*d; cv.height=innerHeight*d; gl.viewport(0,0,cv.width,cv.height)};
-  const draw=ms=>{
-    gl.uniform2f(ur,cv.width,cv.height);
-    gl.uniform1f(ut,still?20:ms/1000);
-    gl.drawArrays(gl.TRIANGLES,0,3); requestAnimationFrame(draw)};
-  addEventListener("resize",size); size(); requestAnimationFrame(draw);
+  const loc=gl.getAttribLocation(pr,"p");gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+  const uR=gl.getUniformLocation(pr,"R"),uT=gl.getUniformLocation(pr,"T");
+  const still=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function size(){const d=Math.min(devicePixelRatio||1,1.5);
+    cv.width=innerWidth*d;cv.height=innerHeight*d;gl.viewport(0,0,cv.width,cv.height);}
+  addEventListener("resize",size);size();
+  (function loop(ms){gl.uniform2f(uR,cv.width,cv.height);gl.uniform1f(uT,still?40:ms*.001);
+    gl.drawArrays(gl.TRIANGLES,0,3);if(!still)requestAnimationFrame(loop);})(0);
+})();
+
+const $=s=>document.querySelector(s);
+let CUR="€";
+const money=v=>CUR+Math.round(v).toLocaleString();
+const api=async p=>{const r=await fetch(p);if(!r.ok)throw new Error(r.status);return r.json();};
+const el=(t,c,x)=>{const n=document.createElement(t);if(c)n.className=c;if(x!=null)n.textContent=x;return n;};
+const NS="http://www.w3.org/2000/svg";
+const svg=(t,a)=>{const n=document.createElementNS(NS,t);for(const k in a)n.setAttribute(k,a[k]);return n;};
+
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("nav button").forEach(x=>x.setAttribute("aria-selected",x===b));
+  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on",v.id==="v-"+b.dataset.view));});
+document.querySelectorAll(".hint").forEach(h=>h.onclick=()=>{
+  $("#prompt").value=h.dataset.p;$("#prompt").focus();});
+$("#fab").onclick=()=>{const p=$("#panel");const on=p.classList.toggle("on");
+  $("#fab").setAttribute("aria-expanded",on);if(on)$("#prompt2").focus();};
+
+/* ── the day: figures and bars straight off the bills ───────── */
+function today(t){
+  $("#dayNote").textContent=t.weekday+" "+t.day;
+  const figs=$("#figs");figs.textContent="";
+  const add=(v,label,warn)=>{const d=el("div","fig"+(warn?" warn":""));
+    d.appendChild(el("b",null,v));d.appendChild(el("i",null,label));figs.appendChild(d);};
+  add(t.customers.toLocaleString(),"customers");
+  add(money(t.revenue),"taken");
+  add(t.units.toLocaleString(),"units sold");
+  add(CUR+(t.average_basket||0).toFixed(2),"average basket");
+  if(t.ran_out) add(t.ran_out,"ran out",true);
+
+  const box=$("#bars");box.textContent="";
+  const top=Math.max(...t.rows.map(r=>r.wanted||r.sold))||1;
+  t.rows.slice(0,12).forEach(r=>{
+    const row=el("div","brow"+(r.ran_out?" out":""));
+    row.appendChild(el("span",null,r.item));
+    const lane=el("div","lane");
+    const fill=el("div","fill");fill.style.width=(r.sold/top*100)+"%";
+    lane.appendChild(fill);
+    if(r.ran_out&&r.wanted&&r.wanted>r.sold){
+      const ghost=el("div","ghost");
+      ghost.style.left=(r.sold/top*100)+"%";
+      ghost.style.width=((r.wanted-r.sold)/top*100)+"%";
+      lane.appendChild(ghost);
+      lane.appendChild(el("span","flag","out "+r.ran_out_at+" · ~"+r.wanted+" wanted"));
+    }
+    row.appendChild(lane);
+    row.appendChild(el("span","num",r.sold));
+    box.appendChild(row);
+  });
+}
+
+function drawCurve(c){
+  const W=560,H=230,L=32,R=12,T=14,B=24,n=c.sold.length;
+  const top=Math.max(...c.would_have,...c.sold)*1.08||1;
+  const x=i=>L+i*(W-L-R)/(n-1),y=v=>T+(H-T-B)*(1-v/top);
+  const path=p=>p.map((v,i)=>(i?"L":"M")+x(i).toFixed(1)+" "+y(v).toFixed(1)).join(" ");
+  const g=svg("svg",{viewBox:`0 0 ${W} ${H}`,role:"img",
+    "aria-label":`${c.item}: sold ${c.total_sold} of an estimated ${c.estimate}`});
+  [0,.5,1].forEach(f=>{const v=top*f;
+    g.appendChild(svg("line",{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:"rgba(58,42,32,.12)","stroke-width":1}));
+    const t=svg("text",{x:L-7,y:y(v)+4,"text-anchor":"end","font-family":"JetBrains Mono, monospace",
+      "font-size":"10",fill:"#A08C7C"});t.textContent=Math.round(v);g.appendChild(t);});
+  const s=c.sold_out_slot;
+  if(s!=null&&s<n-1){
+    const up=c.would_have.slice(s).map((v,i)=>`L${x(s+i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+    const dn=c.sold.slice(s).map((v,i)=>[x(s+i),y(v)]).reverse()
+      .map(([a,b])=>`L${a.toFixed(1)} ${b.toFixed(1)}`).join(" ");
+    g.appendChild(svg("path",{d:`M${x(s).toFixed(1)} ${y(c.would_have[s]).toFixed(1)} ${up} ${dn} Z`,
+      fill:"#D95C74","fill-opacity":".17"}));
+    g.appendChild(svg("line",{x1:x(s),x2:x(s),y1:T,y2:H-B,stroke:"#D95C74","stroke-width":1,"stroke-dasharray":"3 3"}));
+    const t=svg("text",{x:x(s)+6,y:T+11,"font-family":"JetBrains Mono, monospace","font-size":"10.5",
+      fill:"#D95C74","font-weight":"500"});t.textContent="ran out "+c.sold_out_at;g.appendChild(t);}
+  g.appendChild(svg("path",{d:path(c.would_have),fill:"none",stroke:"#D95C74","stroke-width":2,
+    "stroke-dasharray":"5 4","stroke-linecap":"round"}));
+  const solid=svg("path",{d:path(c.sold),fill:"none",stroke:"#3A2A20","stroke-width":2.6,
+    "stroke-linecap":"round","stroke-linejoin":"round"});
+  solid.setAttribute("class","draw");g.appendChild(solid);
+  [0,Math.floor(n/2),n-1].forEach(i=>{
+    const t=svg("text",{x:x(i),y:H-7,"text-anchor":i===0?"start":i===n-1?"end":"middle",
+      "font-family":"JetBrains Mono, monospace","font-size":"10",fill:"#A08C7C"});
+    t.textContent=c.labels[i];g.appendChild(t);});
+  $("#chart").textContent="";$("#chart").appendChild(g);
+}
+
+function hero(c){
+  if(!c){$("#heroSay").textContent="Nothing ran out this month.";return;}
+  $("#heroDay").textContent=c.day;
+  const say=$("#heroSay");say.textContent="";
+  say.append("You sold "+c.total_sold+" "+c.item.toLowerCase()+". ");
+  say.appendChild(el("b",null,"About "+c.estimate+" people wanted one."));
+  $("#heroSub").textContent="The tray emptied at "+c.sold_out_at
+    +". The till recorded a good day. "+money(c.lost_margin)+" of margin left with them.";
+  $("#kSold").textContent=c.total_sold+" units";
+  $("#kWould").textContent=c.estimate+" units · "+c.confidence+" confidence";
+  $("#kGap").textContent=c.missed+" people · "+money(c.lost_margin);
+  drawCurve(c);
+}
+
+function docket(plan){
+  $("#planday").textContent=new Date(plan.day+"T00:00:00")
+    .toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"});
+  $("#planTotal").textContent=plan.units.toLocaleString();
+  const rows=[...plan.rows].sort((a,b)=>(b.occasion_lift-a.occasion_lift)||(b.make-a.make));
+  const show=rows.slice(0,5),rest=rows.length-show.length;
+  const box=$("#plan");box.textContent="";
+  show.forEach(r=>{const lifted=r.occasion_lift>1.05;
+    const line=el("div","line"+(lifted?" lift":""));
+    line.appendChild(el("span",null,r.item));
+    line.appendChild(el("span","why",lifted?"×"+r.occasion_lift.toFixed(1)+" occasion":"usual "+Math.round(r.forecast)));
+    line.appendChild(el("span","qty",r.make));box.appendChild(line);});
+  if(rest>0)box.appendChild(el("div","rest","+ "+rest+" more, unchanged"));
+}
+
+function ask(run){
+  const box=$("#askBox");box.textContent="";
+  if(!run.asks||!run.asks.length)return;
+  const card=el("div","ask");
+  card.appendChild(el("span","label","Needs you"));
+  card.appendChild(el("p",null,run.asks[0]));
+  const row=el("div","row");
+  const settle=w=>{card.textContent="";card.appendChild(el("span","label","Settled"));
+    card.appendChild(el("p",null,w));};
+  const yes=el("button","act go","Put it on the plan"),no=el("button","act","Leave it");
+  yes.onclick=()=>settle("On the plan, and the order is raised against it.");
+  no.onclick=()=>settle("Left alone. I will ask again nearer the date.");
+  row.append(yes,no);card.appendChild(row);box.appendChild(card);
+}
+
+function moving(t){
+  const box=$("#moves");box.textContent="";
+  const rows=[...t.growing.map(r=>[r,"up"]),...t.declining.map(r=>[r,"down"])].slice(0,6);
+  if(!rows.length){box.appendChild(el("p","idle","Nothing moving beyond the week-to-week noise."));return;}
+  const big=Math.max(...rows.map(([r])=>Math.abs(parseFloat(r.change))));
+  rows.forEach(([r,dir])=>{const row=el("div","move");row.appendChild(el("span",null,r.item));
+    const tr=el("div","track"),fill=el("i",dir);
+    fill.style.width=(Math.abs(parseFloat(r.change))/big*42)+"px";
+    tr.appendChild(fill);row.appendChild(tr);
+    row.appendChild(el("span","pct "+dir,r.change));box.appendChild(row);});
+}
+
+function sellersList(s){
+  const box=$("#sellers");box.textContent="";
+  [["By units sold","by_units"],["By money kept","by_money_kept"],["By revenue","by_revenue"]]
+    .forEach(([label,key])=>{const row=el("div","job");
+      row.appendChild(el("span","d",label));
+      row.appendChild(el("span",null,(s[key]||[]).slice(0,3).join(", ")));box.appendChild(row);});
+}
+
+function diary(cal){
+  const box=$("#diary");box.textContent="";
+  cal.occasions.slice(0,4).forEach(o=>{const d=el("div","occ");
+    d.appendChild(el("b",null,o.occasion));
+    d.appendChild(el("span",null,o.days_away+" days · "+o.peak_multiplier+"× on "+o.products.length+" lines"));
+    box.appendChild(d);});
+  cal.tasks_due.slice(0,12).forEach(t=>{const j=el("div","job");
+    j.appendChild(el("span","d",t.due));
+    const w=el("span",null,t.what);
+    if(t.overdue)w.appendChild(el("span","pill late","late"));
+    j.appendChild(w);box.appendChild(j);});
+}
+
+function board(t){
+  $("#teamDay").textContent="bake for "+t.plan_day+" · "+t.units+" units";
+  const box=$("#people");box.textContent="";
+  const done=JSON.parse(localStorage.getItem("done")||"{}");
+  t.board.forEach(p=>{
+    const card=el("section","card person"),head=el("header");
+    head.appendChild(el("h3",null,p.name));
+    head.appendChild(el("span","role",p.role+" · from "+p.starts));
+    card.appendChild(head);
+    if(!p.jobs.length)card.appendChild(el("p","idle","Nothing assigned."));
+    p.jobs.forEach((j,i)=>{
+      const id=p.name+"|"+i+"|"+j.what;
+      const t2=el("div","tick "+j.kind+(done[id]?" done":""));
+      const bx=el("span","box",done[id]?"✓":"");
+      t2.appendChild(bx);
+      const w=el("span",null,j.what);
+      if(j.flag)w.appendChild(el("span","pill "+j.flag,j.flag));
+      t2.appendChild(w);
+      t2.onclick=()=>{const now=!t2.classList.contains("done");
+        t2.classList.toggle("done",now);bx.textContent=now?"✓":"";
+        const store=JSON.parse(localStorage.getItem("done")||"{}");
+        if(now)store[id]=1;else delete store[id];
+        localStorage.setItem("done",JSON.stringify(store));};
+      card.appendChild(t2);});
+    box.appendChild(card);});
+}
+
+function messages(rows){
+  const box=$("#post");box.textContent="";
+  if(!rows.length){box.appendChild(el("p","idle",
+    "Nothing yet. It has run this week and had nothing worth your attention."));return;}
+  rows.forEach(m=>{const d=el("div","msg"+(m.urgency==="decision"?" decision":""));
+    d.appendChild(el("h4",null,m.subject));
+    d.appendChild(el("div","meta",(m.sent_at||"").replace("T"," ")+" · "+(m.to||"outbox")));
+    d.appendChild(el("p",null,m.body||""));box.appendChild(d);});
+}
+
+function setup(s){
+  $("#live").innerHTML='<span class="dot"></span>connected';
+  const dl=$("#source");dl.textContent="";
+  const add=(k,v)=>{dl.appendChild(el("dt",null,k));dl.appendChild(el("dd",null,v));};
+  add("source",s.kind);
+  add("file",s.path);
+  add("bills",s.bills.toLocaleString()+" ("+(s.bytes/1048576).toFixed(1)+" MB)");
+  add("covering",s.first_day+" to "+s.last_day+", "+s.trading_days+" trading days");
+  add("last write",s.updated.replace("T"," "));
+  add("products",s.products);
+  add("days corrected",s.corrected_days.toLocaleString()+" sell-outs adjusted");
+  const sch=$("#schedule");sch.textContent="";
+  s.schedule.forEach(r=>{const j=el("div","job");
+    j.appendChild(el("span","d",r.at));j.appendChild(el("span",null,r.does));sch.appendChild(j);});
+}
+
+function stream(body){
+  $("#panel").classList.add("on");$("#fab").setAttribute("aria-expanded","true");
+  const log=$("#log");log.className="";log.textContent="";
+  const write=(t,c)=>{log.appendChild(el("span",c,t+"\n"));log.scrollTop=log.scrollHeight;};
+  const buttons=[$("#runNight"),$("#runWeek"),$("#send"),$("#send2")];
+  buttons.forEach(b=>b.disabled=true);write("waking up");
+  fetch("/api/agent",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
+    .then(async res=>{const reader=res.body.getReader(),dec=new TextDecoder();let buf="";
+      for(;;){const {done,value}=await reader.read();if(done)break;
+        buf+=dec.decode(value,{stream:true});
+        const parts=buf.split("\n");buf=parts.pop();
+        for(const line of parts){if(!line.trim())continue;
+          let e;try{e=JSON.parse(line);}catch{continue;}
+          if(e.kind==="tool")write("  "+String(e.n).padStart(2," ")+"  "+e.tool,"t");
+          else if(e.kind==="thinking")write("      thinking   $"+(e.cost||0).toFixed(5));
+          else if(e.kind==="blocked")write("  held: "+e.reason,"b");
+          else if(e.kind==="failed"){write("\n"+e.error,"b");write(e.hint||"","b");}
+          else if(e.kind==="done"){write("\n"+String(e.said||"").trim(),"s");
+            const l=e.ledger||{};
+            write("\n  "+l.tool_calls+" tool calls   $"+(l.cost_usd||0).toFixed(5)+"   "+l.seconds+"s");
+            $("#pCost").textContent="$"+(l.cost_usd||0).toFixed(3);
+            api("/api/outbox").then(o=>messages(o.messages)).catch(()=>{});}}}
+    })
+    .catch(err=>write("lost the connection: "+err.message,"b"))
+    .finally(()=>buttons.forEach(b=>b.disabled=false));
+}
+
+(async function boot(){
+  try{
+    const o=await api("/api/overview");
+    CUR=o.currency||CUR;
+    hero(o.worst);docket(o.nightly.plan);ask(o.weekly);
+    moving(o.weekly.trends);diary(o.weekly.ahead);sellersList(o.weekly.best_sellers);
+    const said=$("#weekSaid");said.textContent="";
+    o.weekly.lines.forEach(l=>said.appendChild(el("p",null,l)));
+    $("#pRuns").textContent=19;
+    $("#pSpoke").textContent=o.nightly.speaks?2:1;
+    today(await api("/api/today"));
+    board(await api("/api/team"));
+    setup(await api("/api/source"));
+    messages((await api("/api/outbox")).messages);
+  }catch(err){
+    $("#heroSay").textContent="Cannot reach the shop.";
+    $("#heroSub").textContent="The server is not answering ("+err.message+"). Start it with python ui/app.py";
+  }
+  $("#runNight").onclick=()=>stream({kind:"nightly"});
+  $("#runWeek").onclick=()=>stream({kind:"weekly"});
+  const fire=input=>{const p=input.value.trim();if(p)stream({kind:"nightly",prompt:p});};
+  $("#send").onclick=()=>fire($("#prompt"));
+  $("#send2").onclick=()=>fire($("#prompt2"));
+  $("#prompt").addEventListener("keydown",e=>{if(e.key==="Enter")$("#send").click();});
+  $("#prompt2").addEventListener("keydown",e=>{if(e.key==="Enter")$("#send2").click();});
 })();
 </script>
 </body>

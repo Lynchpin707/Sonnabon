@@ -169,6 +169,8 @@ class Index:
         self.units = units_by_day(bills)
         self.last = last_sale_times(bills)
         self._curves = {}
+        self._sellouts = None
+        self._by_item = None
 
     def curve(self, item, exclude_days):
         key = (item, frozenset(exclude_days))
@@ -176,6 +178,25 @@ class Index:
             self._curves[key] = sale_curve(self.bills, item,
                                            exclude_days=exclude_days)
         return self._curves[key]
+
+    def sellouts(self):
+        """The whole-year sweep, computed once.
+
+        Nearly every tool needs this and it walks the full pile twice. Without
+        memoising, a single page load recomputed it dozens of times and the
+        request timed out at two minutes.
+        """
+        if self._sellouts is None:
+            self._sellouts = find_sellouts(self.bills, index=self)
+        return self._sellouts
+
+    def sellout_days(self, item):
+        """The days one product ran out, for excluding from its own curve."""
+        if self._by_item is None:
+            self._by_item = defaultdict(set)
+            for row in self.sellouts():
+                self._by_item[row["item"]].add(row["day"])
+        return frozenset(self._by_item.get(item, ()))
 
 
 def estimate_true_demand(bills, day, item, curve=None, index=None):
@@ -235,16 +256,16 @@ def estimate_true_demand(bills, day, item, curve=None, index=None):
     }
 
 
-def lost_to_sellouts(bills, days=None):
+def lost_to_sellouts(bills, days=None, index=None):
     """Every sell-out in the period, priced.
 
     This is the number an owner has never seen, because nothing they own could
     have produced it. Poor-confidence rows are returned but flagged, and the
     total is given both ways so nobody quotes the optimistic one by accident.
     """
-    index = Index(bills)
+    index = Index(bills) if index is None else index
     rows = []
-    sellouts = find_sellouts(bills)
+    sellouts = index.sellouts()
     if days is not None:
         sellouts = [row for row in sellouts if row["day"] in set(days)]
 
@@ -445,3 +466,60 @@ def day_of_week_shape(bills, item=None):
     names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     return {names[index]: round(sum(values) / len(values), 1)
             for index, values in sorted(buckets.items()) if values}
+
+
+def sellout_shape(bills, day, item, index=None):
+    """The picture of a sell-out: what sold, against what would have.
+
+    Two cumulative series through the trading day. The first is what actually
+    left the shelf, which goes flat the moment the tray empties. The second is
+    the product's normal shape scaled to estimated demand, which carries on
+    climbing. The gap between them, after the flat point, is the money.
+
+    This is the whole argument of the project in one drawing, and it is built
+    from the same two things everything else uses: the timestamps, and the shape
+    learned from days it did not run out.
+    """
+    index = index or Index(bills)
+    curve, _ = index.curve(item, index.sellout_days(item))
+    if curve is None:
+        return None
+
+    slots = len(curve)
+    actual = [0.0] * slots
+    for bill in bills:
+        if bill.day != day:
+            continue
+        qty = bill.qty_of(item)
+        if qty:
+            actual[min(int(_minutes_open(bill.at) // 30), slots - 1)] += qty
+
+    running, cumulative = 0.0, []
+    for value in actual:
+        running += value
+        cumulative.append(running)
+
+    estimate = estimate_true_demand(bills, day, item, curve=curve, index=index)
+    total = estimate.get("estimate") or (cumulative[-1] if cumulative else 0)
+    expected = [round(fraction * total, 1) for fraction in curve]
+
+    last = index.last.get(day, {}).get(item)
+    labels = []
+    for slot in range(slots):
+        minutes = slot * 30
+        labels.append(f"{7 + minutes // 60:02d}:{minutes % 60:02d}")
+
+    return {
+        "item": item, "day": day.isoformat(),
+        "labels": labels,
+        "sold": [round(value, 1) for value in cumulative],
+        "would_have": expected,
+        "sold_out_at": last.strftime("%H:%M") if last else None,
+        "sold_out_slot": (min(int(_minutes_open(last) // 30), slots - 1)
+                          if last else None),
+        "total_sold": round(cumulative[-1] if cumulative else 0),
+        "estimate": estimate.get("estimate"),
+        "missed": estimate.get("missed", 0),
+        "lost_margin": estimate.get("lost_margin", 0),
+        "confidence": estimate.get("confidence"),
+    }

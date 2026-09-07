@@ -50,9 +50,8 @@ def corrected_history(bills, index=None):
             history[item][day] = float(units)
 
     corrected = defaultdict(set)
-    sellouts = find_sellouts(bills, index=index)
     by_item = defaultdict(set)
-    for row in sellouts:
+    for row in index.sellouts():
         by_item[row["item"]].add(row["day"])
 
     for item, days in by_item.items():

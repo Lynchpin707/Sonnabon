@@ -66,13 +66,11 @@ def day_report(on: str = None) -> dict:
         return {"day": day.isoformat(), "trading": False,
                 "note": "no bills on this day, the shop was closed"}
 
-    sellouts = analytics.find_sellouts(shop.bills, on=day, index=shop.index)
+    sellouts = [row for row in shop.index.sellouts() if row["day"] == day]
     priced = []
     for row in sellouts:
-        item_days = {r["day"] for r in analytics.find_sellouts(shop.bills,
-                                                              index=shop.index)
-                     if r["item"] == row["item"]}
-        curve, _ = shop.index.curve(row["item"], frozenset(item_days))
+        curve, _ = shop.index.curve(row["item"],
+                                    shop.index.sellout_days(row["item"]))
         estimate = analytics.estimate_true_demand(shop.bills, day, row["item"],
                                                   curve=curve, index=shop.index)
         if estimate["confidence"] != "none":
@@ -92,6 +90,60 @@ def day_report(on: str = None) -> dict:
         "sold_out": sorted(priced, key=lambda row: -row["lost_margin"]),
         "lost_margin": round(sum(row["lost_margin"] for row in priced
                                  if row["confidence"] in ("good", "fair")), 2),
+    }
+
+
+@tool
+def todays_sales(on: str = None) -> dict:
+    """Every product sold on one day, with the ones that ran out marked.
+
+    The plainest view there is: how many of each thing left the shelf, how many
+    people came in, what the till took. The only thing added is the flag for a
+    product whose tray emptied, because that is the one number on the page that
+    is not what it appears to be.
+    """
+    day = _day(on)
+    shop = state.get()
+    units = shop.index.units.get(day, {})
+    if not units:
+        return {"day": day.isoformat(), "trading": False, "rows": []}
+
+    gone = {row["item"]: row for row in shop.index.sellouts() if row["day"] == day}
+    rows = []
+    for product in catalogue.PRODUCTS:
+        sold = units.get(product.name, 0)
+        if not sold:
+            continue
+        out = gone.get(product.name)
+        estimate = None
+        if out:
+            curve, _ = shop.index.curve(product.name,
+                                        shop.index.sellout_days(product.name))
+            guess = analytics.estimate_true_demand(shop.bills, day, product.name,
+                                                   curve=curve, index=shop.index)
+            if guess["confidence"] in ("good", "fair"):
+                estimate = guess["estimate"]
+        rows.append({
+            "item": product.name,
+            "sold": sold,
+            "revenue": round(sold * product.price, 2),
+            "kept": round(sold * product.margin, 2),
+            "ran_out": bool(out),
+            "ran_out_at": (shop.index.last[day][product.name].strftime("%H:%M")
+                           if out else None),
+            "wanted": estimate,
+        })
+
+    people = analytics.customers(shop.bills, days=[day])
+    rows.sort(key=lambda row: -row["sold"])
+    return {
+        "day": day.isoformat(), "weekday": day.strftime("%A"), "trading": True,
+        "customers": people.get("total", 0),
+        "average_basket": people.get("average_basket"),
+        "revenue": round(sum(row["revenue"] for row in rows), 2),
+        "units": sum(row["sold"] for row in rows),
+        "ran_out": sum(1 for row in rows if row["ran_out"]),
+        "rows": rows,
     }
 
 
@@ -162,7 +214,8 @@ def lost_to_sellouts(weeks: int = 4) -> dict:
     end = state.today()
     start = end - timedelta(weeks=weeks)
     days = [day for day in shop.days if start <= day <= end]
-    result = analytics.lost_to_sellouts(shop.bills, days=days)
+    result = analytics.lost_to_sellouts(shop.bills, days=days,
+                                        index=shop.index)
     result["rows"] = [{**row, "day": row["day"].isoformat()}
                       for row in result["rows"][:12]]
     result["period"] = {"from": start.isoformat(), "to": end.isoformat()}
