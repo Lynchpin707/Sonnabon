@@ -19,3 +19,6 @@ settings.json
 server.out
 server.err
 .sessions/
+
+# Generated trading data and the corrected-history cache.
+data/

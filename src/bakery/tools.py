@@ -1,0 +1,230 @@
+"""What the agent can actually do.
+
+Every function here is a Strands tool. Two rules govern all of them, and both
+exist for the same reason:
+
+    Return summaries, never rows. The shop has 158,000 bills. Reading them into
+    a model's context would cost more than the waste it is trying to prevent and
+    would not fit in any case. Tools hand back tens of numbers, not thousands.
+
+    Return the working, not just the answer. Every estimate carries its
+    confidence and the evidence behind it, so the agent can say "about 78, and
+    here is why" instead of inventing certainty it does not have.
+
+``run_python`` is the escape hatch. Anything not covered by a named tool, the
+agent writes itself and executes against the data. Locally that runs in-process;
+on AgentCore it becomes the sandboxed Code Interpreter and nothing else changes.
+"""
+
+import io
+import json
+import traceback
+from contextlib import redirect_stdout
+from datetime import date, timedelta
+
+from strands import tool
+
+from . import analytics, calendar as bakery_calendar, catalogue, plan, state
+
+
+def _day(value):
+    """Accept a date, an ISO string, or nothing (meaning the shop's last day)."""
+    if value is None:
+        return state.today()
+    if isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value)[:10])
+
+
+@tool
+def shop_status() -> dict:
+    """What data the shop has, and what is on the menu.
+
+    Call this first in any run. It is the cheapest way to find out what period
+    is covered and whether anything is still missing a cost.
+    """
+    shop = state.get()
+    return {**shop.summary(),
+            "menu": [product.name for product in catalogue.PRODUCTS],
+            "needs_costs": catalogue.unpriced(),
+            "currency": catalogue.CURRENCY}
+
+
+@tool
+def day_report(on: str = None) -> dict:
+    """What happened on one day: takings, customers, and what ran out.
+
+    The sell-out section is the part a till cannot produce. Each entry carries
+    an estimate of what demand really was, the confidence in it, and the margin
+    that walked out of the door.
+    """
+    day = _day(on)
+    shop = state.get()
+    units = shop.index.units.get(day, {})
+    if not units:
+        return {"day": day.isoformat(), "trading": False,
+                "note": "no bills on this day, the shop was closed"}
+
+    sellouts = analytics.find_sellouts(shop.bills, on=day, index=shop.index)
+    priced = []
+    for row in sellouts:
+        item_days = {r["day"] for r in analytics.find_sellouts(shop.bills,
+                                                              index=shop.index)
+                     if r["item"] == row["item"]}
+        curve, _ = shop.index.curve(row["item"], frozenset(item_days))
+        estimate = analytics.estimate_true_demand(shop.bills, day, row["item"],
+                                                  curve=curve, index=shop.index)
+        if estimate["confidence"] != "none":
+            priced.append(estimate)
+
+    people = analytics.customers(shop.bills, days=[day])
+    revenue = sum(units.get(product.name, 0) * product.price
+                  for product in catalogue.PRODUCTS)
+    return {
+        "day": day.isoformat(),
+        "weekday": day.strftime("%A"),
+        "trading": True,
+        "customers": people.get("total", 0),
+        "average_basket": people.get("average_basket"),
+        "revenue": round(revenue, 2),
+        "units_sold": sum(units.values()),
+        "sold_out": sorted(priced, key=lambda row: -row["lost_margin"]),
+        "lost_margin": round(sum(row["lost_margin"] for row in priced
+                                 if row["confidence"] in ("good", "fair")), 2),
+    }
+
+
+@tool
+def bake_plan(for_day: str = None, oven_minutes: float = None) -> dict:
+    """How much of each thing to make, and why that number.
+
+    Built on demand corrected for days the shop ran out, so it does not inherit
+    last year's shortfall. Each row carries the service level the product's own
+    economics ask for, which is why cheap bread comes out higher than expensive
+    pastry rather than the other way round.
+    """
+    shop = state.get()
+    day = _day(for_day) if for_day else state.today() + timedelta(days=1)
+    result = plan.bake_plan(shop.bills, day, index=shop.index,
+                            history=shop.history, oven_minutes=oven_minutes)
+    result["day"] = result["day"].isoformat()
+    for row in result["rows"]:
+        row.pop("margin_per_oven_minute", None)
+    return result
+
+
+@tool
+def best_sellers(weeks: int = 4) -> dict:
+    """The four rankings, because the two owners use are both misleading.
+
+    Units finds whatever is cheapest and revenue finds whatever is dearest.
+    Contribution finds what pays the rent. Contribution per oven minute finds
+    what deserves the oven, and it is usually a different answer again.
+    """
+    shop = state.get()
+    end = state.today()
+    start = end - timedelta(weeks=weeks * 7)
+    days = [day for day in shop.days if start <= day <= end]
+    result = analytics.best_sellers(shop.bills, days=days, top=5)
+    result["period"] = {"from": start.isoformat(), "to": end.isoformat(),
+                        "trading_days": len(days)}
+    return result
+
+
+@tool
+def trade_summary(weeks: int = 4) -> dict:
+    """Customers, baskets and the shape of the week."""
+    shop = state.get()
+    end = state.today()
+    start = end - timedelta(weeks=weeks * 7)
+    days = [day for day in shop.days if start <= day <= end]
+    people = analytics.customers(shop.bills, days=days)
+    people["busiest"] = people["busiest"].isoformat() if people.get("busiest") else None
+    people["quietest"] = people["quietest"].isoformat() if people.get("quietest") else None
+    return {"period": {"from": start.isoformat(), "to": end.isoformat()},
+            "customers": people,
+            "units_by_weekday": analytics.day_of_week_shape(shop.bills)}
+
+
+@tool
+def lost_to_sellouts(weeks: int = 4) -> dict:
+    """The money that walked out because something had run out.
+
+    This is the figure no till can produce and no owner has seen. Rows the
+    method is not confident about are reported separately rather than folded
+    into the headline.
+    """
+    shop = state.get()
+    end = state.today()
+    start = end - timedelta(weeks=weeks * 7)
+    days = [day for day in shop.days if start <= day <= end]
+    result = analytics.lost_to_sellouts(shop.bills, days=days)
+    result["rows"] = [{**row, "day": row["day"].isoformat()}
+                      for row in result["rows"][:12]]
+    result["period"] = {"from": start.isoformat(), "to": end.isoformat()}
+    return result
+
+
+@tool
+def whats_coming(within_days: int = 60) -> dict:
+    """Occasions ahead, and every preparation task now due or already late.
+
+    Lead time is the whole point. Christmas surfaced in December is a warning;
+    surfaced in October it is a decision that can still be made.
+    """
+    today = state.today()
+    tasks = bakery_calendar.whats_due(today)
+    return {
+        "today": today.isoformat(),
+        "occasions": [{**row, "date": row["date"].isoformat()}
+                      for row in bakery_calendar.upcoming(today, within_days)],
+        "tasks_due": [{**row, "due": row["due"].isoformat()} for row in tasks],
+        "overdue": sum(1 for row in tasks if row["overdue"]),
+    }
+
+
+@tool
+def occasion_plan(occasion: str) -> dict:
+    """The backward schedule for one occasion, with what is already late."""
+    today = state.today()
+    result = bakery_calendar.schedule(occasion, today)
+    result["date"] = result["date"].isoformat()
+    result["tasks"] = [{**row, "due": row["due"].isoformat()}
+                       for row in result["tasks"]]
+    return result
+
+
+@tool
+def run_python(code: str) -> dict:
+    """Run Python against the shop's data and return what it prints.
+
+    Use this for anything the named tools do not cover. Available names:
+
+        shop      the loaded shop (bills, index, history, corrected)
+        catalogue the menu, with price, cost, bake_minutes, salvage
+        analytics sell-out detection, demand estimation, rankings
+        plan      forecasting and the bake plan
+        calendar  occasions and their lead times
+
+    Print what you want back. Nothing is returned implicitly, and output is
+    truncated, so summarise rather than dumping rows.
+    """
+    shop = state.get()
+    namespace = {
+        "shop": shop, "bills": shop.bills, "index": shop.index,
+        "history": shop.history, "corrected": shop.corrected,
+        "catalogue": catalogue, "analytics": analytics, "plan": plan,
+        "calendar": bakery_calendar,
+        "date": date, "timedelta": timedelta, "json": json,
+    }
+    buffer = io.StringIO()
+    try:
+        with redirect_stdout(buffer):
+            exec(code, namespace)
+    except Exception:
+        return {"ok": False, "output": buffer.getvalue()[-2000:],
+                "error": traceback.format_exc(limit=2)}
+    output = buffer.getvalue()
+    return {"ok": True,
+            "output": output[:4000],
+            "truncated": len(output) > 4000}
