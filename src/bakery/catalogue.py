@@ -102,33 +102,25 @@ class Product:
 # figures, not a specific shop's, and the README says so. Swap this whole list
 # for a real menu and nothing downstream changes.
 PRODUCTS = [
-    # The everyday trade. Cheap, fast, and mostly what pays the wages.
+    # The everyday trade. Cheap, fast, and most of what pays the wages.
     Product("Croissant", "viennoiserie", 1.30, 0.45, 2.2, 1, salvage=0.20),
-    Product("Chocolate croissant", "viennoiserie", 1.60, 0.55, 2.2, 1, salvage=0.25),
     Product("Glazed donut", "viennoiserie", 2.00, 0.60, 2.0, 1, salvage=0.25),
-    Product("Sourdough loaf", "bread", 4.50, 1.10, 6.0, 2, salvage=0.60),
 
     # The signatures. What people cross town for, and where the margin is.
     Product("Cinnamon roll", "viennoiserie", 3.20, 1.00, 3.4, 1, salvage=0.45),
     Product("Pistachio croissant", "viennoiserie", 4.20, 1.55, 2.8, 1, salvage=0.30),
-    Product("Cruffin", "viennoiserie", 3.60, 1.25, 3.0, 1, salvage=0.35),
 
     # Desserts. Expensive, fragile, worth nothing the next morning.
-    Product("Crème brûlée crêpe cake", "patisserie", 5.20, 1.95, 4.0, 1),
+    Product("Tiramisu", "patisserie", 5.20, 1.95, 4.0, 1),
     Product("Basque cheesecake", "patisserie", 5.50, 2.10, 5.0, 2, salvage=0.70),
     Product("Chocolate éclair", "patisserie", 4.20, 1.55, 4.0, 1),
-    Product("Matcha roll cake", "patisserie", 4.80, 1.80, 4.5, 2, salvage=0.60),
-    Product("Lemon tart", "patisserie", 4.50, 1.60, 4.5, 2, salvage=0.80),
-    Product("Carrot cake slice", "patisserie", 4.00, 1.30, 5.0, 2, salvage=0.55),
 
     # Keeps for days, so running out barely costs anything. A useful control:
     # the agent should not be making urgent calls about cookies.
     Product("Chocolate chip cookie", "biscuit", 2.20, 0.55, 1.8, 4, salvage=0.30),
-    Product("Brownie", "biscuit", 2.60, 0.75, 2.0, 3, salvage=0.35),
-    Product("Blueberry muffin", "biscuit", 2.40, 0.70, 2.2, 2, salvage=0.35),
 
     # Not baked. Rides along with everything else and never goes to waste, which
-    # is why it must be excluded from any waste or oven ranking.
+    # is why it stays out of every waste and production ranking.
     Product("Coffee", "drink", 2.20, 0.40, 0.0, 0),
 ]
 
@@ -142,6 +134,24 @@ BY_NAME = {product.name: product for product in PRODUCTS}
 def unpriced():
     """Anything with no cost at all, which cannot be planned for."""
     return [product.name for product in PRODUCTS if product.cost <= 0]
+
+
+def guessed_costs():
+    """Costs nobody confirmed, which is what the agent should ask about first.
+
+    ``learn()`` derives a cost for every product from a single food-cost ratio,
+    because a shop that has to type in thirty costs before it sees anything
+    never gets to the end of the form. The guess is good enough to plan with and
+    not good enough to trust, and the difference matters: cost decides the
+    service level, so a wrong one quietly biases every quantity that follows.
+
+    Marking them keeps that honest. It is the difference between a number the
+    owner told it and one it made up, and only the owner can close the gap.
+    """
+    return [{"item": product.name,
+             "assumed_cost": round(product.cost, 2),
+             "price": product.price}
+            for product in PRODUCTS if not product.cost_given]
 
 
 # What a discounted or staff-eaten unit recovers, as a share of what it cost to

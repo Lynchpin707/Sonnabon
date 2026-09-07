@@ -35,7 +35,7 @@ def test_service_level_is_higher_for_cheap_perishables():
     plan is quietly making the wrong thing.
     """
     cookie = catalogue.get("Chocolate chip cookie")
-    cake = catalogue.get("Crème brûlée crêpe cake")
+    cake = catalogue.get("Tiramisu")
     assert cookie.critical_ratio > cake.critical_ratio
     assert cookie.price < cake.price
 
@@ -160,7 +160,7 @@ def test_capacity_never_trims_below_forecast(shop):
 def test_quantity_respects_the_service_level():
     """A higher critical ratio has to mean more units, all else equal."""
     cookie = catalogue.get("Chocolate chip cookie")
-    cake = catalogue.get("Crème brûlée crêpe cake")
+    cake = catalogue.get("Tiramisu")
     assert (plan.quantity(cookie, 50, 10) / 50) > (plan.quantity(cake, 50, 10) / 50)
 
 
@@ -212,3 +212,108 @@ def test_unknown_products_are_refused_at_the_door(tmp_path):
 def test_generated_days_skip_the_closing_day(shop):
     assert all(day.weekday() != generate.CLOSED_WEEKDAY
                for day in shop["index"].units)
+
+
+# ── nothing may reference a product that is not on the board ────────────────
+
+def test_no_module_references_a_product_that_does_not_exist():
+    """The failure this catches actually happened.
+
+    Trimming the menu left the occasion tables, the demand table and the drift
+    table pointing at products that were gone. Nothing raised: the calendar
+    quietly stopped lifting anything, and the generator quietly stopped making
+    it. A silent wrong answer, which is the kind this project exists to avoid.
+    """
+    from src.bakery import calendar as occasions, generate
+
+    menu = {product.name for product in catalogue.PRODUCTS}
+
+    for occasion in occasions.OCCASIONS:
+        missing = [name for name in occasion.products if name not in menu]
+        assert not missing, f"calendar: {occasion.name} wants {missing}"
+
+    for name, _m, _d, _lead, _peak, items in generate.OCCASIONS:
+        missing = [item for item in items if item not in menu]
+        assert not missing, f"generator: {name} wants {missing}"
+
+    assert not [k for k in generate.DRIFT if k not in menu], "stale drift key"
+    assert not [k for k in generate.BASE_DEMAND if k not in menu], "stale demand key"
+    assert not [p for p in menu if p not in generate.BASE_DEMAND],         "a product with no demand would never appear in generated trade"
+
+
+# ── the journal ─────────────────────────────────────────────────────────────
+
+def test_journal_survives_an_empty_file_and_a_torn_line(tmp_path):
+    """It is written to at the end of every run, so it must never be the thing
+    that breaks one."""
+    from src.bakery import journal
+
+    path = str(tmp_path / "j.jsonl")
+    assert journal.read(path) == [] and journal.summary(path)["runs"] == 0
+
+    journal.record("nightly", "Planned tomorrow", path=path)
+    journal.record("weekly", "Reviewed", spoke=True, cost_usd=0.004,
+                   tool_calls=9, path=path)
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write('{"at": "half a line')          # a crash mid-write
+
+    result = journal.summary(path)
+    assert result["runs"] == 2 and result["spoke"] == 1
+    assert result["cost_usd"] == 0.004
+
+
+def test_journal_counts_back_from_the_last_run_not_the_wall_clock(tmp_path):
+    """Runs are stamped in the shop's time. A dataset a few days behind must
+    still show its week, or the page reports silence that never happened."""
+    from datetime import datetime, timedelta
+    from src.bakery import journal
+
+    path = str(tmp_path / "j.jsonl")
+    old = datetime.now() - timedelta(days=90)
+    for offset in range(4):
+        journal.record("nightly", "Planned", path=path,
+                       at=old + timedelta(days=offset))
+    assert journal.summary(path, days=7)["runs"] == 4
+
+
+def test_it_stays_quiet_on_an_ordinary_day(shop, tmp_path, monkeypatch):
+    """The product claims it writes only when something needs a person. If it
+    speaks every night that claim is false, and it is the central one."""
+    from src.bakery import runs, state
+
+    monkeypatch.setattr(journal_module(), "PATH", str(tmp_path / "j.jsonl"))
+    monkeypatch.setattr(state, "get", lambda *a, **k: _Shop(shop))
+    monkeypatch.setattr(state, "today", lambda: max(shop["index"].units))
+
+    days = sorted(shop["index"].units)[-30:]
+    spoke = sum(1 for day in days if runs.nightly(for_day=day)["speaks"])
+    assert spoke < len(days) * 0.6, (
+        f"spoke on {spoke} of {len(days)} nights, which is not restraint")
+    assert spoke > 0, "never speaks at all, which is not useful either"
+
+
+def journal_module():
+    from src.bakery import journal
+    return journal
+
+
+class _Shop:
+    """Just enough of state.Shop for the runs to work off the test slice."""
+
+    def __init__(self, shop):
+        self.bills = shop["bills"]
+        self.index = shop["index"]
+        self.history, self.corrected = plan.corrected_history(
+            shop["bills"], index=shop["index"])
+
+    @property
+    def days(self):
+        return sorted(self.index.units)
+
+    @property
+    def demand_by_day(self):
+        table = {}
+        for item, days in self.history.items():
+            for day, units in days.items():
+                table.setdefault(day, {})[item] = units
+        return table

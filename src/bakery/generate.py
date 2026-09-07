@@ -42,14 +42,12 @@ SHAPES = {
 
 # Typical units a day at an ordinary midweek rate, before any multiplier.
 BASE_DEMAND = {
-    "Croissant": 145, "Chocolate croissant": 112, "Glazed donut": 74,
-    "Sourdough loaf": 34,
-    "Cinnamon roll": 96, "Pistachio croissant": 58, "Cruffin": 39,
-    "Crème brûlée crêpe cake": 31, "Basque cheesecake": 44,
-    "Chocolate éclair": 26, "Matcha roll cake": 22, "Lemon tart": 24,
-    "Carrot cake slice": 29,
-    "Chocolate chip cookie": 88, "Brownie": 52, "Blueberry muffin": 61,
-    "Coffee": 210,
+    "Croissant": 152, "Glazed donut": 78,
+    "Cinnamon roll": 104, "Pistachio croissant": 62,
+    "Tiramisu": 34, "Basque cheesecake": 48,
+    "Chocolate éclair": 29,
+    "Chocolate chip cookie": 92,
+    "Coffee": 215,
 }
 
 # Products do not sit still for a year. One thing catches on, another quietly
@@ -57,11 +55,9 @@ BASE_DEMAND = {
 # last. Expressed as the multiplier reached by the end of the period, applied
 # smoothly across it. Anything not listed stays flat, which is most of the board.
 DRIFT = {
-    "Crème brûlée crêpe cake": 1.85,   # the new signature, spreading by word of mouth
-    "Matcha roll cake": 1.45,
+    "Tiramisu": 1.85,   # the new signature, spreading by word of mouth
     "Pistachio croissant": 1.30,
     "Chocolate éclair": 0.62,          # quietly going out of fashion
-    "Lemon tart": 0.72,
     "Glazed donut": 0.80,
 }
 
@@ -81,19 +77,18 @@ def _drift(day, item, start, end):
 # but it is the shape an owner would recognise: it builds for a week, not a day.
 OCCASIONS = [
     ("Halloween", 10, 31, 6, 1.8,
-     ["Cinnamon roll", "Glazed donut", "Brownie", "Chocolate chip cookie"]),
+     ["Cinnamon roll", "Glazed donut", "Chocolate chip cookie"]),
     ("Christmas", 12, 25, 14, 3.2,
-     ["Basque cheesecake", "Crème brûlée crêpe cake", "Lemon tart",
-      "Carrot cake slice", "Chocolate éclair"]),
+     ["Basque cheesecake", "Tiramisu",
+      "Chocolate éclair"]),
     ("Valentine", 2, 14, 4, 1.9,
-     ["Chocolate éclair", "Brownie", "Crème brûlée crêpe cake"]),
+     ["Chocolate éclair", "Tiramisu"]),
     ("Eid", 3, 20, 6, 2.3,
-     ["Cinnamon roll", "Brownie", "Chocolate chip cookie", "Pistachio croissant"]),
+     ["Cinnamon roll", "Chocolate chip cookie", "Pistachio croissant"]),
     ("Easter", 4, 12, 7, 1.9,
-     ["Carrot cake slice", "Chocolate éclair", "Lemon tart"]),
+     ["Chocolate éclair", "Basque cheesecake"]),
     ("Mother's Day", 5, 11, 5, 2.1,
-     ["Basque cheesecake", "Lemon tart", "Matcha roll cake"]),
-]
+     ["Basque cheesecake", "Tiramisu"])]
 
 def _occasion_multiplier(day, item):
     """How much a date lifts one product. Multiplicative and capped at the peak,
@@ -240,8 +235,7 @@ def simulate(start, end, seed=7):
                 number=number, at=moment,
                 lines=tuple(Line(name, qty, catalogue.get(name).price)
                             for name, qty in basket.items()),
-                payment="card" if rng.random() < 0.72 else "cash",
-            ))
+                payment="card" if rng.random() < 0.72 else "cash"))
 
         truth.append({"day": day.isoformat(), "products": day_truth})
 

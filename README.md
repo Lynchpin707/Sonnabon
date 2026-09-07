@@ -23,7 +23,7 @@ calendar, and emails the owner only when something genuinely needs a person.
 
 Ask it anything from any page. It answers in place and shows its working.
 
-![The day so far](docs/today.png)
+![The day so far](docs/shots/today.png)
 
 ---
 
@@ -32,9 +32,9 @@ Ask it anything from any page. It answers in place and shows its working.
 A till records what left the shelf. It cannot record what somebody wanted and
 did not find.
 
-So a day where the cheesecake sold out at 13:46 looks, in the data, like a good
-day: sixty sold, nothing left over. About a hundred and two people wanted one.
-The other forty-two are not in the file anywhere.
+So a day where the tiramisu sold out at 12:51 looks, in the data, like a good
+day: sixty sold, nothing left over. About a hundred and thirty-two people wanted
+one. The other seventy-two are not in the file anywhere.
 
 That matters because every forecast is built on that file. Trained on sales, a
 forecast learns to under-bake, and it gets worse every year: less made, sells
@@ -46,7 +46,24 @@ already has. Sonnabon learns each product's normal shape through the day from
 days it did not run out, then on a day it did, works out how far through that
 shape it got and scales up.
 
-Everything downstream reads that corrected history. Never the raw sales.
+Everything downstream reads that corrected history, never the raw sales. That
+one step is what the rest of it rests on.
+
+It is also why the occasion lifts are measured off corrected demand and not off
+sales. Measured off the till, Christmas looks like a 1.6x week. Measured off
+what people actually wanted, it is 3.8x. A shop planning from the till would
+under-bake Christmas by more than half and the till would report a triumph.
+
+![The plan, and what the till could not tell you](docs/shots/sellout.png)
+
+The solid line is what sold. It stops dead at 12:51. The dashed line is what a
+normal day would have done, and it carries on. The gap between them is
+seventy-two people that nothing in the shop could have counted, and €233 of
+margin that left with them.
+
+On the left, tomorrow's numbers, already raised because of it. And the one thing
+that genuinely needs a person: Halloween is fifty-five days away, and the answer
+changes what gets ordered.
 
 ## What it does
 
@@ -56,13 +73,21 @@ Everything downstream reads that corrected history. Never the raw sales.
 | **Per supplier cutoff** | Works back to ingredients and raises the orders |
 | **Every week** | Says what is growing and what is dying, and refuses to call it when the movement is noise |
 | **Weeks ahead** | Holds the occasion calendar, so Christmas arrives with the flour already ordered |
+| **From your own tills** | Measures what each occasion actually did here last year, rather than assuming |
 | **Rarely** | Emails the owner, when something actually needs deciding |
 | **On demand** | Answers whatever you ask it, from the button on any page |
 
-**About twenty runs a week. One or two reach the owner.** That ratio is the
-product.
+**It speaks on 8 nights in 30, and stays quiet on the other 22.** That ratio is
+the product, and it is measured rather than asserted: a run earns an email by
+being unusual for this shop, not by clearing a fixed number every shop clears
+most days. A late task is raised once, not once a night.
 
-![The board](docs/board.png)
+Sonnabon keeps its own diary, so the ratio is on the page rather than in a
+sentence. Every waking writes a line, including the quiet ones.
+
+![Sonnabon's diary](docs/shots/diary.png)
+
+![The board](docs/shots/board.png)
 
 The board splits the night's work by who starts when. The person on the counter
 gets one job: confirm what ran out. Sonnabon inferred it from the timestamps and
@@ -78,21 +103,22 @@ served out of a limited tray.
 
 | | |
 |---|---|
-| Sell-out detection | **87%** precision, 74% recall |
-| Demand estimate | **3.4%** median error, within 20% on 97% of days |
-| Lost margin over a year | Estimated 28,113 against a true 29,700 |
-| History needed | **Three weeks.** 90% precision on 18 trading days |
-| Counterfactual, 120 days | **Lost sales cut 53%**, net cost down 7.7% |
+| Sell-out detection | **91%** precision, 80% recall |
+| Demand estimate | **3.0%** median error, within 20% on 99% of 649 days |
+| Lost margin over a year | Estimated 27,618 against a true 29,566 |
+| History needed | **Three weeks.** 94% precision on 18 trading days |
+| Counterfactual, 120 days | **Lost sales cut 56%**, net cost down 10.8% |
 
 ```bash
 python -m src.bakery.backtest    # replays the year and prices both plans
-pytest                           # 41 tests: the maths, and the site
+pytest                           # 51 tests: the maths, and the site
 ```
 
-The counterfactual is worth reading in full. Sonnabon's waste goes **up** and its
-lost sales go **down by more than half**, because running out costs more than
-binning does. That is the newsvendor doing what it should, and it is visible in
-the numbers rather than asserted.
+The counterfactual is worth reading in full. Over 120 days Sonnabon's waste goes
+**up**, from 9,912 to 12,579, and its lost sales go **down from 8,321 to 3,690**,
+because running out costs more than binning does. Net it saves 1,964, or about
+5,000 a year, and it is better on 65 days of 120. That is the newsvendor doing
+what it should, and it is visible in the numbers rather than asserted.
 
 ## Run it
 
@@ -130,6 +156,7 @@ src/bakery/
   calendar.py    occasions, and how far ahead each has to be started
   team.py        whose job is what, whether it is done, who confirms sell-outs
   feed.py        a trading day arriving live, one bill at a time
+  journal.py     what it did and when, so the autonomy is evidence not a claim
   state.py       loaded once, cached on the data file's timestamp
   backtest.py    would it actually have done better
   tools.py       the thirteen things the agent can do
@@ -145,7 +172,7 @@ prompt is a request a model can talk itself out of. A hook that sets
 `event.cancel` inside the agent loop is a control. Spend, looping and
 irreversible actions are all gated that way.
 
-**It reads summaries, samples, or code. Never the pile.** There are 197,000
+**It reads summaries, samples, or code. Never the pile.** There are 149,000
 bills. The arithmetic decides the architecture:
 
 | Reading | Tokens | Cost per read |

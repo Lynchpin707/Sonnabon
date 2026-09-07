@@ -58,7 +58,7 @@ Then the receipt photo for four seconds.
 
 ### 0:20 · The burden (25s)
 
-> "Thirty products. Every night, from memory, at the end of a seventeen hour
+> "Nine products. Every night, from memory, at the end of a seventeen hour
 > day. Then four suppliers who each want their order by a different hour.
 > Nobody gets good at it, because there is never an hour to sit down with the
 > numbers."
@@ -84,10 +84,10 @@ Point at the day's figures. Then at the two pink bars.
 
 Scroll to the sell-out chart.
 
-> "The solid line is what sold. It stops dead at 13:46. The dashed line is what
-> a normal day would have done, and it keeps going. **About a hundred and two
-> people wanted one. Sixty got one.** The other forty-two looked at an empty
-> tray and left, and the till recorded a triumph."
+> "The solid line is what sold. It stops dead at 12:51. The dashed line is what
+> a normal day would have done, and it keeps going. **About a hundred and
+> thirty-two people wanted one. Sixty got one.** The other seventy-two looked at
+> an empty tray and left, and the till recorded a triumph."
 
 Pause. Then:
 
@@ -144,14 +144,16 @@ Terminal.
 python -m src.bakery.backtest
 ```
 
-> "We replayed the year and priced both plans against demand we actually know,
-> because the shop is simulated and that is the only way to know it. **Lost
-> sales cut by more than half.** Waste goes up, which is correct: it buys
-> availability with flour."
+> "We replayed a hundred and twenty days and priced both plans against demand we
+> actually know, because the shop is simulated and that is the only way to know
+> it. **Lost sales fall from eight thousand three hundred to three thousand
+> seven hundred.** Waste goes up, which is correct: it buys availability with
+> flour. Net it saves about five thousand a year."
 
 ### 4:45 · Close (15s)
 
-> "It runs about twenty times a week and reaches the owner once or twice. It
+> "It wakes every night and reaches the owner on eight nights in thirty. The
+> other twenty-two it handles alone, and the diary shows every one of them. It
 > costs less than one unsold cake a week. That ratio is the product."
 
 ---
@@ -162,8 +164,8 @@ Do not apologise for it. It is the method:
 
 > "We generated a year of trade so the truth would be knowable. No real till can
 > tell you how many people wanted something and left, so no real dataset can
-> score a sell-out estimate. Ours can: 87% detection precision, 3.4% median
-> error, and a yearly total within 5% of the truth."
+> score a sell-out estimate. Ours can: 91% detection precision, 3.0% median
+> error, and a yearly total within 7% of the truth."
 
 ---
 
@@ -176,6 +178,7 @@ Do not apologise for it. It is the method:
 | The agent run fails | No model configured. The read-only views still show every number; say the agent is the reasoning layer and the tools are the facts |
 | The feed does nothing | It appends from the day *after* the last one on file. Check `GET /api/live` |
 | Nothing ran out today | Pick another day: `/api/today?on=2026-09-05` |
+| A tab will not open on reload | Each page has its own address now, `#today`, `#diary` and so on |
 
 ---
 

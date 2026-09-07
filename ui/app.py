@@ -20,7 +20,8 @@ from urllib.parse import urlparse, parse_qs
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.bakery import (analytics, catalogue, feed, runs, state, team, tools)  # noqa: E402
+from src.bakery import (analytics, catalogue, feed, journal, runs,  # noqa: E402
+                        state, team, tools)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PORT = int(os.getenv("PORT", "8000"))
@@ -46,8 +47,9 @@ def overview():
     """Everything the front page shows, in one call."""
     shop = state.get()
     today = state.today()
-    night = runs.nightly(today)
-    week = runs.weekly()
+    # Rendering a view, not waking up. See runs.nightly.
+    night = runs.nightly(today, log=False)
+    week = runs.weekly(log=False)
     worst = None
     for row in week["lost"]["rows"][:1]:
         worst = analytics.sellout_shape(
@@ -59,10 +61,14 @@ def overview():
         "shop": shop.summary(),
         "today": today.isoformat(),
         "currency": catalogue.CURRENCY,
+        # Everything the shop sells, not only what it bakes. Coffee is on the
+        # menu; it is just never a production decision, which is what "baked"
+        # marks. Filtering it out here made the page disagree with itself.
         "menu": [{"name": product.name, "price": product.price,
-                  "keeps": product.margin,
+                  "keeps": round(product.margin, 2),
+                  "baked": product.bake_minutes > 0,
                   "service": round(product.critical_ratio, 2)}
-                 for product in catalogue.baked()],
+                 for product in catalogue.PRODUCTS],
         "nightly": night,
         "weekly": week,
     }
@@ -111,7 +117,7 @@ def weekly_report():
     from any browser, it needs no dependency, and the owner can keep it or send
     it on without installing anything.
     """
-    week = runs.weekly()
+    week = runs.weekly(log=False)
     shop = state.get()
     cur = catalogue.CURRENCY
     rows = "".join(
@@ -251,6 +257,8 @@ class Handler(BaseHTTPRequestHandler):
                                   "text/html; charset=utf-8")
             if url.path == "/api/outbox":
                 return self._api(self._outbox())
+            if url.path == "/api/journal":
+                return self._api(self._journal())
 
             return self._send(404, json.dumps({"error": "no such endpoint"}))
         except Exception as error:
@@ -258,6 +266,32 @@ class Handler(BaseHTTPRequestHandler):
             # fails loudly, because nobody can fix it in the room.
             traceback.print_exc()
             return self._send(500, json.dumps({"error": str(error)}))
+
+    @staticmethod
+    def _journal():
+        """What Sonnabon did, merged with what it sent.
+
+        Two files, one story. The journal knows every waking; the outbox knows
+        which of them reached the owner and what it said. Shown apart they read
+        as an activity log and a mailbox, and the point is the ratio between
+        them.
+        """
+        # Same window the tally counts. Showing an eighth entry under a
+        # heading that says "six in seven days" is the page contradicting
+        # itself, and it is the kind of thing that gets counted on stage.
+        summary = journal.summary(days=7)
+        window = {row["at"] for row in journal.read(days=7)}
+        entries = [row for row in journal.recent(limit=20)
+                   if row["at"] in window]
+        sent = {}
+        for message in Handler._outbox()["messages"]:
+            sent.setdefault(message.get("sent_at", "")[:16], message)
+        for entry in entries:
+            match = sent.get(entry["at"][:16])
+            if match:
+                entry["message"] = {"subject": match.get("subject"),
+                                    "body": match.get("body")}
+        return {**summary, "entries": entries}
 
     @staticmethod
     def _outbox():

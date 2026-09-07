@@ -306,11 +306,28 @@ def whats_coming(within_days: int = 60) -> dict:
     surfaced in October it is a decision that can still be made.
     """
     today = state.today()
+    shop = state.get()
     tasks = bakery_calendar.whats_due(today)
+
+    occasions = []
+    for row in bakery_calendar.upcoming(today, within_days):
+        row = {**row, "date": row["date"].isoformat()}
+        # What this shop actually did last time beats what the table assumes.
+        seen = bakery_calendar.observed_lift(shop.demand_by_day, row["occasion"],
+                                             row["products"])
+        if seen:
+            row["lift"] = seen["peak_multiplier"]
+            row["lift_source"] = "measured"
+            row["lift_detail"] = seen["products"]
+            row["assumed_lift"] = row["peak_multiplier"]
+        else:
+            row["lift"] = row["peak_multiplier"]
+            row["lift_source"] = "assumed"
+        occasions.append(row)
+
     return {
         "today": today.isoformat(),
-        "occasions": [{**row, "date": row["date"].isoformat()}
-                      for row in bakery_calendar.upcoming(today, within_days)],
+        "occasions": occasions,
         "tasks_due": [{**row, "due": row["due"].isoformat()} for row in tasks],
         "overdue": sum(1 for row in tasks if row["overdue"]),
     }

@@ -32,8 +32,25 @@ class Shop:
         self.index = index
         self.history = history
         self.corrected = corrected
+        self._by_day = None
         self.source = source
         self.stamp = stamp
+
+    @property
+    def demand_by_day(self):
+        """The corrected history, keyed by day instead of by product.
+
+        Anything measuring what a date did to trade has to read this and not the
+        raw till. The till stops counting when the shelf is empty, so measuring
+        an occasion from it reports the sell-out, not the occasion.
+        """
+        if self._by_day is None:
+            table = {}
+            for item, days in self.history.items():
+                for day, units in days.items():
+                    table.setdefault(day, {})[item] = units
+            self._by_day = table
+        return self._by_day
 
     @property
     def days(self):

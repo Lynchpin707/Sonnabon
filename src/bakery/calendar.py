@@ -55,31 +55,37 @@ STANDARD_TASKS = (
     Task(14, "Trial batch, so there is time to change it before it matters", "baker"),
     Task(10, "Price it and put it on the board"),
     Task(7, "Confirm extra hands for the peak days"),
-    Task(2, "Final quantities to the team", "baker"),
-)
+    Task(2, "Final quantities to the team", "baker"))
 
 OCCASIONS = [
     Occasion("Halloween", 10, 31, 6, 1.8,
-             ("Cinnamon roll", "Glazed donut", "Brownie",
+             ("Cinnamon roll", "Glazed donut",
               "Chocolate chip cookie"), STANDARD_TASKS),
     Occasion("Christmas", 12, 25, 14, 3.2,
-             ("Basque cheesecake", "Crème brûlée crêpe cake", "Lemon tart",
-              "Carrot cake slice", "Chocolate éclair"),
+             ("Basque cheesecake", "Tiramisu",
+              "Chocolate éclair"),
              STANDARD_TASKS + (Task(35, "Open pre-orders, the peak days cannot "
                                         "absorb walk-ins"),)),
     Occasion("Valentine", 2, 14, 4, 1.9,
-             ("Chocolate éclair", "Brownie", "Crème brûlée crêpe cake"),
+             ("Chocolate éclair", "Tiramisu"),
              STANDARD_TASKS),
     Occasion("Eid", 3, 20, 6, 2.3,
-             ("Cinnamon roll", "Brownie", "Chocolate chip cookie",
+             ("Cinnamon roll", "Chocolate chip cookie",
               "Pistachio croissant"), STANDARD_TASKS, moves_yearly=True),
     Occasion("Easter", 4, 12, 7, 1.9,
-             ("Carrot cake slice", "Chocolate éclair", "Lemon tart"),
+             ("Chocolate éclair", "Basque cheesecake"),
              STANDARD_TASKS, moves_yearly=True),
     Occasion("Mother's Day", 5, 11, 5, 2.1,
-             ("Basque cheesecake", "Lemon tart", "Matcha roll cake"),
+             ("Basque cheesecake", "Tiramisu"),
              STANDARD_TASKS, moves_yearly=True),
 ]
+
+for _occasion in OCCASIONS:
+    if isinstance(_occasion.products, str):
+        raise TypeError(
+            f"{_occasion.name} lists its products as a string, not a tuple. A "
+            f"single product needs a trailing comma: (\"{_occasion.products}\",). "
+            f"Without it every letter is treated as a product.")
 
 BY_NAME = {occasion.name: occasion for occasion in OCCASIONS}
 
@@ -154,3 +160,99 @@ def whats_due(today, within_days=45):
             if task["overdue"] or task["days_from_now"] <= within_days:
                 rows.append({**task, "occasion": row["occasion"]})
     return sorted(rows, key=lambda row: row["due"])
+
+
+# ── what the shop actually did last time ────────────────────────────────────
+#
+# Every multiplier above is a prior: a number somebody typed, useful for
+# generating trade and for a shop with no history yet. It is not a fact about
+# this shop, and saying "normally lifts by 1.8x" about a figure nobody measured
+# is the exact failure this project exists to avoid.
+#
+# So when the receipts cover a past occurrence, measure it instead.
+
+MIN_BASELINE_DAYS = 6            # below this the ratio is noise wearing a number
+
+
+def peak_window(occasion, when):
+    """The days the occasion is actually lifting, ramp included."""
+    return [when - timedelta(days=gap) for gap in range(occasion.lead_days + 1)]
+
+
+def observed_lift(units_by_day, occasion_name, products=None):
+    """Measure the lift from the till, weekday by weekday.
+
+    Weekday matching is not fussiness. A seven day window against an all-days
+    average compares a Saturday to a Tuesday and reports the weekend as
+    Halloween. Each occasion day is scored against the same weekday in the
+    ordinary weeks around it, and days belonging to any other occasion are
+    excluded so two dates close together cannot borrow each other's peak.
+
+    Returns None when there is no past occurrence, which is a real answer: a
+    shop three months old has never seen Christmas, and inventing a number for
+    it is worse than saying so.
+    """
+    occasion = BY_NAME[occasion_name]
+    days = sorted(units_by_day)
+    if not days:
+        return None
+
+    # Every day that any occasion is touching, so the baseline stays ordinary.
+    lifted = set()
+    for other in OCCASIONS:
+        for year in range(days[0].year, days[-1].year + 1):
+            try:
+                lifted.update(peak_window(other, other.date_in(year)))
+            except ValueError:                       # 29 February in a flat year
+                continue
+
+    per_product = {}
+    for item in (products or occasion.products):
+        ratios, peak_days, base_days = [], 0, 0
+        for year in range(days[0].year, days[-1].year + 1):
+            try:
+                when = occasion.date_in(year)
+            except ValueError:
+                continue
+            window = [day for day in peak_window(occasion, when)
+                      if day in units_by_day]
+            if not window:
+                continue
+
+            # Ordinary trade either side, same season, same weekdays.
+            near = [day for day in days
+                    if 0 < abs((day - when).days) <= 56 and day not in lifted]
+            baseline = {}
+            for day in near:
+                baseline.setdefault(day.weekday(), []).append(
+                    units_by_day[day].get(item, 0))
+            if sum(len(v) for v in baseline.values()) < MIN_BASELINE_DAYS:
+                continue
+
+            for day in window:
+                same = baseline.get(day.weekday())
+                if not same or sum(same) == 0:
+                    continue
+                ordinary = sum(same) / len(same)
+                ratios.append(units_by_day[day].get(item, 0) / ordinary)
+                peak_days += 1
+            base_days += sum(len(v) for v in baseline.values())
+
+        if not ratios:
+            continue
+        per_product[item] = {"lift": round(max(ratios), 2),
+                             "mean_lift": round(sum(ratios) / len(ratios), 2),
+                             "days": peak_days, "baseline_days": base_days}
+
+    if not per_product:
+        return None
+
+    peaks = [row["lift"] for row in per_product.values()]
+    return {
+        "occasion": occasion.name,
+        "measured": True,
+        "peak_multiplier": round(sum(peaks) / len(peaks), 2),
+        "assumed": occasion.peak_multiplier,
+        "products": per_product,
+        "days_seen": sum(row["days"] for row in per_product.values()),
+    }

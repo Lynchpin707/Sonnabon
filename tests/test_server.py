@@ -24,10 +24,16 @@ import pytest
 @pytest.fixture(scope="module")
 def site(tmp_path_factory):
     """The real server, on a free port, with its own ticket store."""
-    os.environ["TICKETS_FILE"] = str(tmp_path_factory.mktemp("t") / "tickets.json")
+    root = tmp_path_factory.mktemp("t")
+    os.environ["TICKETS_FILE"] = str(root / "tickets.json")
+    # The agent test runs a real run, and a real run writes a journal entry.
+    # Left pointing at the repo, the suite would quietly append to the diary the
+    # demo shows.
+    os.environ["JOURNAL_FILE"] = str(root / "journal.jsonl")
     import importlib
-    from src.bakery import team as tickets
+    from src.bakery import team as tickets, journal
     importlib.reload(tickets)
+    importlib.reload(journal)
 
     from ui import app
     importlib.reload(app)
@@ -109,6 +115,25 @@ def test_today_carries_what_the_page_shows(site):
             assert row["ran_out_at"], "flagged as out with no time"
 
 
+def test_the_page_agrees_with_itself(site):
+    """Every product the day reports has to be on the menu the page was given.
+
+    These come from different endpoints and different code paths, and they
+    disagreed once already: the menu was built from baked goods only, so coffee
+    sold all day and appeared nowhere in the list of what the shop sells.
+    """
+    _, body, _ = get(site, "/api/overview")
+    menu = {row["name"] for row in json.loads(body)["menu"]}
+    _, body, _ = get(site, "/api/today")
+    sold = {row["item"] for row in json.loads(body)["rows"]}
+    _, body, _ = get(site, "/api/plan")
+    planned = {row["item"] for row in json.loads(body)["rows"]}
+
+    assert sold <= menu, f"sold but not on the menu: {sorted(sold - menu)}"
+    assert planned <= menu, f"planned but not on the menu: {sorted(planned - menu)}"
+    assert "Coffee" not in planned, "coffee is not a production decision"
+
+
 def test_overview_is_one_call_with_everything_the_page_needs(site):
     _, body, _ = get(site, "/api/overview")
     data = json.loads(body)
@@ -188,3 +213,90 @@ def test_agent_streams_and_fails_readably_without_a_model(site):
         assert last["error"] and last["hint"], "a failure with nothing to do next"
     else:
         assert last["ledger"]["tool_calls"] >= 0
+
+
+# ── the diary, which is where the autonomy claim is evidenced ──────────────
+
+def test_journal_endpoint_carries_what_the_header_counts(site):
+    _, body, _ = get(site, "/api/journal")
+    data = json.loads(body)
+    for key in ("runs", "spoke", "cost_usd", "entries"):
+        assert key in data, key
+    assert data["spoke"] <= data["runs"], "spoke more often than it woke"
+    for entry in data["entries"]:
+        assert entry["at"] and entry["did"] and entry["why"]
+        assert isinstance(entry["spoke"], bool)
+
+
+def test_the_diary_list_matches_the_count_above_it(site):
+    """The heading says how many wakings there were in seven days and the list
+    beneath it shows them. Letting the list run past that window puts a visible
+    contradiction on the page."""
+    _, body, _ = get(site, "/api/journal")
+    data = json.loads(body)
+    assert len(data["entries"]) == data["runs"], (
+        f"heading says {data['runs']} wakings, list shows "
+        f"{len(data['entries'])}")
+
+
+def test_looking_at_the_page_is_not_a_run(site):
+    """The header counts how often the agent woke. Rendering a dashboard is not
+    waking, and letting a page load bump that number would fabricate the one
+    figure the whole product is judged on.
+    """
+    _, body, _ = get(site, "/api/journal")
+    before = json.loads(body)["runs"]
+    for _ in range(3):
+        get(site, "/api/overview")
+    _, body, _ = get(site, "/api/journal")
+    assert json.loads(body)["runs"] == before, "a page load counted as a run"
+
+
+def test_no_two_functions_share_a_name():
+    """A redefined function silently wins, and the caller of the first one gets
+    the second one's argument shape. That is how the diary page started
+    rendering the journal renderer with a list of occasions and threw on load.
+    """
+    import re
+    from collections import Counter
+
+    page = open("ui/index.html", encoding="utf-8").read()
+    names = re.findall(r'^\s*function\s+([A-Za-z_$][\w$]*)\s*\(', page, re.M)
+    clashes = [name for name, count in Counter(names).items() if count > 1]
+    assert not clashes, f"defined twice in the page: {clashes}"
+
+
+def test_every_read_only_agent_tool_actually_runs(site):
+    """The tools are the agent's only contact with the shop, and nothing
+    exercises them until a model is configured. ``shop_status``, the one the
+    prompt tells it to call first, raised AttributeError for a helper that was
+    never written, and no test or page touched it.
+
+    Anything with a side effect or a network call is left out on purpose.
+    """
+    import inspect
+    from src.bakery import agent
+
+    skip = set(agent.ACTIONS) | {"run_python", "find_local_events"}
+    ran, failed = [], []
+    for handle in agent.TOOLS:
+        name = getattr(handle, "tool_name", getattr(handle, "__name__", "?"))
+        if name in skip:
+            continue
+        function = (getattr(handle, "_tool_func", None)
+                    or getattr(handle, "__wrapped__", None) or handle)
+        try:
+            needed = [p for p in inspect.signature(function).parameters.values()
+                      if p.default is p.empty]
+        except (TypeError, ValueError):
+            continue
+        if needed:
+            continue
+        try:
+            function()
+            ran.append(name)
+        except Exception as error:
+            failed.append(f"{name}: {type(error).__name__}: {error}")
+
+    assert not failed, "agent tools that raise: " + "; ".join(failed)
+    assert len(ran) >= 6, f"only exercised {ran}, which is not coverage"

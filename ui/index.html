@@ -17,12 +17,21 @@
 <style>
 :root{
   --cream:#F4F9FD;
-  --ink:#22384C; --ink-2:#5A7186; --ink-3:#93A8BA;
+  --ink:#22384C; --ink-2:#5A7186; --ink-3:#5A758D;
 
+  /* Fills. Bars and washes, where contrast rules do not bite. */
   --sky:#5B9BD1;        /* the everyday: what sold, what is planned */
   --blush:#DE7C95;      /* the loss: what ran out, what is declining */
   --mint:#5BAF9B;       /* the gain: what is growing, what is done */
   --sun:#E0A94E;        /* the decision waiting on a person */
+
+  /* The same hues, darkened until each clears 4.5:1 on this ground. Every fill
+     above fails as text, some badly, and a figure nobody can read is worse
+     than no figure. Sky has no darkened twin because sky is never text: it
+     fills bars and draws outlines, where the 4.5:1 rule does not apply. */
+  --blush-ink:#CD395F;
+  --mint-ink:#3D7E6E;
+  --sun-ink:#99691B;
 
   --glass:rgba(255,255,255,.58);
   --glass-2:rgba(255,255,255,.34);
@@ -42,17 +51,21 @@ html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--cream);color:var(--ink);font-family:var(--sans);
   font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh}
 #shader{position:fixed;inset:0;z-index:-2;width:100%;height:100%;display:block}
-.app{max-width:1180px;margin:0 auto;padding:clamp(1rem,2.4vw,1.7rem) clamp(.8rem,2.4vw,1.5rem) 6rem;
+.app{width:min(1600px,95vw);margin:0 auto;padding:clamp(1rem,2.4vw,1.7rem) clamp(.8rem,2.4vw,1.5rem) 6rem;
   display:flex;flex-direction:column;gap:clamp(1.1rem,2.2vw,1.5rem)}
 
 /* ── bar ───────────────────────────────────────────────────── */
-.bar{display:flex;flex-wrap:wrap;gap:.8rem 1.4rem;align-items:center;justify-content:space-between}
-.logo{width:46px;height:46px;border-radius:14px;flex:none;object-fit:cover;
+.bar{display:flex;flex-wrap:wrap;gap:.75rem 1.5rem;align-items:center;
+  justify-content:space-between;margin-bottom:.2rem}
+.logo{width:44px;height:44px;border-radius:13px;flex:none;object-fit:cover;
   background:#fff;box-shadow:0 6px 18px -8px rgba(34,56,76,.45)}
-.brand{display:flex;align-items:center;gap:.7rem}
-.wordmark{font-family:var(--display);font-weight:700;font-size:1.85rem;
-  letter-spacing:.01em;display:block;line-height:1.05}
-.job{font-size:.82rem;color:var(--ink-2);display:block}
+.brand{display:flex;align-items:center;gap:.72rem;min-width:0}
+.brand .words{display:flex;flex-direction:column;min-width:0}
+.wordmark{font-family:var(--display);font-weight:700;font-size:1.75rem;
+  letter-spacing:.01em;line-height:1;white-space:nowrap}
+.job{font-size:.83rem;color:var(--ink-2);line-height:1.3;white-space:nowrap;
+  margin-top:.12rem}
+@media(max-width:520px){.job{white-space:normal}}
 .pulse{display:flex;gap:.5rem;flex-wrap:wrap}
 .chip{background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
   border:1px solid var(--edge);border-radius:999px;padding:.35rem .95rem;text-align:center}
@@ -67,7 +80,7 @@ nav button:hover{color:var(--ink);background:var(--glass-2)}
 nav button[aria-selected=true]{background:var(--glass);border-color:var(--edge);color:var(--ink);
   box-shadow:0 6px 16px -12px rgba(34,56,76,.7)}
 nav button:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
-nav .n{font-family:var(--mono);font-size:.62rem;color:var(--blush);margin-left:.3rem}
+nav .n{font-family:var(--mono);font-size:.66rem;color:var(--blush-ink);margin-left:.3rem}
 
 .view{display:none;flex-direction:column;gap:clamp(1rem,2vw,1.35rem)}
 .view.on{display:flex}
@@ -91,7 +104,41 @@ h2{font-family:var(--display);font-weight:600;font-size:1.06rem;margin:0;letter-
 .idle{color:var(--ink-3)}
 .grid{display:grid;gap:clamp(1rem,2vw,1.35rem);align-items:start}
 @media(min-width:880px){.g-2{grid-template-columns:1fr 1fr}
-  .g-side{grid-template-columns:minmax(280px,340px) 1fr}}
+  .g-side{grid-template-columns:minmax(280px,360px) 1fr}
+  .g-diary{grid-template-columns:1fr minmax(320px,460px)}}
+@media(min-width:1400px){.g-side{grid-template-columns:minmax(320px,400px) 1fr}}
+.stack{display:flex;flex-direction:column;gap:clamp(1rem,2vw,1.35rem)}
+
+/* ── the diary ─────────────────────────────────────────────── */
+.intro{margin-bottom:clamp(1rem,2vw,1.35rem)}
+.who{display:flex;gap:.85rem;align-items:center;min-width:min(100%,340px)}
+.who img{width:46px;height:46px;border-radius:12px;flex:none}
+.who h2{margin:0 0 .15rem}
+.who p{margin:0;color:var(--ink-2);font-size:.9rem;max-width:62ch;line-height:1.5}
+
+/* One row per waking. The rail is continuous so the quiet days read as part of
+   the same thread rather than as gaps where nothing was recorded. */
+.wake{display:grid;grid-template-columns:auto 1fr;gap:.75rem;padding:.1rem 0}
+.wake .rail{display:flex;flex-direction:column;align-items:center;width:14px}
+.wake .dotm{width:9px;height:9px;border-radius:50%;background:var(--sky);
+  margin-top:.34rem;flex:none;border:2px solid var(--cream)}
+.wake.spoke .dotm{background:var(--sun)}
+.wake .thread{flex:1;width:2px;background:var(--edge);margin:.15rem 0 0}
+.wake:last-child .thread{display:none}
+.wake .body{padding-bottom:.95rem;min-width:0}
+.wake .when{font-family:var(--mono);font-size:.68rem;color:var(--ink-3);
+  letter-spacing:.02em}
+.wake .line-what{display:flex;gap:1rem;align-items:baseline;
+  justify-content:space-between}
+.wake .what{font-size:.88rem;color:var(--ink);margin:.12rem 0 0;line-height:1.45}
+.wake .figure{font-family:var(--figures);font-size:.88rem;color:var(--ink-2);
+  white-space:nowrap;font-variant-numeric:tabular-nums;flex:none}
+.wake .quiet{font-size:.76rem;color:var(--ink-3);margin-top:.1rem}
+.wake .note-out{margin-top:.45rem;border-left:2px solid var(--sun);
+  padding:.4rem .7rem;background:rgba(224,169,78,.10);border-radius:0 8px 8px 0}
+.wake .note-out b{display:block;font-size:.82rem;color:var(--sun-ink)}
+.wake .note-out p{margin:.18rem 0 0;font-size:.82rem;color:var(--ink-2);
+  line-height:1.5}
 
 /* ── brief bar ─────────────────────────────────────────────── */
 .brief{background:var(--glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
@@ -101,7 +148,13 @@ h2{font-family:var(--display);font-weight:600;font-size:1.06rem;margin:0;letter-
   color:var(--ink);padding:.45rem 0}
 .brief input::placeholder{color:var(--ink-3)}
 .brief input:focus{outline:none}
-.hints{display:flex;gap:.4rem;flex-wrap:wrap}
+/* The suggestions are scaffolding for somebody who has not used it before.
+   They appear when the bar is focused and get out of the way afterwards. */
+.hints{display:flex;gap:.4rem;flex-wrap:wrap;max-height:0;overflow:hidden;
+  opacity:0;transition:max-height .22s ease,opacity .18s ease,margin .22s ease;
+  margin-top:-.7rem}
+.hints.on{max-height:5rem;opacity:1;margin-top:0}
+@media (prefers-reduced-motion:reduce){.hints{transition:none}}
 .hint{font-family:var(--sans);font-size:.78rem;color:var(--ink-2);background:var(--glass-2);
   border:1px solid var(--edge);border-radius:999px;padding:.26rem .75rem;cursor:pointer}
 .hint:hover{background:var(--glass);color:var(--ink)}
@@ -117,31 +170,36 @@ h2{font-family:var(--display);font-weight:600;font-size:1.06rem;margin:0;letter-
 .row{display:flex;gap:.4rem;flex-wrap:wrap}
 
 /* ── the day at a glance ───────────────────────────────────── */
-.figs{display:flex;flex-wrap:wrap;gap:2.2rem;margin-bottom:1.5rem}
-.fig b{font-family:var(--figures);font-weight:600;font-size:clamp(1.55rem,3.4vw,2.1rem);
-  display:block;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.figs{display:flex;flex-wrap:wrap;gap:1.9rem;margin-bottom:1.35rem}
+.fig b{font-family:var(--figures);font-weight:600;font-size:clamp(1.4rem,2.7vw,1.72rem);
+  display:block;line-height:1;letter-spacing:-.015em;font-variant-numeric:tabular-nums}
 .fig i{font-style:normal;font-size:.84rem;color:var(--ink-2);margin-top:.15rem;display:block}
-.fig.warn b{color:var(--blush)}
+.fig.warn b{color:var(--blush-ink)}
 
-.bars{display:flex;flex-direction:column;gap:.42rem}
-.brow{display:grid;grid-template-columns:minmax(96px,150px) 1fr auto;gap:.7rem;align-items:center;
-  font-size:.86rem}
-.brow .lane{height:20px;border-radius:6px;background:rgba(34,56,76,.07);position:relative;overflow:visible}
-.brow .fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:var(--sky);
+/* Capped, not stretched. Across the full width a bar for fifty units is a stub
+   at the far left of an empty track, and the eye has to travel to nothing. */
+.bars{display:flex;flex-direction:column;gap:.3rem}
+.brow{display:grid;grid-template-columns:minmax(150px,190px) 1fr 3.2rem;gap:.85rem;
+  align-items:center;font-size:.88rem;min-height:30px}
+.brow .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brow .lane{height:22px;border-radius:7px;background:rgba(34,56,76,.07);position:relative}
+.brow .fill{position:absolute;left:0;top:0;bottom:0;border-radius:7px;background:var(--sky);
   transition:width .5s ease-out}
 .brow.out .fill{background:var(--blush)}
-.brow .ghost{position:absolute;top:0;bottom:0;border-radius:6px;
+.brow .ghost{position:absolute;top:0;bottom:0;border-radius:0 7px 7px 0;
   background:repeating-linear-gradient(115deg,rgba(222,124,149,.34) 0 5px,transparent 5px 10px);
-  border:1px dashed rgba(222,124,149,.6);border-left:0}
-.brow .num{font-family:var(--mono);font-size:.8rem;font-variant-numeric:tabular-nums;min-width:3.4rem;
+  border:1px dashed rgba(222,124,149,.65);border-left:0}
+.brow .num{font-family:var(--mono);font-size:.82rem;font-variant-numeric:tabular-nums;
   text-align:right}
-.brow .flag{font-size:.75rem;color:var(--blush);white-space:nowrap;
-  position:absolute;right:8px;top:50%;transform:translateY(-50%)}
+/* Sits just past the end of its own bar, so it reads as a note on that row
+   rather than a caption floating at the edge of the card. */
+.brow .flag{font-size:.74rem;color:var(--blush-ink);white-space:nowrap;
+  position:absolute;top:50%;transform:translateY(-50%);padding-left:.5rem}
 
 /* ── sell-out story ────────────────────────────────────────── */
 .say{font-family:var(--figures);font-weight:600;letter-spacing:-.015em;line-height:1.18;
   font-size:clamp(1.2rem,2.7vw,1.58rem);margin:0 0 .2rem;max-width:28ch}
-.say b{color:var(--blush)}
+.say b{color:var(--blush-ink)}
 .sub{color:var(--ink-2);font-size:.91rem;margin:0 0 .85rem;max-width:50ch}
 svg{display:block;width:100%;height:auto;overflow:visible}
 .chartwrap{display:grid;gap:1rem}
@@ -160,14 +218,14 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 .line:first-child{border-top:0}
 .qty{font-family:var(--figures);font-weight:600;font-size:1.06rem;font-variant-numeric:tabular-nums}
 .why{font-size:.8rem;color:var(--ink-2);white-space:nowrap}
-.line.lift .qty,.line.lift .why{color:var(--sun)}
+.line.lift .qty,.line.lift .why{color:var(--sun-ink)}
 .rest{font-size:.83rem;color:var(--ink-2);padding-top:.6rem}
 .total{display:flex;justify-content:space-between;border-top:1px solid var(--edge);
   margin-top:.5rem;padding-top:.5rem;font-family:var(--mono);font-size:.78rem;font-weight:500}
 .ask{margin-top:.85rem;border-radius:14px;padding:.8rem .9rem;
   background:linear-gradient(135deg,rgba(224,169,78,.18),rgba(222,124,149,.12));
   border:1px solid rgba(224,169,78,.45)}
-.ask .label{font-size:.82rem;color:var(--sun);font-weight:600}
+.ask .label{font-size:.82rem;color:var(--sun-ink);font-weight:600}
 .ask p{margin:.3rem 0 .65rem;font-size:.87rem;line-height:1.42}
 
 .move{display:grid;grid-template-columns:1fr 88px 3.2rem;gap:.7rem;align-items:center;
@@ -178,17 +236,23 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 .track i.up{left:50%;background:var(--mint)} .track i.down{right:50%;background:var(--blush)}
 .track::after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--ink-3)}
 .pct{font-family:var(--mono);font-weight:500;font-size:.77rem;text-align:right}
-.pct.up{color:var(--mint)} .pct.down{color:var(--blush)}
+.pct.up{color:var(--mint-ink)} .pct.down{color:var(--blush-ink)}
 
-.occ{display:flex;justify-content:space-between;gap:.8rem;align-items:baseline;padding:.6rem .85rem;
+.occ{display:flex;justify-content:space-between;gap:.8rem;align-items:center;padding:.6rem .85rem;
   border-radius:12px;background:rgba(91,155,209,.13);border:1px solid rgba(91,155,209,.28);margin-bottom:.5rem}
+.occ .name{display:flex;align-items:center;gap:.6rem;min-width:0}
+/* The one warm thing on a cool page, and only on the occasion that has one.
+   Small on purpose: a stamp on the card, not a poster over it. */
+.occ .emblem{width:38px;height:38px;flex:none;object-fit:contain}
 .occ b{font-family:var(--display);font-weight:600;font-size:.98rem}
 .occ span{font-size:.83rem;color:var(--ink-2);white-space:nowrap}
+.pill.guess{margin-left:.4rem;color:var(--ink-3);background:rgba(90,117,141,.14)}
+#diary .job span:last-child{white-space:normal;overflow-wrap:anywhere;line-height:1.4}
 .job{display:grid;grid-template-columns:5rem 1fr;gap:.55rem;font-size:.84rem;color:var(--ink-2);padding:.22rem 0}
 .job .d{font-family:var(--mono);font-size:.8rem;color:var(--ink-2)}
 .pill{font-size:.74rem;padding:.08rem .5rem;border-radius:999px;margin-left:.4rem}
-.pill.late{color:var(--blush);background:rgba(222,124,149,.15)}
-.pill.occasion{color:var(--sky);background:rgba(224,169,78,.2)}
+.pill.late{color:var(--blush-ink);background:rgba(222,124,149,.16)}
+.pill.occasion{color:var(--sun-ink);background:rgba(224,169,78,.22)}
 
 /* ── board ─────────────────────────────────────────────────── */
 .people{display:grid;gap:clamp(.8rem,1.7vw,1.1rem)}
@@ -202,7 +266,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 .tick{display:flex;gap:.55rem;align-items:flex-start;font-size:.86rem;padding:.3rem 0;cursor:pointer}
 .tick .box{width:15px;height:15px;border-radius:5px;border:1.5px solid var(--ink-3);flex:none;
   margin-top:.15rem;display:grid;place-items:center;font-size:.7rem;color:var(--cream)}
-.tick.bake .box{border-color:var(--sky)} .tick.prep .box{border-color:var(--sky)}
+.tick.bake .box{border-color:var(--sky)} .tick.prep .box{border-color:var(--sun)}
 .tick.check .box{border-color:var(--blush)}
 .subs{margin:.15rem 0 .4rem 2.1rem;display:flex;flex-direction:column;gap:.1rem}
 .sub-tick{display:flex;gap:.5rem;align-items:center;font-size:.8rem;cursor:pointer;padding:.14rem 0}
@@ -222,10 +286,17 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 .msg p{margin:.35rem 0 0;font-size:.86rem;white-space:pre-wrap;color:var(--ink-2)}
 
 /* ── setup ─────────────────────────────────────────────────── */
-.pipe{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;margin:.4rem 0 1rem}
-.node{background:var(--glass-2);border:1px solid var(--edge);border-radius:12px;padding:.55rem .85rem;
-  font-size:.85rem;text-align:center;min-width:110px}
-.node b{display:block;font-family:var(--display);font-weight:600;font-size:.9rem}
+.source{display:flex;flex-wrap:wrap;align-items:center;gap:1.1rem;margin:.2rem 0 1.3rem}
+.bill{margin:0;flex:none;width:170px}
+.bill img{width:100%;display:block;border-radius:10px;border:1px solid var(--edge);
+  background:#fff;box-shadow:0 10px 24px -18px rgba(34,56,76,.7)}
+.bill figcaption{font-size:.79rem;color:var(--ink-2);margin-top:.45rem;line-height:1.35}
+.fleche{width:74px;height:auto;flex:none;opacity:.7;align-self:center}
+@media(max-width:640px){.fleche{transform:rotate(90deg);width:54px}}
+.pipe{display:flex;flex-direction:column;gap:.5rem;flex:1;min-width:190px}
+.node{background:var(--glass-2);border:1px solid var(--edge);border-radius:12px;
+  padding:.55rem .9rem;font-size:.87rem}
+.node b{display:block;font-family:var(--display);font-weight:600;font-size:1.02rem}
 .node i{font-style:normal;font-size:.79rem;color:var(--ink-2)}
 .node.live{border-color:var(--mint);background:rgba(91,175,155,.14)}
 .arrow{color:var(--ink-3);font-size:1rem}
@@ -240,23 +311,61 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 .kv dd{margin:0;font-family:var(--mono);font-size:.8rem;word-break:break-all}
 
 /* ── floating ask ──────────────────────────────────────────── */
-.fab{position:fixed;right:clamp(.9rem,3vw,1.8rem);bottom:clamp(.9rem,3vw,1.8rem);z-index:20;
-  width:64px;height:64px;border-radius:50%;border:1px solid var(--edge);cursor:pointer;
-  padding:0;overflow:hidden;background:rgba(255,255,255,.85);
+/* Sonnabon itself, and the only way into a conversation with it. Pinned still
+   in a corner it read as a support widget, so it drifts. The drift is bounded
+   to about thirty pixels: enough for the eye to catch it as something alive,
+   small enough that it never becomes a target that moves out from under a
+   cursor. It settles the moment you reach for it. */
+.fab{position:fixed;right:clamp(1rem,3vw,2.2rem);bottom:clamp(1rem,3vw,2.2rem);z-index:20;
+  width:clamp(76px,7vw,96px);height:clamp(76px,7vw,96px);border-radius:50%;
+  border:1px solid var(--edge);cursor:pointer;
+  padding:0;overflow:visible;background:rgba(255,255,255,.86);
   backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
-  box-shadow:0 14px 30px -12px rgba(34,56,76,.5);display:grid;place-items:center;
-  transition:transform .16s ease-out, box-shadow .16s ease-out}
-.fab img{width:100%;height:100%;object-fit:cover;display:block}
-.fab:hover{transform:translateY(-2px);box-shadow:0 18px 36px -12px rgba(34,56,76,.62)}
-.fab:focus-visible{outline:3px solid var(--sky);outline-offset:3px}
-.panel{position:fixed;right:clamp(.9rem,3vw,1.8rem);bottom:calc(clamp(.9rem,3vw,1.8rem) + 66px);
+  box-shadow:0 16px 34px -12px rgba(34,56,76,.5);display:grid;place-items:center;
+  animation:drift 19s ease-in-out infinite;
+  transition:box-shadow .18s ease-out}
+.fab img{width:100%;height:100%;object-fit:cover;display:block;border-radius:50%;
+  animation:bob 4.6s ease-in-out infinite}
+
+/* A slow wander, no two legs the same length, so it never reads as a loop. */
+@keyframes drift{
+   0%  {transform:translate(0,0)}
+  17%  {transform:translate(-22px,-13px)}
+  33%  {transform:translate(-31px,6px)}
+  51%  {transform:translate(-9px,-19px)}
+  68%  {transform:translate(-26px,-4px)}
+  84%  {transform:translate(-7px,9px)}
+ 100%  {transform:translate(0,0)}}
+@keyframes bob{
+   0%,100%{transform:translateY(0) rotate(-1.5deg)}
+  50%    {transform:translateY(-5px) rotate(1.5deg)}}
+
+/* A ring that breathes out every so often, so it is noticed without nagging. */
+.fab::after{content:"";position:absolute;inset:-6px;border-radius:50%;
+  border:2px solid var(--sky);opacity:0;pointer-events:none;
+  animation:notice 7s ease-out infinite}
+@keyframes notice{
+   0%,72%{transform:scale(.94);opacity:0}
+  80%   {opacity:.42}
+ 100%   {transform:scale(1.22);opacity:0}}
+
+/* Reaching for it stops it dead, and so does having it open. */
+.fab:hover,.fab:focus-visible,.fab[aria-expanded="true"]{animation-play-state:paused}
+.fab:hover img,.fab:focus-visible img,.fab[aria-expanded="true"] img{animation-play-state:paused}
+.fab:hover::after,.fab:focus-visible::after,.fab[aria-expanded="true"]::after{animation:none;opacity:0}
+.fab:hover{box-shadow:0 22px 44px -12px rgba(34,56,76,.62)}
+.fab:focus-visible{outline:3px solid var(--sky);outline-offset:5px}
+
+@media(prefers-reduced-motion:reduce){
+  .fab,.fab img,.fab::after{animation:none}}
+.panel{position:fixed;right:clamp(1rem,3vw,2.2rem);bottom:calc(clamp(1rem,3vw,2.2rem) + clamp(76px,7vw,96px) + 14px);
   z-index:20;width:min(430px,calc(100vw - 2rem));background:var(--glass);border:1px solid var(--edge);
   border-radius:var(--r);box-shadow:0 26px 60px -30px rgba(34,56,76,.72);padding:1rem;
   backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);display:none;flex-direction:column;gap:.7rem}
 .panel.on{display:flex}
 #log{font-family:var(--mono);font-size:.73rem;line-height:1.8;margin:0;white-space:pre-wrap;
   color:var(--ink-2);max-height:260px;overflow-y:auto;border-top:1px solid var(--edge);padding-top:.6rem}
-#log .t{color:var(--ink)} #log .b{color:var(--blush)} #log .s{color:var(--mint)}
+#log .t{color:var(--ink)} #log .b{color:var(--blush-ink)} #log .s{color:var(--mint-ink)}
 @media (prefers-reduced-motion:no-preference){
   #log > span{animation:in .16s ease-out}
   @keyframes in{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:none}}
@@ -273,15 +382,15 @@ svg{display:block;width:100%;height:auto;overflow:visible}
   <div class="bar">
     <div class="brand">
       <img class="logo" src="assets/logo.jpg" alt="Sonnabon">
-      <div>
+      <span class="words">
         <span class="wordmark">Sonnabon</span>
         <span class="job">operations and planning, for bakeries</span>
-      </div>
+      </span>
     </div>
     <div class="pulse">
-      <div class="chip"><b id="pRuns">–</b><i>runs this week</i></div>
-      <div class="chip"><b id="pSpoke">–</b><i>reached you</i></div>
-      <div class="chip"><b id="pCost">–</b><i>cost to run</i></div>
+      <div class="chip"><b id="pRuns">&middot;&middot;</b><i>runs this week</i></div>
+      <div class="chip"><b id="pSpoke">&middot;&middot;</b><i>reached you</i></div>
+      <div class="chip"><b id="pCost">&middot;&middot;</b><i>cost to run</i></div>
     </div>
   </div>
 
@@ -347,15 +456,34 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 
   <!-- ══ DIARY ══ -->
   <div class="view" id="v-diary">
-    <div class="grid g-2">
+    <section class="card intro">
+      <div class="who">
+        <img src="assets/fab.png" alt="">
+        <div>
+          <h2>Sonnabon's diary</h2>
+          <p id="introLine">Every time it wakes it writes a line here, whether or
+            not it needed you. The days it stayed quiet are the point.</p>
+        </div>
+      </div>
+    </section>
+    <div class="grid g-diary">
       <section class="card">
-        <header><h2>Coming up</h2></header>
-        <div id="diary"></div>
+        <header><h2>What it has been doing</h2><span class="note" id="logNote"></span></header>
+        <div id="journal"></div>
       </section>
-      <section class="card">
-        <header><h2>Local events</h2></header>
-        <p class="idle" id="events">Web search is not configured yet. Set TAVILY_API_KEY and it will look for markets, note the application deadlines and stall fees, and tell you what last year's attendance actually was.</p>
-      </section>
+      <div class="stack">
+        <section class="card">
+          <header><h2>Coming up</h2><span class="note" id="liftNote">lift from your own tills</span></header>
+          <div id="diary"></div>
+        </section>
+        <section class="card">
+          <header><h2>Local events</h2></header>
+          <p class="idle" id="events">Web search is not configured yet. Set
+            TAVILY_API_KEY and it will look for markets, note the application
+            deadlines and stall fees, and tell you what last year's attendance
+            actually was.</p>
+        </section>
+      </div>
     </div>
   </div>
 
@@ -382,14 +510,17 @@ svg{display:block;width:100%;height:auto;overflow:visible}
   <div class="view" id="v-setup">
     <section class="card">
       <header><h2>Where the numbers come from</h2><span class="note" id="live"></span></header>
-      <div class="pipe">
-        <div class="node live"><b>Till</b><i>bills, with times</i></div>
-        <span class="arrow">→</span>
-        <div class="node live"><b>Your manager</b><i>reads, corrects, decides</i></div>
-        <span class="arrow">→</span>
-        <div class="node live"><b>The team</b><i>lists and orders</i></div>
-        <span class="arrow">→</span>
-        <div class="node live"><b>You</b><i>only when it matters</i></div>
+      <div class="source">
+        <figure class="bill">
+          <img src="assets/bill.jpg" alt="A bakery till receipt: items, quantities, prices and the time of sale">
+          <figcaption>One bill. This is the whole input.</figcaption>
+        </figure>
+        <img class="fleche" src="assets/arrow.png" alt="" aria-hidden="true">
+        <div class="pipe">
+          <div class="node live"><b>Sonnabon</b><i>reads, corrects, decides</i></div>
+          <div class="node live"><b>The team</b><i>lists and orders, every morning</i></div>
+          <div class="node live"><b>You</b><i>only when it matters</i></div>
+        </div>
       </div>
       <dl class="kv" id="source"></dl>
     </section>
@@ -425,7 +556,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
   const cv=document.getElementById("shader");
   const gl=cv.getContext("webgl")||cv.getContext("experimental-webgl");
   if(!gl){document.body.style.background=
-    "repeating-linear-gradient(90deg,#D8EAF7 0 26px,#FDFEFF 26px 52px)";return;}
+    "repeating-linear-gradient(90deg,#E6F1FA 0 38px,#FDFEFF 38px 76px)";return;}
   const vs=`attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}`;
   const fs=`precision highp float;uniform vec2 R;uniform float T;
   void main(){
@@ -434,11 +565,13 @@ svg{display:block;width:100%;height:auto;overflow:visible}
     // tilt: a diagonal reads as a pattern swatch, a vertical one reads as an
     // awning, which is the thing above the shop door.
     float wave=sin(uv.y*3.4+T*.25)*.010 + sin(uv.y*7.1-T*.17)*.005;
-    float band=(uv.x*a+wave)*11.0;
-    float stripe=smoothstep(.30,.70,abs(fract(band)-.5)*2.0);
+    // Wider and much fainter than they were. An awning you notice once, not a
+    // pattern competing with the numbers sitting on top of it.
+    float band=(uv.x*a+wave)*7.0;
+    float stripe=smoothstep(.28,.72,abs(fract(band)-.5)*2.0);
     vec3 white=vec3(.999,1.,1.);
-    vec3 blue=vec3(.847,.914,.965);
-    vec3 c=mix(white,blue,stripe*.85);
+    vec3 blue=vec3(.898,.945,.980);
+    vec3 c=mix(white,blue,stripe*.72);
     // A pale wash drifting down, so the top is never quite the same as the
     // bottom and the eye has somewhere to rest.
     c=mix(c,white,.42*smoothstep(.05,.95,uv.y));
@@ -462,17 +595,36 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 
 const $=s=>document.querySelector(s);
 let CUR="€";
+// Occasions that have a drawing. Anything not listed shows its name alone,
+// which is why Christmas does not get a pumpkin.
+const EMBLEMS={"Halloween":"assets/pumpkin.png"};
 const money=v=>CUR+Math.round(v).toLocaleString();
 const api=async p=>{const r=await fetch(p);if(!r.ok)throw new Error(r.status);return r.json();};
 const el=(t,c,x)=>{const n=document.createElement(t);if(c)n.className=c;if(x!=null)n.textContent=x;return n;};
 const NS="http://www.w3.org/2000/svg";
 const svg=(t,a)=>{const n=document.createElementNS(NS,t);for(const k in a)n.setAttribute(k,a[k]);return n;};
 
+// The page lives in the URL, so a tab can be linked to, bookmarked, and
+// survive a reload. Before this the whole app was one address and refreshing
+// anywhere dropped you back on Today.
+const VIEWS=[...document.querySelectorAll("nav button")].map(b=>b.dataset.view);
+function show(view){
+  if(!VIEWS.includes(view))view=VIEWS[0];
+  document.querySelectorAll("nav button")
+    .forEach(x=>x.setAttribute("aria-selected",x.dataset.view===view));
+  document.querySelectorAll(".view")
+    .forEach(v=>v.classList.toggle("on",v.id==="v-"+view));
+  return view;
+}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
-  document.querySelectorAll("nav button").forEach(x=>x.setAttribute("aria-selected",x===b));
-  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on",v.id==="v-"+b.dataset.view));});
-document.querySelectorAll(".hint").forEach(h=>h.onclick=()=>{
-  $("#prompt").value=h.dataset.p;$("#prompt").focus();});
+  location.hash=b.dataset.view;});
+addEventListener("hashchange",()=>show(location.hash.slice(1)));
+show(location.hash.slice(1));
+document.querySelectorAll(".hint").forEach(h=>h.onmousedown=e=>{
+  e.preventDefault(); $("#prompt").value=h.dataset.p; $("#prompt").focus();});
+const hints=document.querySelector(".hints");
+$("#prompt").addEventListener("focus",()=>hints.classList.add("on"));
+$("#prompt").addEventListener("blur",()=>setTimeout(()=>hints.classList.remove("on"),120));
 $("#fab").onclick=()=>{const p=$("#panel");const on=p.classList.toggle("on");
   $("#fab").setAttribute("aria-expanded",on);if(on)$("#prompt2").focus();};
 
@@ -492,16 +644,23 @@ function today(t){
   const top=Math.max(...t.rows.map(r=>r.wanted||r.sold))||1;
   t.rows.slice(0,12).forEach(r=>{
     const row=el("div","brow"+(r.ran_out?" out":""));
-    row.appendChild(el("span",null,r.item));
+    const name=el("span","name",r.item); name.title=r.item;
+    row.appendChild(name);
     const lane=el("div","lane");
     const fill=el("div","fill");fill.style.width=(r.sold/top*100)+"%";
     lane.appendChild(fill);
     if(r.ran_out&&r.wanted&&r.wanted>r.sold){
       const ghost=el("div","ghost");
-      ghost.style.left=(r.sold/top*100)+"%";
-      ghost.style.width=((r.wanted-r.sold)/top*100)+"%";
+      const at=(r.sold/top*100), width=((r.wanted-r.sold)/top*100);
+      ghost.style.left=at+"%"; ghost.style.width=width+"%";
       lane.appendChild(ghost);
-      lane.appendChild(el("span","flag","out "+r.ran_out_at+" · ~"+r.wanted+" wanted"));
+      const flag=el("span","flag","out "+r.ran_out_at+" · ~"+r.wanted+" wanted");
+      // Just past the hatched section, so it annotates its own bar. Flips to
+      // the left when the bar runs too close to the edge to fit the words.
+      if(at+width>62){ flag.style.right=(100-at)+"%";
+                       flag.style.padding="0 .5rem 0 0"; }
+      else { flag.style.left=(at+width)+"%"; }
+      lane.appendChild(flag);
     }
     row.appendChild(lane);
     row.appendChild(el("span","num",r.sold));
@@ -558,7 +717,7 @@ function hero(c){
 
 function docket(plan){
   $("#planday").textContent=new Date(plan.day+"T00:00:00")
-    .toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"});
+    .toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"});
   $("#planTotal").textContent=plan.units.toLocaleString();
   const rows=[...plan.rows].sort((a,b)=>(b.occasion_lift-a.occasion_lift)||(b.make-a.make));
   const show=rows.slice(0,5),rest=rows.length-show.length;
@@ -609,8 +768,17 @@ function sellersList(s){
 function diary(cal){
   const box=$("#diary");box.textContent="";
   cal.occasions.slice(0,4).forEach(o=>{const d=el("div","occ");
-    d.appendChild(el("b",null,o.occasion));
-    d.appendChild(el("span",null,o.days_away+" days · "+o.peak_multiplier+"× on "+o.products.length+" lines"));
+    const name=el("div","name");
+    const art=EMBLEMS[o.occasion];
+    if(art){const img=el("img");img.className="emblem";img.src=art;img.alt="";
+      name.appendChild(img);}
+    name.appendChild(el("b",null,o.occasion));
+    d.appendChild(name);
+    const lift=(o.lift!==undefined?o.lift:o.peak_multiplier);
+    const seen=o.lift_source==="measured";
+    const tag=el("span",null,o.days_away+" days · "+lift+"× on "+o.products.length+" lines");
+    if(!seen)tag.appendChild(el("span","pill guess","not seen yet"));
+    d.appendChild(tag);
     box.appendChild(d);});
   cal.tasks_due.slice(0,12).forEach(t=>{const j=el("div","job");
     j.appendChild(el("span","d",t.due));
@@ -662,6 +830,46 @@ function board(t){
         card.appendChild(subs);
       }});
     box.appendChild(card);});
+}
+
+function journalView(j){
+  // The three figures on the header, counted from the journal rather than
+  // asserted. If it has not run yet they read zero, which is the honest answer.
+  $("#pRuns").textContent=j.runs;
+  $("#pSpoke").textContent=j.spoke;
+  $("#pCost").textContent="$"+(j.cost_usd||0).toFixed(3);
+
+  const quiet=j.runs-j.spoke;
+  $("#logNote").textContent=j.runs
+    ?j.runs+" wakings in seven days":"nothing on file yet";
+  $("#introLine").textContent=j.runs
+    ?"It woke "+j.runs+" times this week and reached you "+j.spoke+
+     (j.spoke===1?" time":" times")+". The other "+quiet+
+     " it handled on its own."
+    :"It has not run yet. Ask it to look at the day and this fills in.";
+
+  const box=$("#journal");box.textContent="";
+  if(!j.entries.length){box.appendChild(el("p","idle",
+    "Nothing yet. Ask it to read the day and the first line lands here."));return;}
+  j.entries.forEach(e=>{
+    const row=el("div","wake"+(e.spoke?" spoke":""));
+    const rail=el("div","rail");rail.appendChild(el("div","dotm"));
+    rail.appendChild(el("div","thread"));row.appendChild(rail);
+    const body=el("div","body");
+    body.appendChild(el("div","when",
+      (e.at||"").replace("T"," ").slice(0,16)+"  ·  "+e.why));
+    const line=el("div","line-what");
+    line.appendChild(el("p","what",e.did));
+    if(e.figure)line.appendChild(el("span","figure",e.figure));
+    body.appendChild(line);
+    if(e.message){const n=el("div","note-out");
+      n.appendChild(el("b",null,e.message.subject||"Emailed you"));
+      n.appendChild(el("p",null,e.message.body||""));body.appendChild(n);}
+    else if(e.spoke&&e.detail){const n=el("div","note-out");
+      n.appendChild(el("b",null,"Wanted a decision"));
+      n.appendChild(el("p",null,e.detail[0]));body.appendChild(n);}
+    else body.appendChild(el("div","quiet","Nothing needed you."));
+    row.appendChild(body);box.appendChild(row);});
 }
 
 function messages(rows){
@@ -725,8 +933,7 @@ function stream(body){
     moving(o.weekly.trends);diary(o.weekly.ahead);sellersList(o.weekly.best_sellers);
     const said=$("#weekSaid");said.textContent="";
     o.weekly.lines.forEach(l=>said.appendChild(el("p",null,l)));
-    $("#pRuns").textContent=19;
-    $("#pSpoke").textContent=o.nightly.speaks?2:1;
+    journalView(await api("/api/journal"));
     today(await api("/api/today"));
     board(await api("/api/team"));
     setup(await api("/api/source"));

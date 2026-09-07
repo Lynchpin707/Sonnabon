@@ -171,6 +171,11 @@ class Ledger(HookProvider):
                 "input_tokens": self.input_tokens,
                 "output_tokens": self.output_tokens,
                 "cost_usd": round(self.cost, 5), "seconds": self.seconds,
+                # Counted from the tools actually run, not from what the closing
+                # paragraph claims. An agent that says it emailed you and did
+                # not is the one failure nobody would catch.
+                "notified": sum(1 for name in self.tool_calls
+                                if name in ACTIONS),
                 "blocked": self.blocked}
 
 
