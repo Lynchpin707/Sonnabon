@@ -209,6 +209,11 @@ def adopt(products):
     return [product.name for product in PRODUCTS]
 
 
+def _costs_path():
+    from . import paths
+    return paths.of("costs")
+
+
 def confirm_cost(name, cost, path=None):
     """Replace a guessed cost with one the owner actually told it.
 
@@ -238,7 +243,7 @@ def confirm_cost(name, cost, path=None):
         salvage=min(product.salvage, round(cost * SALVAGE_SHARE, 4)))
     adopt([updated if p.name == name else p for p in PRODUCTS])
 
-    target = path or os.getenv("COSTS_FILE", "data/costs.json")
+    target = path or _costs_path()
     try:
         known = {}
         if os.path.exists(target):
@@ -258,7 +263,7 @@ def load_confirmed(path=None):
     import json
     import os
 
-    target = path or os.getenv("COSTS_FILE", "data/costs.json")
+    target = path or _costs_path()
     if not os.path.exists(target):
         return []
     try:

@@ -30,8 +30,13 @@ def site(tmp_path_factory):
     # Left pointing at the repo, the suite would quietly append to the diary the
     # demo shows.
     os.environ["JOURNAL_FILE"] = str(root / "journal.jsonl")
+    # Confirming a cost persists it. Left pointing at the repo the suite writes
+    # into the demo shop, and the run after it skips because the question it
+    # meant to ask has already been answered.
+    os.environ["COSTS_FILE"] = str(root / "costs.json")
     import importlib
-    from src.bakery import team as tickets, journal
+    from src.bakery import team as tickets, journal, paths
+    importlib.reload(paths)
     importlib.reload(tickets)
     importlib.reload(journal)
 
@@ -300,3 +305,63 @@ def test_every_read_only_agent_tool_actually_runs(site):
 
     assert not failed, "agent tools that raise: " + "; ".join(failed)
     assert len(ran) >= 6, f"only exercised {ran}, which is not coverage"
+
+
+def test_the_way_in_is_on_the_page(site):
+    """A first visit lands on the welcome, not on five tabs of numbers. It has
+    to be in the served HTML rather than added later by a script that might not
+    run."""
+    _, body, _ = get(site, "/")
+    page = body.decode("utf-8")
+    assert 'id="welcome"' in page, "no way in at all"
+    assert 'id="wFill"' in page, "the loading bar went missing"
+    assert page.count('id="welcome"') == 1
+
+
+def test_a_confirmed_cost_changes_what_the_setup_page_asks_for(site):
+    """The first conversation has to shrink as it is answered, or the owner is
+    being asked the same thing every time they open it."""
+    _, body, _ = get(site, "/api/setup")
+    before = json.loads(body)
+    if not before["needs_you"]:
+        pytest.skip("every cost is already confirmed")
+
+    item = before["needs_you"][0]
+    status, result = post(site, "/api/costs",
+                          {"item": item["item"], "cost": item["assumed_cost"]})
+    assert status == 200 and result["ok"]
+
+    _, body, _ = get(site, "/api/setup")
+    after = json.loads(body)
+    assert len(after["needs_you"]) == len(before["needs_you"]) - 1
+    assert after["answered"] == before["answered"] + 1
+    assert item["item"] not in [row["item"] for row in after["needs_you"]]
+
+
+def test_a_cost_above_the_price_is_refused_with_a_reason(site):
+    status, result = post(site, "/api/costs", {"item": "Croissant", "cost": 99})
+    assert status == 400
+    assert "not below" in result["error"]
+
+
+def test_the_board_does_not_pile_work_on_the_owner(site):
+    """The product exists to take work off the owner. Three run-up tasks on
+    their board is the opposite, and it is what happened when the board pulled
+    forty-five days of calendar instead of today's work."""
+    _, body, _ = get(site, "/api/team")
+    board = json.loads(body)["board"]
+
+    owner = [p for p in board if p["role"] == "owner"]
+    assert owner, "no owner on the board at all"
+    assert len(owner[0]["jobs"]) <= 1, (
+        f"the owner has {len(owner[0]['jobs'])} jobs, which is not relief")
+
+    seen = {}
+    for person in board:
+        for job in person["jobs"]:
+            if job["kind"] != "prep":
+                continue
+            assert job["what"] not in seen, (
+                f"{job['what']!r} is on both {seen[job['what']]} and "
+                f"{person['name']}")
+            seen[job["what"]] = person["name"]

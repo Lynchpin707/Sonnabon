@@ -19,7 +19,9 @@ import json
 import os
 from datetime import datetime, timedelta
 
-PATH = os.getenv("JOURNAL_FILE", "data/journal.jsonl")
+from . import paths
+
+PATH = paths.of("journal")
 
 # Why it woke. Kept small on purpose: a vocabulary that grows every sprint stops
 # being countable, and these are counted on the front page.

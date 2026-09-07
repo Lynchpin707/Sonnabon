@@ -22,7 +22,7 @@ from strands import Agent
 from strands.hooks import (AfterModelCallEvent, BeforeModelCallEvent,
                            BeforeToolCallEvent, HookProvider)
 
-from . import tools
+from . import model as models, tools
 
 MAX_TOOL_CALLS = int(os.getenv("MAX_TOOL_CALLS", "30"))
 MAX_RUN_COST = float(os.getenv("MAX_RUN_COST_USD", "0.15"))
@@ -190,12 +190,13 @@ def build(model=None, watch=None, approvals=None, extra_tools=()):
     """The agent, with its limits attached.
 
     ``model`` is left to the caller so nothing here depends on which provider is
-    available. Pass a BedrockModel in deployment, an AnthropicModel while
-    developing, or leave it None to take the SDK's default.
+    available. Left None it resolves one from what is configured, which is
+    Bedrock in deployment and Ollama on a laptop, and raises something readable
+    when neither is.
     """
     ledger = Ledger(watch=watch, approvals=dict(approvals or {}))
     agent = Agent(
-        model=model,
+        model=model if model is not None else models.resolve(),
         system_prompt=SYSTEM,
         tools=list(TOOLS) + list(extra_tools),
         hooks=[ledger],

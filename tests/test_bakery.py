@@ -15,6 +15,8 @@ import pytest
 
 from src.bakery import analytics, calendar, catalogue, generate, plan, receipts
 
+NEWLINE = chr(10)
+
 
 @pytest.fixture(scope="module")
 def shop():
@@ -317,3 +319,191 @@ class _Shop:
             for day, units in days.items():
                 table.setdefault(day, {})[item] = units
         return table
+
+
+def test_noticed_says_nothing_when_nothing_is_unusual(shop, tmp_path, monkeypatch):
+    """A daily check that always finds something is a daily check nobody reads.
+
+    It has to be able to return "everything sat inside its normal range", and
+    it must not reach for the owner unless the move is big enough to be a
+    decision rather than news.
+    """
+    from src.bakery import journal, runs, state
+
+    monkeypatch.setattr(journal, "PATH", str(tmp_path / "j.jsonl"))
+    monkeypatch.setattr(state, "get", lambda *a, **k: _Shop(shop))
+    monkeypatch.setattr(state, "today", lambda: max(shop["index"].units))
+
+    days = sorted(shop["index"].units)[-25:]
+    spoke = 0
+    for day in days:
+        result = runs.noticed(for_day=day, log=False)
+        assert result["lines"], f"{day} produced no output at all"
+        for row in result["unusual"]:
+            assert abs(row["change"]) >= runs.UNUSUAL_RATIO
+            assert abs(row["units"] - row["usual"]) >= runs.UNUSUAL_UNITS
+        spoke += bool(result["speaks"])
+    assert spoke < len(days) * 0.5, (
+        f"asked on {spoke} of {len(days)} days, which is not a check, it is a "
+        f"nag")
+
+
+def test_confirming_a_cost_changes_what_gets_baked(tmp_path):
+    """The point of asking. If a confirmed cost did not move the plan there
+    would be no reason to trouble the owner for it."""
+    from src.bakery import plan
+
+    product = catalogue.get("Croissant")
+    before = plan.quantity(product, 100, 20)
+    try:
+        catalogue.confirm_cost("Croissant", product.cost * 1.6,
+                               path=str(tmp_path / "c.json"))
+        after = plan.quantity(catalogue.get("Croissant"), 100, 20)
+        assert after < before, "a higher cost has to mean baking fewer"
+        assert catalogue.get("Croissant").cost_given
+        assert "Croissant" not in [g["item"] for g in catalogue.guessed_costs()]
+    finally:
+        catalogue.adopt([product if p.name == "Croissant" else p
+                         for p in catalogue.PRODUCTS])
+
+
+def test_a_cost_at_or_above_the_price_is_refused():
+    with pytest.raises(ValueError, match="not below"):
+        catalogue.confirm_cost("Croissant", 99.0)
+
+
+# ── one shop per process, and one place its files live ──────────────────────
+
+def test_every_store_lands_under_one_root(monkeypatch):
+    """Six variables and two hard coded paths is not a configuration, it is a
+    trap. One shop id has to move all of them together."""
+    import importlib
+    from src.bakery import paths
+
+    monkeypatch.setenv("SHOP_ID", "rue-des-lilas")
+    monkeypatch.setenv("DATA_ROOT", "/srv/shops")
+    for variable, _ in paths.STORES.values():
+        monkeypatch.delenv(variable, raising=False)
+    importlib.reload(paths)
+
+    for name in paths.STORES:
+        where = paths.of(name).replace("\\", "/")
+        assert where.startswith("/srv/shops/rue-des-lilas/"), f"{name} -> {where}"
+
+    monkeypatch.setenv("BILLS_FILE", "s3://till-exports/today.jsonl")
+    importlib.reload(paths)
+    assert paths.of("bills") == "s3://till-exports/today.jsonl", (
+        "an explicit override has to still win, or a shop cannot keep its "
+        "bills somewhere else")
+    monkeypatch.delenv("SHOP_ID", raising=False)
+    monkeypatch.delenv("DATA_ROOT", raising=False)
+    monkeypatch.delenv("BILLS_FILE", raising=False)
+    importlib.reload(paths)
+
+
+def test_a_second_shop_in_one_process_is_refused():
+    """The catalogue is a module global. A second bakery here would read the
+    first one's menu and plan against it, and nothing about that looks wrong."""
+    import importlib
+    from src.bakery import paths
+    importlib.reload(paths)
+
+    assert paths.only("first") == "first"
+    assert paths.only("first") == "first", "the same shop twice is fine"
+    with pytest.raises(RuntimeError, match="already serving"):
+        paths.only("second")
+    importlib.reload(paths)
+
+
+# ── what arrives from the till ──────────────────────────────────────────────
+
+def test_a_bill_sent_twice_is_counted_once(tmp_path):
+    """Webhooks retry and adapters replay. Counting a bill twice inflates every
+    figure downstream by a little, which is the worst size of error: large
+    enough to matter, small enough to look plausible."""
+    line = ('{"number":%d,"at":"2025-01-06T08:0%d:00","lines":'
+            '[{"item":"Croissant","qty":2,"unit_price":1.30}]}')
+    path = tmp_path / "bills.jsonl"
+    path.write_text("\n".join([line % (1, 0), line % (2, 1), line % (2, 1),
+                                line % (3, 2)]), encoding="utf-8")
+
+    bills = receipts.load(path)
+    assert len(bills) == 3, "the repeat was counted"
+    assert receipts.intake_report()["duplicates"] == 1
+
+
+def test_a_hole_in_the_numbering_is_reported(tmp_path):
+    """A quiet day and a broken feed look identical after the fact. The gap is
+    the only thing that tells them apart, and it has to be noticed on the way
+    in or not at all."""
+    line = ('{"number":%d,"at":"2025-01-06T08:00:00","lines":'
+            '[{"item":"Croissant","qty":1,"unit_price":1.30}]}')
+    path = tmp_path / "bills.jsonl"
+    path.write_text("\n".join([line % 1, line % 2, line % 9]), encoding="utf-8")
+
+    receipts.load(path)
+    report = receipts.intake_report()
+    assert report["gaps"] == [(2, 9)]
+    assert report["missing"] == 6
+
+
+def test_a_shop_it_has_never_seen_still_loads(tmp_path):
+    """The question this answers: what happens when a real bakery plugs in.
+
+    Nothing called learn() outside the tests, so the whole system only ever
+    worked on the demo menu. A real till's first bill hit "not on the menu" and
+    nothing loaded at all. The menu has to come off the receipts.
+
+    Exercised through the two functions that changed rather than through
+    ``state.get``, because that caches a shop process wide and a test that
+    leaves a fictional bakery in it breaks every test after it.
+    """
+    import json
+    import random
+    from src.bakery import state
+
+    menu = {"Pain au chocolat": 1.40, "Kouign amann": 3.60, "Flat white": 3.20}
+    random.seed(3)
+    rows, number = [], 0
+    for day in range(1, 15):
+        for _ in range(40):
+            number += 1
+            item = random.choice(list(menu))
+            rows.append({"number": number,
+                         "at": f"2026-08-{day:02d}T{random.randint(7, 18):02d}:"
+                               f"{random.randint(0, 59):02d}:00",
+                         "lines": [{"item": item, "qty": random.randint(1, 3),
+                                    "unit_price": menu[item]}]})
+    path = tmp_path / "real.jsonl"
+    path.write_text(NEWLINE.join(json.dumps(r) for r in rows), encoding="utf-8")
+
+    # The first read cannot validate, because there is no menu yet. That is the
+    # whole chicken and egg this fixes.
+    with pytest.raises(KeyError, match="not on the menu"):
+        receipts.load(path)
+    bills = receipts.load(path, validate=False)
+    assert len(bills) == 560
+
+    held = list(catalogue.PRODUCTS)
+    try:
+        learned = state._learn_menu_if_new(bills)
+        assert set(learned) == set(menu), f"derived {learned}"
+        for product in catalogue.PRODUCTS:
+            assert product.price == menu[product.name], "price comes off the bill"
+            assert 0 < product.cost < product.price
+            assert not product.cost_given, "a derived cost is a guess, and says so"
+        receipts.load(path)          # now it validates, because there is a menu
+    finally:
+        catalogue.adopt(held)
+
+
+def test_a_menu_it_already_knows_is_not_relearned(shop):
+    """Relearning would flatten oven times, shelf lives and salvage values that
+    no receipt can carry, so it only happens when the bills are genuinely from
+    somewhere else."""
+    from src.bakery import state
+
+    held = {p.name: p for p in catalogue.PRODUCTS}
+    changed = state._learn_menu_if_new(shop["bills"])
+    assert changed == [], "the demo menu was replaced by a derived one"
+    assert {p.name: p for p in catalogue.PRODUCTS} == held

@@ -20,8 +20,8 @@ from urllib.parse import urlparse, parse_qs
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.bakery import (analytics, catalogue, feed, journal, runs,  # noqa: E402
-                        state, team, tools)
+from src.bakery import (analytics, catalogue, feed, journal, model,  # noqa: E402
+                        paths, runs, state, team, tools)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PORT = int(os.getenv("PORT", "8000"))
@@ -104,6 +104,7 @@ def source_status():
         "updated": datetime.fromtimestamp(stat.st_mtime).isoformat(timespec="seconds"),
         "products": len(catalogue.PRODUCTS),
         "corrected_days": sum(len(v) for v in shop.corrected.values()),
+        "model": model.describe(),
         "schedule": DUTIES,
         "hours_a_week": round(sum(d["minutes"] * d["times_a_week"]
                                   for d in DUTIES) / 60, 1),
@@ -344,7 +345,7 @@ class Handler(BaseHTTPRequestHandler):
 
     @staticmethod
     def _outbox():
-        path = "data/outbox.jsonl"
+        path = paths.of("outbox")
         if not os.path.exists(path):
             return {"messages": []}
         with open(path, encoding="utf-8") as handle:
@@ -429,11 +430,14 @@ class Handler(BaseHTTPRequestHandler):
             result = runs.with_agent(kind, watch=emit, prompt=prompt)
             emit({"kind": "done", **result})
         except Exception as error:
-            # No model configured is the expected failure until Bedrock is on,
-            # so say that plainly rather than dumping a stack at the viewer.
+            # No scripted stand-in here on purpose. A templated sentence dressed
+            # up as the agent's answer is the one thing that would make the
+            # whole product a lie, so when there is no model it says so and
+            # says what to do about it.
             emit({"kind": "failed", "error": str(error),
-                  "hint": ("Set up a model provider. Until then the read-only "
-                           "views work and show the same facts.")})
+                  "hint": getattr(error, "hint", None) or
+                          ("No model could answer. Every page keeps working; "
+                           "only the agent needs one.")})
 
 
 def serve(port=PORT, host=HOST):

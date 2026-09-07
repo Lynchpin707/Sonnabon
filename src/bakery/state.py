@@ -15,11 +15,11 @@ import os
 import pickle
 from datetime import date
 
-from . import analytics, catalogue, plan
+from . import paths, analytics, catalogue, plan
 from .receipts import load
 
-BILLS = os.getenv("BILLS_FILE", "data/bills.jsonl")
-CACHE = os.getenv("BAKERY_CACHE", "data/.cache.pkl")
+BILLS = paths.of("bills")
+CACHE = paths.of("cache")
 
 _state = None
 
@@ -77,10 +77,35 @@ class Shop:
 
 
 def _build(path):
-    bills = load(path)
+    # Read the names first, then decide whether this shop's menu is already
+    # known. Without this the whole thing only ever worked on the demo bakery:
+    # a real till's first bill hit "not on the menu" and nothing loaded at all,
+    # because learn() existed and nothing ever called it.
+    bills = load(path, validate=False)
+    _learn_menu_if_new(bills)
+    for bill in bills:
+        for line in bill.lines:
+            catalogue.get(line.item)          # now there is a menu to check
     index = analytics.Index(bills)
     history, corrected = plan.corrected_history(bills, index=index)
     return bills, index, history, corrected
+
+
+def _learn_menu_if_new(bills):
+    """Derive the menu from the receipts when they are not the menu we hold.
+
+    Deliberately conditional. When the bills already match, the catalogue in
+    hand is kept, because it carries oven times, shelf lives and salvage values
+    that no receipt can tell you and that a derived menu would flatten. When
+    they do not match, nothing we hold applies to this shop anyway.
+    """
+    seen = {line.item for bill in bills for line in bill.lines}
+    if not seen or seen <= set(catalogue.BY_NAME):
+        return []
+    learned = catalogue.learn(bills, food_cost=float(os.getenv("FOOD_COST", "0.30")))
+    catalogue.adopt(learned)
+    catalogue.load_confirmed()          # any costs this shop already answered
+    return [product.name for product in learned]
 
 
 def ensure(path=None):

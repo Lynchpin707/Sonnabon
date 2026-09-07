@@ -25,7 +25,7 @@ from datetime import date, datetime, timedelta
 
 from strands import tool
 
-from . import analytics, calendar as bakery_calendar, catalogue, plan, state
+from . import paths, analytics, calendar as bakery_calendar, catalogue, plan, state
 
 
 def _day(value):
@@ -468,11 +468,13 @@ def notify_owner(subject: str, body: str, urgency: str = "normal",
         # Silently dropping a message the agent believes it sent is worse than
         # not sending one.
         os.makedirs("data", exist_ok=True)
-        with open("data/outbox.jsonl", "a", encoding="utf-8") as handle:
+        outbox = paths.of("outbox")
+        paths.ensure()
+        with open(outbox, "a", encoding="utf-8") as handle:
             handle.write(json.dumps({**record, "body": body},
                                     ensure_ascii=False) + "\n")
         return {**record, "ok": True, "delivered": "outbox",
-                "note": "No SES configured, written to data/outbox.jsonl"}
+                "note": f"No SES configured, written to {outbox}"}
 
     import boto3
     boto3.client("ses").send_email(

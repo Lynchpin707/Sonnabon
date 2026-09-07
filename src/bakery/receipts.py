@@ -80,25 +80,62 @@ def save(bills, path):
             handle.write(json.dumps(to_json(bill), ensure_ascii=False) + "\n")
 
 
-def load(path):
+def load(path, validate=True):
     """Read bills back, and refuse unknown products at the door.
+
+    ``validate`` is off for exactly one caller: the first read of a shop whose
+    menu is not known yet, which has to see the item names before it can learn
+    them. Everything after that validates, because by then there is a menu to
+    validate against.
 
     Validating here is deliberate. An item name that is not on the menu has no
     price and no cost, so every margin computed from it would be wrong while
     looking perfectly reasonable. Better to stop on the first bad line than to
     hand somebody a confident number built on a typo.
     """
-    bills = []
+    bills, seen, report = [], set(), {"duplicates": 0, "gaps": []}
+    previous = None
     with open(path, encoding="utf-8") as handle:
-        for number, raw in enumerate(handle, start=1):
+        for position, raw in enumerate(handle, start=1):
             raw = raw.strip()
             if not raw:
                 continue
             bill = from_json(json.loads(raw))
-            for line in bill.lines:
-                catalogue.get(line.item)  # raises with the menu attached
+            if validate:
+                for line in bill.lines:
+                    catalogue.get(line.item)  # raises with the menu attached
+
+            # A till that is retried, or an adapter that replays a webhook,
+            # sends the same bill twice. Counting it twice would inflate every
+            # figure downstream by a little, which is the worst size of error:
+            # large enough to matter and small enough to look plausible.
+            if bill.number in seen:
+                report["duplicates"] += 1
+                continue
+            seen.add(bill.number)
+
+            # A jump in the numbering means bills did not arrive. That is not
+            # an error here, because the shop may simply have voided some, but
+            # it is the difference between a quiet day and a broken feed, and
+            # nobody can tell those apart after the fact.
+            if previous is not None and bill.number > previous + 1:
+                report["gaps"].append((previous, bill.number))
+            previous = max(previous or 0, bill.number)
+
             bills.append(bill)
+
+    load.last_report = report
     return bills
+
+
+load.last_report = {"duplicates": 0, "gaps": []}
+
+
+def intake_report():
+    """What the last read of the till file noticed. Empty is the good answer."""
+    report = dict(load.last_report)
+    report["missing"] = sum(b - a - 1 for a, b in report["gaps"])
+    return report
 
 
 def days(bills):

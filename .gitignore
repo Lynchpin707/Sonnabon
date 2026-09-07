@@ -23,7 +23,3 @@ server.err
 # Generated trading data and the corrected-history cache.
 data/
 
-# Placeholder artwork only. The display font is free for commercial use and
-# ships with its licence, so it stays in.
-ui/assets/logo.*
-ui/assets/fab.*

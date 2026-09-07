@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sonnabon</title>
+<link rel="icon" href="assets/fab.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -159,6 +160,12 @@ h2{font-family:var(--display);font-weight:600;font-size:1.06rem;margin:0;letter-
   border:1px solid var(--edge);border-radius:999px;padding:.26rem .75rem;cursor:pointer}
 .hint:hover{background:var(--glass);color:var(--ink)}
 
+/* Any class that sets display beats the browser's own [hidden]{display:none},
+   because a class selector outranks the user agent sheet. Without this the
+   overlay stayed on screen when it was hidden and its buttons were visible
+   before they were wired. One rule rather than a case per class. */
+[hidden]{display:none !important}
+
 .act{font-family:var(--sans);font-size:.83rem;font-weight:500;cursor:pointer;border-radius:999px;
   border:1px solid var(--edge);background:var(--glass-2);color:var(--ink);padding:.36rem .95rem;
   text-decoration:none;display:inline-block}
@@ -189,6 +196,10 @@ h2{font-family:var(--display);font-weight:600;font-size:1.06rem;margin:0;letter-
 .brow .ghost{position:absolute;top:0;bottom:0;border-radius:0 7px 7px 0;
   background:repeating-linear-gradient(115deg,rgba(222,124,149,.34) 0 5px,transparent 5px 10px);
   border:1px dashed rgba(222,124,149,.65);border-left:0}
+.pulsedot{width:7px;height:7px;border-radius:50%;background:var(--mint);
+  display:inline-block;margin-right:.45rem;animation:pulsedot 1.6s ease-in-out infinite}
+@keyframes pulsedot{0%,100%{opacity:1}50%{opacity:.25}}
+@media(prefers-reduced-motion:reduce){.pulsedot{animation:none}}
 .brow .num{font-family:var(--mono);font-size:.82rem;font-variant-numeric:tabular-nums;
   text-align:right}
 /* Sits just past the end of its own bar, so it reads as a note on that row
@@ -238,6 +249,39 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 .occ .emblem{width:38px;height:38px;flex:none;object-fit:contain}
 .occ b{font-family:var(--display);font-weight:600;font-size:.98rem}
 .occ span{font-size:.83rem;color:var(--ink-2);white-space:nowrap}
+/* The way in ------------------------------------------------------------- */
+.welcome{position:fixed;inset:0;z-index:60;display:grid;place-items:center;
+  padding:1.2rem;background:rgba(226,238,248,.82);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.wcard{width:min(680px,100%);max-height:88vh;overflow:auto;background:var(--glass);
+  border:1px solid var(--edge);border-radius:var(--r);box-shadow:var(--shadow);
+  padding:clamp(1.2rem,3vw,2rem);display:flex;flex-direction:column;gap:1rem}
+.wtop{display:flex;gap:1rem;align-items:center}
+.wtop img{width:64px;height:64px;border-radius:16px;flex:none}
+.wtop h2{margin:0 0 .15rem;font-family:var(--display);font-weight:600;
+  font-size:1.35rem}
+.wtop p{margin:0;color:var(--ink-2);font-size:.92rem}
+
+/* The same awning the page is built on, moving while it reads. */
+.wbar{height:9px;border-radius:999px;overflow:hidden;
+  background:rgba(34,56,76,.09)}
+.wfill{height:100%;width:0;border-radius:999px;
+  background:repeating-linear-gradient(115deg,var(--sky) 0 11px,
+    #8FC0E4 11px 22px);
+  background-size:200% 100%;
+  transition:width .45s cubic-bezier(.22,1,.36,1);
+  animation:awning 1.1s linear infinite}
+@keyframes awning{to{background-position:44px 0}}
+@media(prefers-reduced-motion:reduce){.wfill{animation:none}}
+
+#wBody{display:flex;flex-direction:column;gap:1.1rem}
+.wfound{display:grid;grid-template-columns:auto 1fr;gap:.4rem 1.2rem;margin:0;
+  font-size:.9rem;padding-bottom:.9rem;border-bottom:1px solid var(--edge)}
+.wfound dt{color:var(--ink-2)}
+.wfound dd{margin:0;font-family:var(--figures);font-variant-numeric:tabular-nums}
+.wrow{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;
+  padding-top:.3rem}
+
 /* The first conversation ------------------------------------------------- */
 .firstrun{display:grid;gap:clamp(1.2rem,2.6vw,2.2rem)}
 @media(min-width:900px){.firstrun{grid-template-columns:1fr 1fr}}
@@ -391,14 +435,13 @@ svg{display:block;width:100%;height:auto;overflow:visible}
   80%   {opacity:.42}
  100%   {transform:scale(1.22);opacity:0}}
 
-/* Reaching for it stops it dead, and so does having it open. */
-.fab:hover,.fab:focus-visible,.fab[aria-expanded="true"]{animation-play-state:paused}
-/* Coming to rest, not stopping dead, so the cursor is not chasing it. */
-.fab{transition:box-shadow .18s ease-out}
-.fab[aria-expanded="true"]{animation:none;transform:translate(0,0);
-  transition:transform .5s cubic-bezier(.22,1,.36,1), box-shadow .18s ease-out}
-.fab:hover img,.fab:focus-visible img,.fab[aria-expanded="true"] img{animation-play-state:paused}
-.fab:hover::after,.fab:focus-visible::after,.fab[aria-expanded="true"]::after{animation:none;opacity:0}
+/* Reaching for it stops it where it is, and letting go carries on from there.
+   Pausing rather than removing the animation is the whole trick: removing it
+   snaps the button back to its untransformed corner, and restarting it begins
+   the loop from the corner again, which is the jump this had before. */
+.fab.resting{animation-play-state:paused;transition:box-shadow .18s ease-out}
+.fab.resting img{animation-play-state:paused}
+.fab.resting::after{animation:none;opacity:0}
 .fab:hover{box-shadow:0 22px 44px -12px rgba(34,56,76,.62)}
 .fab:focus-visible{outline:3px solid var(--sky);outline-offset:5px}
 
@@ -604,6 +647,32 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 
 </div>
 
+<div class="welcome" id="welcome" role="dialog" aria-modal="true"
+     aria-labelledby="wTitle" hidden>
+  <div class="wcard">
+    <div class="wtop">
+      <img src="assets/fab.png" alt="">
+      <div>
+        <h2 id="wTitle">Reading your till</h2>
+        <p id="wSay">One moment.</p>
+      </div>
+    </div>
+    <div class="wbar"><div class="wfill" id="wFill"></div></div>
+    <div id="wBody" hidden>
+      <dl class="wfound" id="wFound"></dl>
+      <p class="lede">The one thing a receipt cannot tell me is what each of
+        these costs you to make, and that is what decides how many I bake. Here
+        are my guesses. Correct any that are wrong, or leave them and tell me
+        later.</p>
+      <div id="wCosts"></div>
+    </div>
+    <div class="wrow">
+      <button class="act go" id="wGo" hidden>Start</button>
+      <button class="act" id="wSkip" hidden>I will do this later</button>
+    </div>
+  </div>
+</div>
+
 <button class="fab" id="fab" aria-label="Ask Sonnabon" aria-expanded="false"><img src="assets/fab.png" alt=""></button>
 <div class="panel" id="panel" role="dialog" aria-label="Ask Sonnabon">
   <div class="brief" style="box-shadow:none;padding-left:.9rem">
@@ -612,10 +681,10 @@ svg{display:block;width:100%;height:auto;overflow:visible}
     <button class="act go" id="send2">Ask</button>
   </div>
   <div class="row">
-    <button class="act" id="runNight">Run this evening</button>
-    <button class="act" id="runWeek">Weekly review</button>
+    <button class="act" id="runNight">Plan tomorrow's bake</button>
+    <button class="act" id="runWeek">What stood out today</button>
   </div>
-  <pre id="log" class="idle">It wakes on its own at close of trade, before the night shift, and at each supplier cutoff. Ask it something, or watch a run.</pre>
+  <pre id="log" class="idle">It wakes on its own at close of trade, before the night shift, and at each supplier cutoff. Ask it something, or set one of these off now.</pre>
 </div>
 
 <script>
@@ -675,6 +744,7 @@ const svg=(t,a)=>{const n=document.createElementNS(NS,t);for(const k in a)n.setA
 // The page lives in the URL, so a tab can be linked to, bookmarked, and
 // survive a reload. Before this the whole app was one address and refreshing
 // anywhere dropped you back on Today.
+const CHEF={};                 // filled in below, once the button exists
 const VIEWS=[...document.querySelectorAll("nav button")].map(b=>b.dataset.view);
 function show(view){
   if(!VIEWS.includes(view))view=VIEWS[0];
@@ -682,6 +752,10 @@ function show(view){
     .forEach(x=>x.setAttribute("aria-selected",x.dataset.view===view));
   document.querySelectorAll(".view")
     .forEach(v=>v.classList.toggle("on",v.id==="v-"+view));
+  // Changing page ends the conversation and lets it wander off again. Leaving
+  // an open panel pinned over a page it was not talking about is the thing
+  // that reads as broken.
+  if(CHEF.dismiss)CHEF.dismiss();
   return view;
 }
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
@@ -693,12 +767,147 @@ document.querySelectorAll(".hint").forEach(h=>h.onmousedown=e=>{
 const hints=document.querySelector(".hints");
 $("#prompt").addEventListener("focus",()=>hints.classList.add("on"));
 $("#prompt").addEventListener("blur",()=>setTimeout(()=>hints.classList.remove("on"),120));
-$("#fab").onclick=()=>{const p=$("#panel");const on=p.classList.toggle("on");
-  $("#fab").setAttribute("aria-expanded",on);if(on)$("#prompt2").focus();};
+/* The way in. The bar is not decoration: each step of it is a real load that
+   has to finish before the page means anything, so it moves when work
+   completes rather than on a timer pretending to. */
+async function welcome(){
+  const box=$("#welcome"),fill=$("#wFill"),say=$("#wSay"),title=$("#wTitle");
+  let done=0;
+  const steps=3;
+  const step=(text)=>{done++;fill.style.width=Math.round(done/steps*100)+"%";
+    say.textContent=text;};
+
+  box.hidden=false;
+  let source,setup;
+  try{
+    source=await api("/api/source");
+    step("Read "+source.bills.toLocaleString()+" bills.");
+    setup=await api("/api/setup");
+    step("Worked out the menu and how fast each thing sells.");
+    await api("/api/overview");
+    step("Corrected the days something ran out.");
+  }catch(err){
+    title.textContent="Cannot reach the shop";
+    say.textContent=err.message;
+    $("#wSkip").onclick=closeWelcome;
+    $("#wSkip").hidden=false;$("#wSkip").textContent="Close";
+    return;
+  }
+
+  title.textContent="I have read your till";
+  say.textContent="Here is what I worked out on my own.";
+  const found=$("#wFound");found.textContent="";
+  [["bills read",source.bills.toLocaleString()],
+   ["trading days",source.trading_days+", from "+source.first_day],
+   ["products on the menu",setup.total],
+   ["days something ran out",source.corrected_days.toLocaleString()]]
+   .forEach(([k,v])=>{found.appendChild(el("dt",null,k));
+                      found.appendChild(el("dd",null,String(v)));});
+
+  costRows($("#wCosts"),setup,()=>{});
+
+  // Wired here, not at the end of boot. Boot has ten more calls to make behind
+  // this overlay, and a button that is visible but dead for several seconds is
+  // worse than one that has not appeared yet.
+  $("#wGo").onclick=()=>{closeWelcome();firstRun(setup);};
+  $("#wSkip").onclick=closeWelcome;
+
+  $("#wBody").hidden=false;
+  $("#wGo").hidden=false;$("#wSkip").hidden=false;
+  $("#wGo").focus();
+}
+
+function closeWelcome(){
+  // Nothing is remembered. While this is opt-in there is no "first visit" to
+  // record, and a flag written but never read is worse than no flag.
+  $("#welcome").hidden=true;
+}
+
+(function live(){
+  const shown={};
+  let last=null;
+  async function tick(){
+    try{
+      const d=await api("/api/live");
+      const on=!!(d.trading&&d.feed&&d.feed.running);
+      if(on){
+        // Same shape the completed day uses, so one renderer draws both and
+        // there is no second code path to keep in step.
+        today({weekday:"",day:d.day,customers:d.customers,revenue:d.revenue,
+               units:d.units,average_basket:d.average_basket,ran_out:0,
+               rows:d.rows.map(r=>({item:r.item,sold:r.sold,ran_out:null}))},d);
+        last="live";
+      }else if(last==="live"){
+        today(await api("/api/today"));      // the feed stopped; settle back
+        last=null;
+      }
+    }catch(err){/* the server is restarting; the next tick will find it */}
+  }
+  setInterval(tick,2000);
+  tick();
+})();
+
+(function chef(){
+  const fab=$("#fab"),panel=$("#panel");
+
+  // Freeze mid-flight and carry on from the same spot. Nothing is written to
+  // the element's transform, so the animation keeps its own position and
+  // there is no corner to jump back to.
+  function hold(){fab.classList.add("resting");}
+  function release(){
+    if(panel.classList.contains("on"))return;
+    fab.classList.remove("resting");
+  }
+
+  // The panel finds the button, not the other way round. Clamped to the
+  // viewport, and flipped below when there is no room above.
+  function place(){
+    if(!panel.classList.contains("on"))return;
+    const r=fab.getBoundingClientRect();
+    const w=panel.offsetWidth,h=panel.offsetHeight,pad=12;
+    let left=r.left+r.width/2-w/2;
+    left=Math.max(pad,Math.min(left,innerWidth-w-pad));
+    panel.style.left=left+"px";
+    panel.style.right="auto";
+    if(r.top-h-pad>=pad){panel.style.top=(r.top-h-pad)+"px";}
+    else{panel.style.top=Math.min(r.bottom+pad,innerHeight-h-pad)+"px";}
+    panel.style.bottom="auto";
+  }
+
+  fab.addEventListener("pointerenter",hold);
+  fab.addEventListener("focus",hold);
+  fab.addEventListener("pointerleave",release);
+  fab.addEventListener("blur",release);
+
+  fab.onclick=()=>{
+    hold();
+    const on=panel.classList.toggle("on");
+    fab.setAttribute("aria-expanded",on);
+    if(on){place();$("#prompt2").focus();}
+    else{panel.removeAttribute("style");release();}
+  };
+  CHEF.dismiss=()=>{
+    if(panel.classList.contains("on")){
+      panel.classList.remove("on");
+      panel.removeAttribute("style");
+      fab.setAttribute("aria-expanded","false");
+    }
+    release();
+  };
+
+  addEventListener("resize",place);
+  addEventListener("scroll",place,{passive:true});
+})();
 
 /* ── the day: figures and bars straight off the bills ───────── */
-function today(t){
-  $("#dayNote").textContent=t.weekday+" "+t.day;
+function today(t,live){
+  const note=$("#dayNote");note.textContent="";
+  if(live&&live.trading){
+    note.appendChild(el("span","pulsedot"));
+    note.append("trading now · "+live.from+" to "+live.to+" · "+live.day);
+  }else{
+    note.append(t.weekday+" "+t.day);
+  }
   const figs=$("#figs");figs.textContent="";
   const add=(v,label,warn)=>{const d=el("div","fig"+(warn?" warn":""));
     d.appendChild(el("b",null,v));d.appendChild(el("i",null,label));figs.appendChild(d);};
@@ -908,7 +1117,9 @@ function board(t){
     head.appendChild(el("h3",null,p.name));
     head.appendChild(el("span","role",p.role+" · from "+p.starts));
     card.appendChild(head);
-    if(!p.jobs.length)card.appendChild(el("p","idle","Nothing assigned."));
+    if(!p.jobs.length)card.appendChild(el("p","idle",
+      p.role==="owner"?"Nothing needs you today."
+                      :"Nothing assigned."));
     p.jobs.forEach((j,i)=>{
       const id=j.id;
       const t2=el("div","tick "+j.kind+(j.done?" done":""));
@@ -1033,7 +1244,13 @@ function firstRun(d){
     r.appendChild(el("span","sv",p.baked?Math.round(p.service*100)+"%":"no waste"));
     found.appendChild(r);});
 
-  const box=$("#needsYou");box.textContent="";
+  costRows($("#needsYou"),d,left=>{
+    $("#setupNote").textContent=(d.total-left)+" of "+d.total+" costs confirmed";});
+}
+
+function costRows(box,d,after){
+  const cur=d.currency||CUR;
+  box.textContent="";
   if(!d.needs_you.length){
     box.appendChild(el("p","idle","Nothing outstanding. Every cost came from you."));
     return;}
@@ -1061,8 +1278,7 @@ function firstRun(d){
         row.appendChild(el("div",null,g.item));
         row.appendChild(el("div","moved",cur+out.cost.toFixed(2)));
         row.appendChild(el("div","moved","bakes to "+Math.round(out.service*100)+"%"));
-        $("#setupNote").textContent=(d.total-out.still_guessed)+" of "+d.total
-          +" costs confirmed";
+        if(after)after(out.still_guessed);
       }catch(err){
         go.disabled=false;
         const say=row.querySelector(".was");
@@ -1101,6 +1317,13 @@ function stream(body){
 }
 
 (async function boot(){
+  // The way in is built but not switched on. It opens by telling the owner
+  // what it read from their till, and there is no till to read from yet: the
+  // real first run is the owner giving it their menu and a first instruction,
+  // and this would sit in front of that rather than being it. Reachable at
+  // ?welcome=1 so the work is here when that flow exists.
+  if(new URLSearchParams(location.search).has("welcome")){await welcome();}
+
   try{
     const o=await api("/api/overview");
     CUR=o.currency||CUR;
@@ -1119,10 +1342,11 @@ function stream(body){
     $("#heroSub").textContent="The server is not answering ("+err.message+"). Start it with python ui/app.py";
   }
   $("#runNight").onclick=()=>stream({kind:"nightly"});
-  $("#runWeek").onclick=()=>stream({kind:"weekly"});
+  $("#runWeek").onclick=()=>stream({kind:"noticed"});
   const fire=input=>{const p=input.value.trim();if(p)stream({kind:"nightly",prompt:p});};
   $("#send").onclick=()=>fire($("#prompt"));
   $("#send2").onclick=()=>fire($("#prompt2"));
+  $("#welcome").addEventListener("keydown",e=>{if(e.key==="Escape")closeWelcome();});
   $("#prompt").addEventListener("keydown",e=>{if(e.key==="Enter")$("#send").click();});
   $("#prompt2").addEventListener("keydown",e=>{if(e.key==="Enter")$("#send2").click();});
 })();

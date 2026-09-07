@@ -223,6 +223,10 @@ def with_agent(run_kind, model=None, watch=None, prompt=None):
         "weekly": ("Weekly review. What is growing, what is dying, what running "
                    "out has cost, and what is coming on the calendar. Bring the "
                    "owner one recommendation, not a list."),
+        "noticed": ("Look at today against what is normal for this shop on this "
+                    "weekday. Say only what is genuinely out of the ordinary and "
+                    "what you think caused it. If everything sat inside its usual "
+                    "range, say that in one line and stop. Do not write a report."),
     }
     task = prompt or tasks.get(run_kind)
     if not task:
@@ -275,3 +279,117 @@ def catch_up(days=7, path=None):
         written.append(result)
     return {"nights": len(written),
             "spoke": sum(1 for row in written if row["speaks"])}
+
+
+# ── what stood out today ────────────────────────────────────────────────────
+
+# How far from its own normal a thing has to be before it is worth a sentence.
+# Both tests have to pass: a ratio alone calls every small number an anomaly,
+# and a unit count alone calls every busy product one.
+UNUSUAL_RATIO = 0.32
+UNUSUAL_UNITS = 8
+
+
+def _same_weekday(shop, day, weeks=8):
+    """The same weekday, recently, from corrected demand rather than sales.
+
+    Weekday matching is the whole comparison. A Saturday against a week of
+    all-days would report the weekend as an anomaly every Saturday.
+    """
+    table = shop.demand_by_day
+    days = [other for other in sorted(table)
+            if other < day and other.weekday() == day.weekday()]
+    return [table[other] for other in days[-weeks:]]
+
+
+def _median(values):
+    values = sorted(values)
+    if not values:
+        return 0.0
+    middle = len(values) // 2
+    if len(values) % 2:
+        return float(values[middle])
+    return (values[middle - 1] + values[middle]) / 2
+
+
+def noticed(for_day=None, log=True):
+    """Anything about today that is not how this shop usually is.
+
+    Deliberately not a report. A list of every figure is what an owner already
+    cannot read, so this says only what is off, against this shop's own normal
+    for this weekday, and says nothing when nothing is.
+    """
+    shop = state.get()
+    today = state.today() if for_day is None else for_day
+    table = shop.demand_by_day
+    actual = table.get(today, {})
+    history = _same_weekday(shop, today)
+
+    lines, asks, found = [], [], []
+    if not actual:
+        lines.append(f"No trade on file for {today.isoformat()} yet.")
+    elif len(history) < 3:
+        lines.append("Not enough of the same weekday on file to say what is "
+                     "normal here yet. Three more weeks and this gets useful.")
+    else:
+        for item in sorted(actual):
+            was = _median([row.get(item, 0) for row in history])
+            now = actual.get(item, 0)
+            if was <= 0:
+                continue
+            change = (now - was) / was
+            if abs(change) < UNUSUAL_RATIO or abs(now - was) < UNUSUAL_UNITS:
+                continue
+            found.append({"item": item, "units": round(now),
+                          "usual": round(was), "change": change})
+
+        found.sort(key=lambda row: -abs(row["change"]))
+        for row in found[:4]:
+            way = "up" if row["change"] > 0 else "down"
+            lines.append(
+                f"{row['item']} is {way} {abs(row['change']):.0%} on a normal "
+                f"{today.strftime('%A')}: {row['units']} against a "
+                f"usual {row['usual']}.")
+
+        # The till total, which is the number an owner checks anyway.
+        takings_now = sum(actual.values())
+        takings_was = _median([sum(row.values()) for row in history])
+        if takings_was > 0:
+            move = (takings_now - takings_was) / takings_was
+            if abs(move) >= 0.15:
+                lines.append(
+                    f"The whole day is {'up' if move > 0 else 'down'} "
+                    f"{abs(move):.0%} against a normal "
+                    f"{today.strftime('%A')}.")
+
+        if not lines:
+            lines.append(f"Nothing out of the ordinary. Every product sat "
+                         f"inside its normal range for a "
+                         f"{today.strftime('%A')}.")
+
+    # It only asks when a move is big enough to be a decision rather than news.
+    big = [row for row in found if abs(row["change"]) >= 0.55]
+    if big:
+        row = big[0]
+        asks.append(
+            f"{row['item']} moved {abs(row['change']):.0%} today. If that is a "
+            f"real change rather than a one-off, tomorrow's numbers should "
+            f"follow it. Shall I?")
+
+    result = {
+        "kind": "noticed",
+        "day": today.isoformat(),
+        "unusual": found,
+        "compared_with": len(history),
+        "lines": lines,
+        "asks": asks,
+        "speaks": bool(asks),
+    }
+    if log:
+        journal.record("noticed",
+                       (f"Checked today against {len(history)} normal "
+                        f"{today.strftime('%A')}s"),
+                       spoke=result["speaks"], why="you asked",
+                       figure=(f"{len(found)} unusual" if found else "all normal"),
+                       detail=asks[:1] or None)
+    return result

@@ -18,9 +18,9 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 from datetime import timedelta
 
-from . import calendar as occasions, catalogue, state
+from . import paths, calendar as occasions, catalogue, state
 
-TEAM_FILE = os.getenv("TEAM_FILE", "team.json")
+TEAM_FILE = paths.of("team")
 
 
 @dataclass(frozen=True)
@@ -83,13 +83,19 @@ def today(plan=None):
     bake_lists = _split_bake(plan["rows"], bakers)
 
     day = state.today()
-    due = occasions.whats_due(day, within_days=45)
+    # Today's work, not the planning calendar. Asking for the next forty-five
+    # days put three run-up tasks on the owner, which is backwards for a thing
+    # whose job is taking work off them, and matched every baker against every
+    # baker task so the same trial batch appeared on two boards. What is coming
+    # lives on the diary; what lands here is due today or already late.
+    due = occasions.whats_due(day, within_days=0)
 
     shop = state.get()
     suspected = [row for row in shop.index.sellouts() if row["day"] == day]
     shop_last = lambda row: shop.index.last[day][row["item"]].strftime("%H:%M")
 
     board = []
+    claimed = set()
     for person in people:
         jobs = []
         if person.role == "baker":
@@ -112,12 +118,15 @@ def today(plan=None):
             })
 
         for task in due:
-            if task["owner"] == person.role or (task["owner"] == "owner"
-                                                and person.role == "owner"):
-                jobs.append({"what": task["what"], "kind": "prep",
-                             "due": task["due"].isoformat(),
-                             "flag": "late" if task["overdue"] else None,
-                             "occasion": task["occasion"]})
+            if task["owner"] != person.role or task["what"] in claimed:
+                continue
+            # One task, one person. Matching on role alone handed the same job
+            # to everyone who shared it.
+            claimed.add(task["what"])
+            jobs.append({"what": task["what"], "kind": "prep",
+                         "due": task["due"].isoformat(),
+                         "flag": "late" if task["overdue"] else None,
+                         "occasion": task["occasion"]})
         board.append({"name": person.name, "role": person.role,
                       "starts": person.starts, "jobs": jobs})
 
@@ -146,7 +155,7 @@ def today(plan=None):
 # Server side, not the browser. Two people share a kitchen and they are not
 # on the same phone, so a checkbox that lives in one browser is decoration.
 
-STORE = os.getenv("TICKETS_FILE", "data/tickets.json")
+STORE = paths.of("tickets")
 
 
 def _read():
