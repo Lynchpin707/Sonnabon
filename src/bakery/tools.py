@@ -18,9 +18,10 @@ on AgentCore it becomes the sandboxed Code Interpreter and nothing else changes.
 
 import io
 import json
+import os
 import traceback
 from contextlib import redirect_stdout
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from strands import tool
 
@@ -166,6 +167,31 @@ def lost_to_sellouts(weeks: int = 4) -> dict:
 
 
 @tool
+def product_trends(weeks: int = 40) -> dict:
+    """Which products are growing, which are dying, and which are just noise.
+
+    Run on demand corrected for sell-outs, which matters more here than
+    anywhere: a product that is catching on runs out more often as it grows, so
+    the till records less and less of the growth. Measured on raw sales, a
+    product that genuinely doubled can look flat, and one that never moved can
+    look like it is dying.
+
+    Weeks an occasion was pulling on are left out of the fit, or every Christmas
+    reads as growth and every January as collapse.
+    """
+    shop = state.get()
+    result = analytics.trends(shop.bills, weeks=weeks, index=shop.index,
+                              history=shop.history)
+    return {"window_weeks": weeks,
+            "growing": result["growing"],
+            "declining": result["declining"],
+            "flat": result["flat"],
+            "note": ("Corrected for sell-outs before fitting. Flat means the "
+                     "movement is inside the week-to-week noise, not that "
+                     "nothing changed.")}
+
+
+@tool
 def whats_coming(within_days: int = 60) -> dict:
     """Occasions ahead, and every preparation task now due or already late.
 
@@ -194,11 +220,29 @@ def occasion_plan(occasion: str) -> dict:
     return result
 
 
+# Imports the agent is allowed inside run_python. Anything else, including os,
+# subprocess, socket and pathlib, raises. The agent has no business touching the
+# filesystem: everything it needs is already in the namespace.
+ALLOWED_IMPORTS = {"math", "statistics", "json", "datetime", "collections",
+                   "itertools", "functools", "random", "re"}
+
+
+def _guarded_import(name, *args, **kwargs):
+    root = name.split(".")[0]
+    if root not in ALLOWED_IMPORTS:
+        raise ImportError(
+            f"{name} is not available here. Allowed: "
+            f"{', '.join(sorted(ALLOWED_IMPORTS))}. The shop data is already "
+            "in the namespace, so there is nothing to load."
+        )
+    return __import__(name, *args, **kwargs)
+
+
 @tool
 def run_python(code: str) -> dict:
     """Run Python against the shop's data and return what it prints.
 
-    Use this for anything the named tools do not cover. Available names:
+    Use this for anything the named tools do not cover. Already in scope:
 
         shop      the loaded shop (bills, index, history, corrected)
         catalogue the menu, with price, cost, bake_minutes, salvage
@@ -210,7 +254,21 @@ def run_python(code: str) -> dict:
     truncated, so summarise rather than dumping rows.
     """
     shop = state.get()
+    safe_builtins = {name: getattr(__builtins__, name, None)
+                     if not isinstance(__builtins__, dict)
+                     else __builtins__.get(name)
+                     for name in (
+                         "abs", "all", "any", "bool", "dict", "divmod",
+                         "enumerate", "filter", "float", "format", "int", "len",
+                         "list", "map", "max", "min", "print", "range", "round",
+                         "set", "sorted", "str", "sum", "tuple", "zip",
+                         "isinstance", "getattr", "hasattr", "repr", "type",
+                         "True", "False", "None", "Exception", "ValueError",
+                         "KeyError", "ZeroDivisionError")}
+    safe_builtins["__import__"] = _guarded_import
+
     namespace = {
+        "__builtins__": safe_builtins,
         "shop": shop, "bills": shop.bills, "index": shop.index,
         "history": shop.history, "corrected": shop.corrected,
         "catalogue": catalogue, "analytics": analytics, "plan": plan,
@@ -225,6 +283,77 @@ def run_python(code: str) -> dict:
         return {"ok": False, "output": buffer.getvalue()[-2000:],
                 "error": traceback.format_exc(limit=2)}
     output = buffer.getvalue()
-    return {"ok": True,
-            "output": output[:4000],
+    return {"ok": True, "output": output[:4000],
             "truncated": len(output) > 4000}
+
+
+@tool
+def find_local_events(query: str, near: str = None) -> dict:
+    """Search the web for markets, fairs and food events worth a stall.
+
+    Looks for the things that actually decide whether to go: the date, the
+    application deadline, the stall fee, and what attendance was last year. An
+    organiser's own attendance claim and what people reported afterwards are
+    different numbers, so both are worth having.
+    """
+    town = near or os.getenv("SHOP_TOWN", "")
+    terms = f"{query} {town}".strip()
+    key = os.getenv("TAVILY_API_KEY")
+    if not key:
+        return {"ok": False, "searched": terms,
+                "note": ("No web search configured. Set TAVILY_API_KEY to let "
+                         "me look this up. Ask the owner for the event details "
+                         "instead of guessing them.")}
+    try:
+        from strands_tools import tavily
+        return {"ok": True, "searched": terms,
+                "results": tavily.tavily_search(query=terms, max_results=5)}
+    except Exception as error:
+        return {"ok": False, "searched": terms, "error": str(error)}
+
+
+@tool
+def notify_owner(subject: str, body: str, urgency: str = "normal",
+                 default_action: str = None, answer_by: str = None) -> dict:
+    """Reach the owner by email. Use this sparingly.
+
+    Every message costs the owner attention, which is the thing this job exists
+    to protect. Send when something was decided that they should know about, or
+    when a decision genuinely needs them. Never send a status update.
+
+    ``urgency`` is "normal" or "decision". A decision needs ``default_action``
+    and ``answer_by``: what you will do if nobody replies, and when you will do
+    it. A question with no default stalls the shop the first time the owner is
+    too busy to read email, which is most days.
+    """
+    to = os.getenv("OWNER_EMAIL")
+    record = {"to": to, "subject": subject, "urgency": urgency,
+              "sent_at": datetime.now().isoformat(timespec="seconds")}
+
+    if urgency == "decision" and not (default_action and answer_by):
+        return {**record, "ok": False,
+                "error": ("A decision needs default_action and answer_by. Say "
+                          "what you will do if nobody replies, and by when.")}
+
+    if default_action:
+        body = (f"{body}\n\nIf I do not hear back by {answer_by}, "
+                f"I will {default_action}.")
+
+    if not to or not os.getenv("SES_FROM"):
+        # Nothing is configured, so write it where the interface can show it.
+        # Silently dropping a message the agent believes it sent is worse than
+        # not sending one.
+        os.makedirs("data", exist_ok=True)
+        with open("data/outbox.jsonl", "a", encoding="utf-8") as handle:
+            handle.write(json.dumps({**record, "body": body},
+                                    ensure_ascii=False) + "\n")
+        return {**record, "ok": True, "delivered": "outbox",
+                "note": "No SES configured, written to data/outbox.jsonl"}
+
+    import boto3
+    boto3.client("ses").send_email(
+        Source=os.getenv("SES_FROM"),
+        Destination={"ToAddresses": [to]},
+        Message={"Subject": {"Data": subject},
+                 "Body": {"Text": {"Data": body}}})
+    return {**record, "ok": True, "delivered": "ses"}

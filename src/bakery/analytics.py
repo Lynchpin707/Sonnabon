@@ -16,6 +16,7 @@ evidence behind it, because a censoring correction stated as a fact is exactly
 the kind of confident wrong number this module exists to prevent.
 """
 
+import statistics
 from collections import defaultdict
 from datetime import datetime, time, timedelta
 
@@ -273,14 +274,16 @@ def lost_to_sellouts(bills, days=None):
     }
 
 
-def best_sellers(bills, days=None, top=None):
-    """Ranked three ways, because the first two are the ones owners use and
-    both are wrong.
+def best_sellers(bills, days=None, top=None, baked_only=True):
+    """Ranked three ways, because the first two are the ones owners use.
 
-    Units finds whatever is cheapest. Revenue finds whatever is dearest.
-    Contribution finds what actually pays the rent, and contribution per oven
-    minute finds what deserves the oven, which is a different answer again and
-    the one nobody computes.
+    Units finds whatever is cheapest. Revenue finds whatever is dearest. Money
+    kept, which is revenue less what it cost to make, is the only one that says
+    which products are actually holding the shop up, and it regularly disagrees
+    with both.
+
+    Everything here comes from the till plus one number the owner can give in a
+    sentence: roughly what each thing costs to make.
     """
     table = units_by_day(bills)
     if days is not None:
@@ -295,29 +298,118 @@ def best_sellers(bills, days=None, top=None):
     rows = []
     for item, units in totals.items():
         product = catalogue.get(item)
+        if baked_only and product.bake_minutes <= 0:
+            # Coffee sells more than anything and is not a thing anybody
+            # decides how much of to make. Leaving it in buries the answer.
+            continue
         rows.append({
             "item": item,
             "units": units,
             "revenue": round(units * product.price, 2),
-            "contribution": round(units * product.margin, 2),
-            "per_oven_minute": (round(units * product.margin
-                                      / (units * product.bake_minutes), 3)
-                                if product.bake_minutes else None),
+            "kept": round(units * product.margin, 2),
+            "kept_per_unit": round(product.margin, 2),
         })
 
     def rank(key):
-        ordered = sorted([row for row in rows if row[key] is not None],
-                         key=lambda row: -row[key])
-        return [row["item"] for row in ordered][:top] if top else \
-               [row["item"] for row in ordered]
+        ordered = sorted(rows, key=lambda row: -row[key])
+        names = [row["item"] for row in ordered]
+        return names[:top] if top else names
 
     return {
         "by_units": rank("units"),
         "by_revenue": rank("revenue"),
-        "by_contribution": rank("contribution"),
-        "by_oven_minute": rank("per_oven_minute"),
-        "rows": sorted(rows, key=lambda row: -row["contribution"]),
+        "by_money_kept": rank("kept"),
+        "rows": sorted(rows, key=lambda row: -row["kept"]),
     }
+
+
+def trend(bills, item, weeks=26, index=None, history=None):
+    """Is this product growing, flat, or dying?
+
+    Two things make this harder than it looks, and both are handled here.
+
+    A growing product hides its own growth. The more people want it the more
+    often it runs out, and the till stops counting at whatever was on the tray.
+    So this reads the corrected history when it is given one, not raw sales.
+    Measured on raw sales, a product that genuinely doubled can look flat.
+
+    And two adjacent months are mostly noise. This fits a slope across the whole
+    window instead of comparing blocks, and refuses to call it either way unless
+    the slope is bigger than the scatter around it. Owners kill products after
+    two bad Tuesdays; the refusal is the point.
+    """
+    index = index or Index(bills)
+    table = history.get(item) if history else         {day: row.get(item, 0) for day, row in index.units.items()}
+    series = sorted((table or {}).items())[-weeks * 6:]
+    if len(series) < 30:
+        return {"item": item, "verdict": "not enough history",
+                "days_available": len(series)}
+
+    # Aggregate to whole weeks before fitting anything. Saturday sells half as
+    # much again as Tuesday, so daily scatter is larger than several months of
+    # real drift and a slope fitted on daily values finds nothing. Weekly totals
+    # remove the day-of-week swing completely and leave the trend standing.
+    from . import calendar as occasions
+
+    by_week = defaultdict(float)
+    lifted = set()
+    for day, units in series:
+        key = day.isocalendar()[:2]
+        by_week[key] += float(units)
+        # A week Christmas or Valentine's was pulling on is not evidence about
+        # a trend. Left in, a straight line through the year reads every annual
+        # peak as growth and every trough after it as decline, which is how a
+        # perfectly flat product gets reported as dying.
+        if occasions.multiplier(day, item) > 1.05:
+            lifted.add(key)
+
+    weeks_sorted = [key for key in sorted(by_week)[1:-1] if key not in lifted]
+    if len(weeks_sorted) < 6:
+        return {"item": item, "verdict": "not enough history",
+                "weeks_available": len(weeks_sorted)}
+    values = [by_week[key] for key in weeks_sorted]
+
+    n = len(values)
+    xs = list(range(n))
+    mean_x, mean_y = (n - 1) / 2, statistics.fmean(values)
+    sxx = sum((x - mean_x) ** 2 for x in xs)
+    slope = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, values)) / sxx
+
+    residuals = [y - (mean_y + slope * (x - mean_x)) for x, y in zip(xs, values)]
+    scatter = statistics.pstdev(residuals) or 1.0
+    slope_error = scatter / (sxx ** 0.5)
+
+    per_month = slope * 4 / 6                   # weekly slope to units per day
+    # Change along the fitted line, not first week against last. Endpoints are
+    # single noisy observations and can point the opposite way to the slope.
+    change = (slope * (n - 1)) / mean_y if mean_y else 0.0
+    significant = abs(slope) > 2 * slope_error
+    verdict = "flat" if not significant else ("growing" if slope > 0 else "declining")
+
+    return {"item": item, "verdict": verdict,
+            "per_month": round(per_month, 1),
+            "weeks_used": n, "weeks_skipped_for_occasions": len(lifted),
+            "start_daily": round(values[0] / 6, 1),
+            "now_daily": round(values[-1] / 6, 1),
+            "change": f"{change:+.0%}",
+            "confident": significant,
+            "on_corrected_history": history is not None,
+            "why": (f"{per_month:+.1f} a day per month over {n} weeks, and "
+                    f"week-to-week noise would allow {2 * slope_error * 4 / 6:.1f}")}
+
+
+def trends(bills, weeks=26, index=None, history=None):
+    """Every product, split into what is moving and what is not."""
+    index = index or Index(bills)
+    rows = [trend(bills, product.name, weeks=weeks, index=index, history=history)
+            for product in catalogue.PRODUCTS if product.bake_minutes > 0]
+    moving = [row for row in rows if row.get("confident")]
+    return {"growing": sorted([r for r in moving if r["verdict"] == "growing"],
+                              key=lambda r: -r["per_month"]),
+            "declining": sorted([r for r in moving if r["verdict"] == "declining"],
+                                key=lambda r: r["per_month"]),
+            "flat": len(rows) - len(moving),
+            "rows": rows}
 
 
 def customers(bills, days=None):

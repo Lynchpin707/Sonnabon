@@ -42,32 +42,57 @@ SHAPES = {
 
 # Typical units a day at an ordinary midweek rate, before any multiplier.
 BASE_DEMAND = {
-    "Baguette": 210, "Sourdough loaf": 26,
-    "Croissant": 132, "Chocolate croissant": 108, "Cinnamon roll": 58,
-    "Apple turnover": 41, "Glazed donut": 64,
-    "Crème brûlée crêpe": 24, "Cheesecake slice": 33, "Chocolate éclair": 26,
-    "Lemon tart": 19, "Carrot cake slice": 28,
-    "Brownie": 39, "Chocolate chip cookie": 47, "Blueberry muffin": 44,
-    "Coffee": 96,
+    "Croissant": 145, "Chocolate croissant": 112, "Glazed donut": 74,
+    "Sourdough loaf": 34,
+    "Cinnamon roll": 96, "Pistachio croissant": 58, "Cruffin": 39,
+    "Crème brûlée crêpe cake": 31, "Basque cheesecake": 44,
+    "Chocolate éclair": 26, "Matcha roll cake": 22, "Lemon tart": 24,
+    "Carrot cake slice": 29,
+    "Chocolate chip cookie": 88, "Brownie": 52, "Blueberry muffin": 61,
+    "Coffee": 210,
 }
+
+# Products do not sit still for a year. One thing catches on, another quietly
+# dies, and the owner is the last to notice because each week looks like the
+# last. Expressed as the multiplier reached by the end of the period, applied
+# smoothly across it. Anything not listed stays flat, which is most of the board.
+DRIFT = {
+    "Crème brûlée crêpe cake": 1.85,   # the new signature, spreading by word of mouth
+    "Matcha roll cake": 1.45,
+    "Pistachio croissant": 1.30,
+    "Chocolate éclair": 0.62,          # quietly going out of fashion
+    "Lemon tart": 0.72,
+    "Glazed donut": 0.80,
+}
+
+
+def _drift(day, item, start, end):
+    """Where this product is on its way from start to finish."""
+    target = DRIFT.get(item)
+    if not target:
+        return 1.0
+    span = max((end - start).days, 1)
+    through = (day - start).days / span
+    return 1.0 + (target - 1.0) * through
+
 
 # Occasions that move volume, as (month, day, days_before, peak_multiplier) and
 # the products that carry them. The ramp is linear into the date, which is crude
 # but it is the shape an owner would recognise: it builds for a week, not a day.
 OCCASIONS = [
     ("Halloween", 10, 31, 6, 1.8,
-     ["Cinnamon roll", "Chocolate chip cookie", "Glazed donut", "Brownie"]),
+     ["Cinnamon roll", "Glazed donut", "Brownie", "Chocolate chip cookie"]),
     ("Christmas", 12, 25, 14, 3.2,
-     ["Cheesecake slice", "Lemon tart", "Chocolate éclair",
-      "Crème brûlée crêpe", "Carrot cake slice"]),
+     ["Basque cheesecake", "Crème brûlée crêpe cake", "Lemon tart",
+      "Carrot cake slice", "Chocolate éclair"]),
     ("Valentine", 2, 14, 4, 1.9,
-     ["Chocolate éclair", "Brownie", "Crème brûlée crêpe"]),
+     ["Chocolate éclair", "Brownie", "Crème brûlée crêpe cake"]),
+    ("Eid", 3, 20, 6, 2.3,
+     ["Cinnamon roll", "Brownie", "Chocolate chip cookie", "Pistachio croissant"]),
     ("Easter", 4, 12, 7, 1.9,
      ["Carrot cake slice", "Chocolate éclair", "Lemon tart"]),
     ("Mother's Day", 5, 11, 5, 2.1,
-     ["Cheesecake slice", "Lemon tart", "Crème brûlée crêpe"]),
-    ("Eid", 3, 20, 6, 2.3,
-     ["Cinnamon roll", "Brownie", "Chocolate chip cookie", "Blueberry muffin"]),
+     ["Basque cheesecake", "Lemon tart", "Matcha roll cake"]),
 ]
 
 def _occasion_multiplier(day, item):
@@ -173,6 +198,7 @@ def simulate(start, end, seed=7):
             rate = (BASE_DEMAND[product.name]
                     * DAY_OF_WEEK[day.weekday()]
                     * _occasion_multiplier(day, product.name)
+                    * _drift(day, product.name, start, end)
                     * rng.uniform(0.80, 1.20))
             wanted = max(0, int(rng.gauss(rate, math.sqrt(max(rate, 1)) * 1.4)))
             wants = _arrival_times(rng, day, product, wanted)

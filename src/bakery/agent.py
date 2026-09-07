@@ -170,7 +170,8 @@ class Ledger(HookProvider):
 
 TOOLS = [tools.shop_status, tools.day_report, tools.bake_plan,
          tools.best_sellers, tools.trade_summary, tools.lost_to_sellouts,
-         tools.whats_coming, tools.occasion_plan, tools.run_python]
+         tools.product_trends, tools.whats_coming, tools.occasion_plan,
+         tools.find_local_events, tools.notify_owner, tools.run_python]
 
 
 def build(model=None, watch=None, approvals=None, extra_tools=()):

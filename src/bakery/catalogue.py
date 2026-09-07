@@ -4,10 +4,14 @@ Two numbers decide every production call this agent makes: the margin lost when
 an item runs out, and the cost of one that goes in the bin. Both come from here,
 so a wrong figure here is wrong everywhere downstream and silently so.
 
-``cost`` is the ingredient cost of one finished unit, not the price of a sack of
-flour. ``bake_minutes`` is oven occupancy for one unit's share of a tray, which
-is what makes the oven a constraint rather than a detail: a product that holds
-the oven twice as long has to earn twice as much to deserve the slot.
+``cost`` is the ingredient cost of one finished unit. It is the one thing the
+till cannot tell you and the owner can, in a sentence: most shops know their
+food cost as a percentage and can name the few items that differ.
+
+``bake_minutes`` is optional. Nobody knows it precisely and nothing important
+depends on it. It is only used if the owner volunteers an oven limit, and it is
+never used to rank anything, because ranking on a number the shop cannot
+actually produce is how a demo becomes a lie.
 
 ``salvage`` is what an unsold unit is still worth at close. Bread sold off at
 half price is not a total loss and the maths has to know that, or it will
@@ -100,33 +104,34 @@ class Product:
 # figures, not a specific shop's, and the README says so. Swap this whole list
 # for a real menu and nothing downstream changes.
 PRODUCTS = [
-    # Bread. Cheap, high volume, and the thing customers walk out over.
-    Product("Baguette", "bread", 1.20, 0.30, 2.0, 1, salvage=0.18),
-    Product("Sourdough loaf", "bread", 4.20, 1.05, 6.0, 2, salvage=0.60),
-
-    # The morning trade.
+    # The everyday trade. Cheap, fast, and mostly what pays the wages.
     Product("Croissant", "viennoiserie", 1.30, 0.45, 2.2, 1, salvage=0.20),
-    Product("Chocolate croissant", "viennoiserie", 1.50, 0.55, 2.2, 1, salvage=0.25),
-    Product("Cinnamon roll", "viennoiserie", 2.80, 0.90, 3.4, 1, salvage=0.40),
-    Product("Apple turnover", "viennoiserie", 1.80, 0.62, 2.6, 1, salvage=0.30),
+    Product("Chocolate croissant", "viennoiserie", 1.60, 0.55, 2.2, 1, salvage=0.25),
     Product("Glazed donut", "viennoiserie", 2.00, 0.60, 2.0, 1, salvage=0.25),
+    Product("Sourdough loaf", "bread", 4.50, 1.10, 6.0, 2, salvage=0.60),
 
-    # The afternoon, and most of the margin.
-    Product("Crème brûlée crêpe", "patisserie", 4.60, 1.70, 4.0, 1),
-    Product("Cheesecake slice", "patisserie", 4.20, 1.45, 5.0, 2, salvage=0.60),
+    # The signatures. What people cross town for, and where the margin is.
+    Product("Cinnamon roll", "viennoiserie", 3.20, 1.00, 3.4, 1, salvage=0.45),
+    Product("Pistachio croissant", "viennoiserie", 4.20, 1.55, 2.8, 1, salvage=0.30),
+    Product("Cruffin", "viennoiserie", 3.60, 1.25, 3.0, 1, salvage=0.35),
+
+    # Desserts. Expensive, fragile, worth nothing the next morning.
+    Product("Crème brûlée crêpe cake", "patisserie", 5.20, 1.95, 4.0, 1),
+    Product("Basque cheesecake", "patisserie", 5.50, 2.10, 5.0, 2, salvage=0.70),
     Product("Chocolate éclair", "patisserie", 4.20, 1.55, 4.0, 1),
+    Product("Matcha roll cake", "patisserie", 4.80, 1.80, 4.5, 2, salvage=0.60),
     Product("Lemon tart", "patisserie", 4.50, 1.60, 4.5, 2, salvage=0.80),
-    Product("Carrot cake slice", "patisserie", 3.80, 1.20, 5.0, 2, salvage=0.55),
+    Product("Carrot cake slice", "patisserie", 4.00, 1.30, 5.0, 2, salvage=0.55),
 
-    # Keeps for days, so running out is barely a loss. A useful control: the
-    # agent should not be making urgent calls about biscuits.
-    Product("Brownie", "biscuit", 2.60, 0.75, 2.0, 3, salvage=0.35),
+    # Keeps for days, so running out barely costs anything. A useful control:
+    # the agent should not be making urgent calls about cookies.
     Product("Chocolate chip cookie", "biscuit", 2.20, 0.55, 1.8, 4, salvage=0.30),
+    Product("Brownie", "biscuit", 2.60, 0.75, 2.0, 3, salvage=0.35),
     Product("Blueberry muffin", "biscuit", 2.40, 0.70, 2.2, 2, salvage=0.35),
 
     # Not baked. Rides along with everything else and never goes to waste, which
     # is why it must be excluded from any waste or oven ranking.
-    Product("Coffee", "drink", 1.80, 0.35, 0.0, 0),
+    Product("Coffee", "drink", 2.20, 0.40, 0.0, 0),
 ]
 
 BY_NAME = {product.name: product for product in PRODUCTS}
