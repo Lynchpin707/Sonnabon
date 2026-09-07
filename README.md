@@ -1,287 +1,125 @@
-# TBI
+# The operations manager a small bakery cannot afford to hire
 
-**Tokens Bureau of Investigation.** Your AI spending, investigated.
+A bakery owner decides, from memory, at the end of a seventeen hour day, how
+much of thirty things to make tomorrow. Then what to order from four suppliers
+who each want it by a different hour. Then it resets and they do it again.
 
----
+Nobody gets good at it, because there is never an hour to sit down with the
+numbers. A small bakery keeps 4 to 9% of what it earns and throws away 10 to 15%
+of what it makes.
 
-You have four AI tabs open right now.
+This is one agent that does that job. You point it at the till, it reads the
+bills, and from then on it decides tomorrow's production, orders against it,
+watches the calendar, and emails the owner only when something genuinely needs
+a person.
 
-This morning you asked one of them where a supplier order got to. You sent that
-to the most expensive model you own, because that tab was already open.
+## The thing it knows that a till cannot
 
-Nobody decides to do that. It just happens, thirty times a day.
+**Sales are not demand.** If the shop baked 40 croissants and sold all 40 by
+10:14, the till says 40. Real demand might have been 65. Every sell-out
+undercounts, and anything trained on that data learns to under-bake for ever,
+settling on the shop's worst day.
 
-### The number that should bother you
+The timestamps give it away. A product that stops selling dead while everything
+else keeps going until closing time has run out, and that is provable from data
+the shop already has. The agent learns each product's normal shape through the
+day from days it did not run out, then on a day it did, works out how far
+through that shape it got and scales up.
 
-> **The 7% of requests you barely notice are 38% of the bill.**
+Everything downstream reads that corrected history, never the raw sales.
 
-The gap between the cheapest model and the most expensive is about **143x**.
+## What it does
 
-So your bill is not decided by how much you use it. It is decided by how often
-you reach for the wrong thing on the few requests that are expensive.
+- Reads the bills as they arrive: products, quantities, times
+- Decides tomorrow's production and gives each person their own list
+- Works back to ingredients and raises the orders against each supplier's cutoff
+- Watches the calendar, so Halloween and Christmas arrive with the ingredients
+  already ordered rather than three days late
+- Says which products are growing and which are dying, and refuses to call it
+  when the movement is inside the noise
+- Emails the owner when something needs deciding, and stays quiet otherwise
 
-You cannot see which ones those were. Nobody can.
+Roughly twenty runs a week. One or two reach the owner.
 
----
+## Measured, not claimed
 
-## What TBI does
+The shop in `data/` is generated, and that is deliberate: it is the only way to
+know the truth. No real till can tell you how many people wanted something and
+left, so no real dataset can score a sell-out estimate. Here the demand is known
+because it was generated first and then served out of a limited tray.
 
-**Every request is a case, and TBI keeps the file.**
-
-Tracking is the product. Routing is what tracking lets you fix.
-
-| | |
+| What | Result |
 |---|---|
-| **Records** | every request: which model, what it cost, real tokens from the provider |
-| **Asks** | now and then, whether the answer was actually any good |
-| **Investigates** | flags the week your spending changed shape, and says why |
-| **Routes** | to the model the work needs, because now it knows what the work is |
-| **Adapts** | rewrites the ask to suit the model answering it |
-| **Learns** | say no once and that kind of work moves up a tier |
+| Sell-out detection | 87% precision, 74% recall |
+| Demand estimate | 3.4% median error, within 20% on 97% of days |
+| Lost margin over a year | Estimated 28,113 against a true 29,700, so 5% out |
+| History needed | Three weeks. 90% precision on 18 trading days |
+| Counterfactual over 120 days | Lost sales cut 53%, net cost down 7.7% |
 
-After a month you have something no billing dashboard gives you.
-
-Not what you spent. **Whether you spent it on the right things.**
-
----
-
-## The bureau, and what it actually maps to
-
-The name is not decoration. Every piece of it points at a real mechanism.
-
-| In the bureau | In the code |
-|---|---|
-| a case comes in | a request arrives at one endpoint |
-| the case is read before it is assigned | `scenario_agent` classifies intent, risk and domain |
-| the case officer assigns it | `routing_agent` picks the tier |
-| evidence is logged, not remembered | every token count comes from the provider, never estimated |
-| the file stays open | `memory` keeps spend and ratings per person, per domain |
-| forensics reviews the books | `forensics_agent` finds the week that does not look like the others |
-| the officer needs sign off | high risk work stops and asks you, enforced in code |
-
-The one line worth keeping from all of it: **every user has a spending pattern,
-and nobody currently watches it.**
-
----
-
-## One endpoint
-
-You do not manage four accounts, four SDKs and four tabs.
-
-```
-your app  ->  TBI  ->  Nova Micro | Haiku | Sonnet | Opus
-```
-
-Same call regardless of who answers. TBI owns the choice, and because it owns
-the choice it can also record it, which is the whole reason the tracking is
-possible at all. A gateway you route around cannot count anything.
-
-You keep your own keys. TBI never touches your bill, it just explains it.
-
----
-
-## It rewrites the ask to fit the model
-
-Routing down feels like a downgrade when the same words go to every tier. The
-small model is not only weaker, it is being asked in a way that suits a
-stronger one.
-
-So the prompt is fitted to whoever is answering:
-
-| Tier | What gets added |
-|---|---|
-| **cheap** | answer directly and stop, short sentences, no preamble, no restating the question, handle multiple parts in order |
-| **mid**, **heavy** | nothing. They do not need scaffolding |
-| **max** | this may be acted on and may be hard to undo. State your assumptions, and say what would change your answer |
-
-Same request, fitted wording. It is why sending an email to Nova Micro does not
-read like a downgrade, and why a decision sent to the top tier comes back with
-its assumptions on the table.
-
----
-
-## The team
-
-Five agents. Four do the work, one runs the case.
-
-```mermaid
-flowchart LR
-    U([person]) --> CO["case officer"]
-    CO --> SA["scenario<br/>agent"]
-    CO --> RA["routing<br/>agent"]
-    CO --> EA["execution<br/>agent"]
-    CO --> FA["forensics<br/>agent"]
-    CO -.high risk.-> H{{"asks you first"}}
-    RA -. reads .-> M[(memory)]
-    EA -- writes --> M
-    FA -. reads .-> M
-
-    classDef agent fill:#1f2937,stroke:#60a5fa,color:#e5e7eb
-    classDef store fill:#1f2937,stroke:#34d399,color:#e5e7eb
-    classDef human fill:#1f2937,stroke:#fbbf24,color:#e5e7eb
-    class CO,SA,RA,EA,FA agent
-    class M store
-    class H human
-```
-
-| Agent | Job |
-|---|---|
-| **scenario** | reads the request. Intent, complexity, risk, domain |
-| **routing** | picks the tier, using what you thought of past answers |
-| **execution** | does the work, records what it really cost |
-| **forensics** | reviews your spending, speaks only when it matters |
-
-It runs in the background and **only surfaces when there is a real decision to
-make.** Full diagrams in [ARCHITECTURE.md](ARCHITECTURE.md).
-
----
-
-## Show me the arithmetic
-
-One working day for a small business owner. Every number below comes from this
-table, so you can check it yourself.
-
-Sizes are in tokens. A token is roughly three quarters of a word, so "250 in,
-200 out" means a short email and a short reply.
-
-| The work | How often<br/>per day | Size of<br/>the ask | Size of<br/>the answer | Tier | Why that tier |
-|---|---:|---:|---:|---|---|
-| Emails to suppliers and customers | 12 | 250 | 200 | cheap | fixed shape, no judgement |
-| Social posts and product copy | 5 | 200 | 250 | cheap | short, formulaic |
-| Summarising meeting notes | 3 | 1,800 | 300 | cheap | long to read, easy to do |
-| Spreadsheet and formula help | 3 | 600 | 400 | mid | small mistakes are expensive |
-| Code and debugging | 3 | 900 | 700 | mid | needs real reasoning |
-| A supplier or pricing negotiation | 1 | 1,200 | 900 | heavy | money is on the table |
-| A strategy or finance decision | 0.5 | 2,000 | 1,500 | max | you cannot take it back |
-
-Half a day for the last row means one such decision every other day.
-
-**27.5 tasks. 25,600 tokens.** By volume: 54% cheap, 30% mid, 8% heavy, 7% max.
-
-That last 7% is the 38%.
-
-Routed properly the day costs **$0.0628**, or **$1.88 a month**.
-
-Now the same day done by hand, drifting to the habitual expensive model some of
-the time:
-
-| Drift | Per month | TBI saves |
-|---:|---:|---:|
-| never | $1.88 | **0%** |
-| 20% | $3.42 | **45%** |
-| 40% | $4.95 | **62%** |
-| 60% | $6.48 | **71%** |
-
-The top row is the floor, not a forecast. It describes somebody who routes every
-request perfectly, by hand, every time, and never once reaches for the wrong tab
-while thinking about something else.
-
-**Nobody is that person. That is the entire point.**
-
-And even for someone who is, TBI still tells them what they spent and on what,
-which is the part no billing dashboard does.
-
----
-
-## The models
-
-| Tier | Model | Gets |
-|---|---|---|
-| cheap | `amazon.nova-micro-v1:0` | email, captions, translation, summaries |
-| mid | `anthropic.claude-haiku-4-5` | code, analysis, spreadsheets, the default |
-| heavy | `anthropic.claude-sonnet-5` | strategy, legal, audit, forecasting |
-| max | `anthropic.claude-opus-4-8` | decisions that cannot be undone |
-
-**Mistakes are not symmetric.** A big model on easy work wastes a fraction of a
-cent. A small model on hard work gives you a confident wrong answer that you act
-on, and no ledger records that.
-
-So `cheap` has to be earned, `mid` is the fallback, and **nothing reaches the top
-tier by accident.** A parse failure can never become an expensive call.
-
-Prices live in `src/config.py` and are **Bedrock on-demand rates, checked
-2026-09-02**. Two things that caught us out: Sonnet 5 ran a promotional
-$2/$10 that ended 31 August 2026 and is now $3/$15, and the top tier is Opus 4.8
-rather than Fable 5 because Opus is confirmed on Bedrock and Fable is not.
-
-Model access on Bedrock is granted per model in your console. That is a gate,
-not a cost, so check all four are enabled before planning around them.
-
----
-
-## Run it
+Reproduce any of them:
 
 ```bash
-uv sync
+python -m src.bakery.backtest        # would it have done better
 ```
+
+## Running it
 
 ```bash
-USE_AWS=true python main.py
+pip install -e .
+python ui/app.py                     # generates a year on first run
 ```
 
-Add `DDB_TABLE=tbi` to store on DynamoDB instead of a local file. Nothing above
-that line changes.
+Then open http://localhost:8000
 
-### The interface
+The first start takes about half a minute: it generates the shop, then corrects
+a year of censored history and caches it. Every start after that is instant.
 
-```bash
-python ui/server.py
+## How it is built
+
+One [Strands](https://strandsagents.com) agent with twelve tools and a Python
+escape hatch, so anything the tools do not cover it writes and runs itself.
+
+The limits are hooks, not prompt text. A ceiling written into a system prompt is
+a request a model can argue itself out of; a hook that sets `event.cancel`
+inside the agent loop is a control. Spend, looping and irreversible actions are
+all gated that way.
+
+The agent never sees a bill. There are 197,000 of them, which would cost more to
+read once than the waste it is trying to prevent, and would not fit in context
+anyway. Tools return tens of numbers, not thousands of rows.
+
+```
+src/bakery/
+  receipts.py    bills, exactly as a till prints them
+  catalogue.py   the menu, learned from the receipts themselves
+  generate.py    a year of trade, with sell-outs on purpose and the truth kept
+  analytics.py   sell-out detection, demand estimation, trends, rankings
+  plan.py        corrected history, forecast, production quantities
+  calendar.py    occasions, and how far ahead each has to be started
+  team.py        whose job is what, and who confirms what ran out
+  backtest.py    would it actually have done better
+  tools.py       what the agent can do
+  agent.py       the agent, and the limits it cannot argue with
+  runs.py        what happens when the clock goes off
+ui/
+  app.py         the demo server
+  index.html     five pages, one file
 ```
 
-Then open **localhost:8756**. It serves `ui/index.html` and runs every request
-through the same `pipeline.run` the tests use, so the tier, the token counts and
-the cost on screen are the real ones. There is no seeded data: an empty ledger
-shows an empty bureau.
+## Pointing it at a real shop
 
-It needs a backend. Either is fine:
+Nothing is hard-coded to the demo bakery. `catalogue.learn(bills)` derives the
+menu from the receipts: names and prices come straight off the bill lines,
+because a till already knows both.
 
-| | Setup | Cost |
-|---|---|---|
-| **Ollama** | `uv sync`, then `ollama pull qwen2.5:1.5b` and `qwen2.5:3b` | nothing |
-| **Bedrock** | AWS credentials, model access enabled, then `USE_AWS=true python ui/server.py` | real |
+The one thing a receipt cannot say is what an item cost to make, so that comes
+from a single number the owner gives once. Applied to everything it makes every
+product identical, which is wrong, so the agent tracks which costs it guessed
+and asks about those. That list is the whole setup conversation: a few questions
+the data actually raised.
 
-Without one, the page says so rather than inventing numbers.
+Currency comes from the environment. Team names are placeholders.
 
-### What a $50 budget covers
+## Licence
 
-A single request, roughly 800 tokens in and 600 out, on each tier:
-
-| Tier | Model | Per request | $50 buys |
-|---|---|---:|---:|
-| cheap | Nova Micro | $0.000112 | ~446,000 |
-| mid | Haiku 4.5 | $0.0038 | ~13,000 |
-| heavy | Sonnet 5 | $0.0114 | ~4,400 |
-| max | Opus 4.8 | $0.0190 | ~2,600 |
-
-A full pass through the agent team is about six model calls, so budget roughly
-**$0.01 per request** with mid tier execution, or **$0.025** if the top tier
-answers. **$50 is several thousand full agent requests.**
-
-A demo needs a few hundred. Money is not the constraint here. A runaway agent
-loop is, so keep `TIER_CEILING=mid` while developing and set an AWS Budgets
-alarm, which is a different thing from anything inside this repo.
-
-These are Bedrock rates checked on 2026-09-02 against secondary sources, since
-the AWS pricing page did not render its tables. Confirm in your own console.
-
----
-
-## Layout
-
-| File | Job |
-|---|---|
-| `src/agents.py` | **the agents.** One solo lane, and a coordinator with four specialists |
-| `src/forensics.py` | the forensics agent and its four tools |
-| `src/router.py` | picks a tier and reads risk. One call, keyword fallback, cached |
-| `src/provider.py` | calls a model, returns what it really cost |
-| `src/pipeline.py` | the one entry point. Classify, gate, pick a lane, record |
-| `src/config.py` | the tier ladder and the prices |
-| `src/bureau.py` | the Strands hooks: ledger, gate, budget, loop cap, sessions |
-| `src/settings.py` | what the interface may change at runtime |
-| `src/memory.py` | spend, ratings, latency, history, anomalies, quality |
-| `ui/index.html` | the interface. One file, no build step |
-| `ui/server.py` | serves it, streams each step, runs `pipeline.run` |
-
-**No number in the ledger is estimated by a model.** Every token count comes
-from the provider's own usage response, which is the only reason any figure here
-is worth showing anyone.
+MIT.

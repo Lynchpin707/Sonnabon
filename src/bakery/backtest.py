@@ -96,3 +96,24 @@ def run(days=90, from_day=None):
 def _truth(path="data/truth.json"):
     with open(path, encoding="utf-8") as handle:
         return {row["day"]: row["products"] for row in json.load(handle)}
+
+
+if __name__ == "__main__":
+    result = run(days=120)
+    money = result["currency"]
+    print(f"Replayed {result['days_tested']} trading days, "
+          f"{result['from']} to {result['to']}")
+    print()
+    print(f"{'':11}{'waste':>12}{'lost sales':>13}{'total':>12}")
+    for who in ("shop", "agent"):
+        row = result[who]
+        label = "the " + who
+        print(f"{label:11}{money + format(row['waste'], ','):>12}"
+              f"{money + format(row['lost'], ','):>13}"
+              f"{money + format(row['total'], ','):>12}")
+    print()
+    print(f"saved {money}{result['saved']:,} ({result['saved_pct']}%), "
+          f"better on {result['better_on_days']} days")
+    print(f"annualised {money}{result['per_year']:,}")
+    print()
+    print(result["caveat"])

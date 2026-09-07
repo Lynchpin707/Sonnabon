@@ -66,10 +66,29 @@ def _build(path):
     return bills, index, history, corrected
 
 
+def ensure(path=None):
+    """Make sure there is a shop to read.
+
+    A fresh clone has no data, because a year of receipts does not belong in
+    version control. Generating it here means the first thing somebody runs
+    works, instead of failing with a stack trace at whoever just cloned this.
+    """
+    path = path or BILLS
+    if os.path.exists(path):
+        return path
+    from datetime import date, timedelta
+    from . import generate
+    print(f"No trading data at {path}. Generating a year, about 30 seconds.",
+          flush=True)
+    end = date.today()
+    generate.write(end - timedelta(days=370), end, bills_path=path)
+    return path
+
+
 def get(path=None, refresh=False):
     """The shop, built once. Cheap on every call after the first."""
     global _state
-    path = path or BILLS
+    path = ensure(path)
     stamp = os.path.getmtime(path)
 
     if _state is not None and _state.source == path and _state.stamp == stamp \
