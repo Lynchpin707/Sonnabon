@@ -25,7 +25,7 @@ body{margin:0;background:var(--cream);color:var(--cocoa);font-family:var(--sans)
   font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh}
 #shader{position:fixed;inset:0;z-index:-2;width:100%;height:100%;display:block}
 .app{max-width:1180px;margin:0 auto;padding:clamp(1rem,2.4vw,1.7rem) clamp(.8rem,2.4vw,1.5rem) 6rem;
-  display:flex;flex-direction:column;gap:clamp(.8rem,1.7vw,1.1rem)}
+  display:flex;flex-direction:column;gap:clamp(1.1rem,2.2vw,1.5rem)}
 
 /* ── bar ───────────────────────────────────────────────────── */
 .bar{display:flex;flex-wrap:wrap;gap:.8rem 1.4rem;align-items:center;justify-content:space-between}
@@ -36,8 +36,7 @@ body{margin:0;background:var(--cream);color:var(--cocoa);font-family:var(--sans)
 .chip{background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
   border:1px solid var(--edge);border-radius:999px;padding:.35rem .95rem;text-align:center}
 .chip b{font-family:var(--display);font-weight:600;font-size:1rem;display:block;line-height:1.15}
-.chip i{font-style:normal;font-family:var(--mono);font-size:.55rem;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--cocoa-3)}
+.chip i{font-style:normal;font-size:.76rem;color:var(--cocoa-2)}
 
 nav{display:flex;gap:.3rem;flex-wrap:wrap}
 nav button{font-family:var(--sans);font-weight:500;font-size:.88rem;border:1px solid transparent;
@@ -48,19 +47,29 @@ nav button[aria-selected=true]{background:var(--glass);border-color:var(--edge);
 nav button:focus-visible{outline:2px solid var(--caramel);outline-offset:2px}
 nav .n{font-family:var(--mono);font-size:.62rem;color:var(--raspberry);margin-left:.3rem}
 
-.view{display:none;flex-direction:column;gap:clamp(.8rem,1.7vw,1.1rem)}
+.view{display:none;flex-direction:column;gap:clamp(1.8rem,3.6vw,3rem)}
 .view.on{display:flex}
-.card{background:var(--glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  border:1px solid var(--edge);border-radius:var(--r);padding:clamp(.95rem,2vw,1.3rem);
-  box-shadow:var(--shadow)}
+
+/* Sections sit on the ground. Space and a hairline separate them, not a box.
+   Only one thing on a page earns a surface, and it is whatever the page is
+   actually for; a card stamped on everything says nothing is more important
+   than anything else. */
+.card{background:none;border:0;box-shadow:none;padding:0;border-radius:0}
 .card > header{display:flex;flex-wrap:wrap;gap:.3rem 1rem;align-items:baseline;
-  justify-content:space-between;margin-bottom:.75rem}
-h2{font-family:var(--display);font-weight:600;font-size:1.02rem;margin:0;letter-spacing:-.01em}
-.note{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--cocoa-3)}
+  justify-content:space-between;padding-bottom:.5rem;margin-bottom:1rem;
+  border-bottom:1px solid var(--edge)}
+
+/* The exception: the figures for the day, which is what the page is for. */
+.card.raised{background:var(--glass);backdrop-filter:blur(22px);
+  -webkit-backdrop-filter:blur(22px);border:1px solid var(--edge);
+  border-radius:var(--r);padding:clamp(1.1rem,2.2vw,1.6rem);box-shadow:var(--shadow)}
+
+h2{font-family:var(--display);font-weight:600;font-size:1.06rem;margin:0;letter-spacing:-.01em}
+.note{font-size:.83rem;color:var(--cocoa-2)}
 .idle{color:var(--cocoa-3)}
-.grid{display:grid;gap:clamp(.8rem,1.7vw,1.1rem);align-items:start}
+.grid{display:grid;gap:clamp(1.8rem,3.6vw,3rem);align-items:start}
 @media(min-width:880px){.g-2{grid-template-columns:1fr 1fr}
-  .g-side{grid-template-columns:minmax(280px,330px) 1fr}}
+  .g-side{grid-template-columns:minmax(280px,340px) 1fr}}
 
 /* ── brief bar ─────────────────────────────────────────────── */
 .brief{background:var(--glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
@@ -86,14 +95,13 @@ h2{font-family:var(--display);font-weight:600;font-size:1.02rem;margin:0;letter-
 .row{display:flex;gap:.4rem;flex-wrap:wrap}
 
 /* ── the day at a glance ───────────────────────────────────── */
-.figs{display:flex;flex-wrap:wrap;gap:1.6rem;margin-bottom:1rem}
+.figs{display:flex;flex-wrap:wrap;gap:2.2rem;margin-bottom:1.5rem}
 .fig b{font-family:var(--display);font-weight:700;font-size:clamp(1.5rem,3.4vw,2.05rem);
   display:block;line-height:1;letter-spacing:-.02em}
-.fig i{font-style:normal;font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--cocoa-3)}
+.fig i{font-style:normal;font-size:.84rem;color:var(--cocoa-2);margin-top:.15rem;display:block}
 .fig.warn b{color:var(--raspberry)}
 
-.bars{display:flex;flex-direction:column;gap:.34rem}
+.bars{display:flex;flex-direction:column;gap:.42rem}
 .brow{display:grid;grid-template-columns:minmax(96px,150px) 1fr auto;gap:.7rem;align-items:center;
   font-size:.86rem}
 .brow .lane{height:20px;border-radius:6px;background:rgba(58,42,32,.06);position:relative;overflow:visible}
@@ -105,8 +113,8 @@ h2{font-family:var(--display);font-weight:600;font-size:1.02rem;margin:0;letter-
   border:1px dashed rgba(217,92,116,.55);border-left:0}
 .brow .num{font-family:var(--mono);font-size:.8rem;font-variant-numeric:tabular-nums;min-width:3.4rem;
   text-align:right}
-.brow .flag{font-family:var(--mono);font-size:.58rem;color:var(--raspberry);white-space:nowrap;
-  position:absolute;right:6px;top:50%;transform:translateY(-50%)}
+.brow .flag{font-size:.75rem;color:var(--raspberry);white-space:nowrap;
+  position:absolute;right:8px;top:50%;transform:translateY(-50%)}
 
 /* ── sell-out story ────────────────────────────────────────── */
 .say{font-family:var(--display);font-weight:700;letter-spacing:-.02em;line-height:1.12;
@@ -122,23 +130,22 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 .key .sw.a{border-top:3px solid var(--cocoa)}
 .key .sw.b{border-top:3px dashed var(--raspberry)}
 .key .sw.c{border-top:11px solid rgba(217,92,116,.22);margin-top:.3rem}
-.key em{font-style:normal;color:var(--cocoa-3);display:block;font-family:var(--mono);font-size:.67rem}
+.key em{font-style:normal;color:var(--cocoa-2);display:block;font-size:.81rem;margin-top:.1rem}
 
 /* ── plan / lists ──────────────────────────────────────────── */
 .line{display:grid;grid-template-columns:1fr auto auto;gap:.45rem .7rem;align-items:baseline;
   padding:.42rem 0;border-top:1px solid var(--edge);font-size:.9rem}
 .line:first-child{border-top:0}
 .qty{font-family:var(--display);font-weight:600;font-size:1.05rem;font-variant-numeric:tabular-nums}
-.why{font-family:var(--mono);font-size:.63rem;color:var(--cocoa-3);white-space:nowrap}
+.why{font-size:.8rem;color:var(--cocoa-2);white-space:nowrap}
 .line.lift .qty,.line.lift .why{color:var(--caramel)}
-.rest{font-family:var(--mono);font-size:.68rem;color:var(--cocoa-3);padding-top:.5rem}
+.rest{font-size:.83rem;color:var(--cocoa-2);padding-top:.6rem}
 .total{display:flex;justify-content:space-between;border-top:1px solid var(--edge);
   margin-top:.5rem;padding-top:.5rem;font-family:var(--mono);font-size:.78rem;font-weight:500}
 .ask{margin-top:.85rem;border-radius:14px;padding:.8rem .9rem;
   background:linear-gradient(135deg,rgba(216,154,78,.20),rgba(217,92,116,.13));
   border:1px solid rgba(216,154,78,.4)}
-.ask .label{font-family:var(--mono);font-size:.56rem;letter-spacing:.16em;text-transform:uppercase;
-  color:var(--caramel);font-weight:500}
+.ask .label{font-size:.82rem;color:var(--caramel);font-weight:600}
 .ask p{margin:.3rem 0 .65rem;font-size:.87rem;line-height:1.42}
 
 .move{display:grid;grid-template-columns:1fr 88px 3.2rem;gap:.7rem;align-items:center;
@@ -154,11 +161,10 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 .occ{display:flex;justify-content:space-between;gap:.8rem;align-items:baseline;padding:.6rem .85rem;
   border-radius:12px;background:rgba(108,134,196,.13);border:1px solid rgba(108,134,196,.26);margin-bottom:.5rem}
 .occ b{font-family:var(--display);font-weight:600;font-size:.98rem}
-.occ span{font-family:var(--mono);font-size:.69rem;color:var(--cocoa-2);white-space:nowrap}
+.occ span{font-size:.83rem;color:var(--cocoa-2);white-space:nowrap}
 .job{display:grid;grid-template-columns:5rem 1fr;gap:.55rem;font-size:.84rem;color:var(--cocoa-2);padding:.22rem 0}
-.job .d{font-family:var(--mono);font-size:.69rem;color:var(--cocoa-3)}
-.pill{font-family:var(--mono);font-size:.56rem;letter-spacing:.06em;text-transform:uppercase;
-  padding:.07rem .45rem;border-radius:999px;margin-left:.35rem}
+.job .d{font-family:var(--mono);font-size:.8rem;color:var(--cocoa-2)}
+.pill{font-size:.74rem;padding:.08rem .5rem;border-radius:999px;margin-left:.4rem}
 .pill.late{color:var(--raspberry);background:rgba(217,92,116,.15)}
 .pill.occasion{color:var(--caramel);background:rgba(216,154,78,.2)}
 
@@ -166,11 +172,12 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 .people{display:grid;gap:clamp(.8rem,1.7vw,1.1rem)}
 @media(min-width:760px){.people{grid-template-columns:repeat(2,1fr)}}
 @media(min-width:1050px){.people{grid-template-columns:repeat(4,1fr)}}
+.people{gap:clamp(1.4rem,2.6vw,2.2rem)}
+.person{padding:0}
 .person > header{display:flex;flex-direction:column;gap:.1rem;
   border-bottom:1px solid var(--edge);padding-bottom:.5rem;margin-bottom:.6rem}
 .person h3{font-family:var(--display);font-weight:600;font-size:1.02rem;margin:0}
-.person .role{font-family:var(--mono);font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;
-  color:var(--cocoa-3)}
+.person .role{font-size:.82rem;color:var(--cocoa-2)}
 .tick{display:flex;gap:.55rem;align-items:flex-start;font-size:.86rem;padding:.3rem 0;cursor:pointer}
 .tick .box{width:15px;height:15px;border-radius:5px;border:1.5px solid var(--cocoa-3);flex:none;
   margin-top:.15rem;display:grid;place-items:center;font-size:.7rem;color:var(--cream)}
@@ -182,7 +189,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
   flex:none;display:grid;place-items:center;font-size:.62rem;color:var(--cream)}
 .sub-tick.done .box{background:var(--pistachio);border-color:var(--pistachio)}
 .sub-tick.done span{text-decoration:line-through;color:var(--cocoa-3)}
-.sub-tick .at{font-family:var(--mono);font-size:.66rem;color:var(--cocoa-3);margin-left:auto}
+.sub-tick .at{font-size:.79rem;color:var(--cocoa-2);margin-left:auto}
 .tick.done .box{background:var(--pistachio);border-color:var(--pistachio)}
 .tick.done span{text-decoration:line-through;color:var(--cocoa-3)}
 
@@ -190,7 +197,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
   border:1px solid var(--edge)}
 .msg.decision{border-color:rgba(216,154,78,.45);background:rgba(216,154,78,.14)}
 .msg h4{font-family:var(--display);font-weight:600;font-size:.95rem;margin:0}
-.msg .meta{font-family:var(--mono);font-size:.63rem;color:var(--cocoa-3)}
+.msg .meta{font-size:.79rem;color:var(--cocoa-2)}
 .msg p{margin:.35rem 0 0;font-size:.86rem;white-space:pre-wrap;color:var(--cocoa-2)}
 
 /* ── setup ─────────────────────────────────────────────────── */
@@ -198,7 +205,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 .node{background:var(--glass-2);border:1px solid var(--edge);border-radius:12px;padding:.55rem .85rem;
   font-size:.85rem;text-align:center;min-width:110px}
 .node b{display:block;font-family:var(--display);font-weight:600;font-size:.9rem}
-.node i{font-style:normal;font-family:var(--mono);font-size:.58rem;color:var(--cocoa-3)}
+.node i{font-style:normal;font-size:.79rem;color:var(--cocoa-2)}
 .node.live{border-color:var(--pistachio);background:rgba(132,169,106,.14)}
 .arrow{color:var(--cocoa-3);font-size:1rem}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--pistachio);display:inline-block;
@@ -208,8 +215,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
   @keyframes beat{0%,100%{opacity:1}50%{opacity:.35}}
 }
 .kv{display:grid;grid-template-columns:auto 1fr;gap:.35rem 1.1rem;font-size:.85rem}
-.kv dt{font-family:var(--mono);font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--cocoa-3);white-space:nowrap}
+.kv dt{font-size:.83rem;color:var(--cocoa-2);white-space:nowrap}
 .kv dd{margin:0;font-family:var(--mono);font-size:.8rem;word-break:break-all}
 
 /* ── floating ask ──────────────────────────────────────────── */
@@ -272,8 +278,8 @@ svg{display:block;width:100%;height:auto;overflow:visible}
       <button class="hint" data-p="What did running out cost me last month, and which product is worst?">What running out cost</button>
     </div>
 
-    <section class="card">
-      <header><h2>The day so far</h2><span class="note" id="dayNote"></span></header>
+    <section class="card raised">
+      <header style="border:0;padding:0;margin-bottom:.9rem"><h2>The day so far</h2><span class="note" id="dayNote"></span></header>
       <div class="figs" id="figs"></div>
       <div class="bars" id="bars"></div>
     </section>
@@ -282,7 +288,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
       <section class="card">
         <header><h2>Tomorrow's bake</h2><span class="note" id="planday"></span></header>
         <div id="plan"></div>
-        <div class="total"><span>Total units</span><span id="planTotal">—</span></div>
+        <div class="total"><span>Total units</span><span id="planTotal"></span></div>
         <div id="askBox"></div>
       </section>
       <section class="card">
@@ -292,9 +298,9 @@ svg{display:block;width:100%;height:auto;overflow:visible}
         <div class="chartwrap">
           <div id="chart"></div>
           <div class="key">
-            <div><span class="sw a"></span><span>What sold<em id="kSold">—</em></span></div>
-            <div><span class="sw b"></span><span>What a normal day would have done<em id="kWould">—</em></span></div>
-            <div><span class="sw c"></span><span>The people who left<em id="kGap">—</em></span></div>
+            <div><span class="sw a"></span><span>What sold<em id="kSold"></em></span></div>
+            <div><span class="sw b"></span><span>What a normal day would have done<em id="kWould"></em></span></div>
+            <div><span class="sw c"></span><span>The people who left<em id="kGap"></em></span></div>
           </div>
         </div>
       </section>
@@ -313,11 +319,11 @@ svg{display:block;width:100%;height:auto;overflow:visible}
   <div class="view" id="v-diary">
     <div class="grid g-2">
       <section class="card">
-        <header><h2>Coming up</h2><span class="note">lead time, not dates</span></header>
+        <header><h2>Coming up</h2></header>
         <div id="diary"></div>
       </section>
       <section class="card">
-        <header><h2>Local events</h2><span class="note">markets and fairs worth a stall</span></header>
+        <header><h2>Local events</h2></header>
         <p class="idle" id="events">Web search is not configured yet. Set TAVILY_API_KEY and it will look for markets, note the application deadlines and stall fees, and tell you what last year's attendance actually was.</p>
       </section>
     </div>
@@ -332,11 +338,11 @@ svg{display:block;width:100%;height:auto;overflow:visible}
     </section>
     <div class="grid g-2">
       <section class="card">
-        <header><h2>What is moving</h2><span class="note">on demand, not on sales</span></header>
+        <header><h2>What is moving</h2></header>
         <div id="moves"></div>
       </section>
       <section class="card">
-        <header><h2>Best sellers</h2><span class="note">three ways</span></header>
+        <header><h2>Best sellers</h2></header>
         <div id="sellers"></div>
       </section>
     </div>
@@ -358,7 +364,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
       <dl class="kv" id="source"></dl>
     </section>
     <section class="card">
-      <header><h2>When it wakes</h2><span class="note">nobody opens this app</span></header>
+      <header><h2>When it wakes</h2></header>
       <div id="schedule"></div>
     </section>
     <section class="card">
