@@ -1,6 +1,21 @@
 # Sonnabon
 
-**The operations and planning manager a small bakery cannot afford to hire.**
+**Operations and planning, for small bakeries.**
+
+Sonnabon takes three things off a bakery owner.
+
+**The time.** Deciding tomorrow's production and placing the ingredient orders
+is roughly an hour a day, at the end of a seventeen hour one. It happens after
+close, tired, from memory.
+
+**The maths that never gets done.** How much of each thing to make is a real
+calculation, and no small shop does it. There is no hour to sit down with the
+numbers, and nobody was ever taught which numbers to look at.
+
+**The planning that gets left too late.** Christmas needs flour ordered three
+weeks out and a trial batch two weeks before that. A shop deciding tonight's
+bake at twenty to nine is not also thinking about October, so occasions arrive
+three days early with an apology.
 
 One [Strands](https://strandsagents.com) agent. Point it at the till once. From
 then on it decides tomorrow's production, orders the ingredients, holds the
@@ -12,27 +27,20 @@ Ask it anything from any page. It answers in place and shows its working.
 
 ---
 
-## The problem
+## Why the maths is harder than it looks
 
-Thirty products. Every night. From memory, at the end of a seventeen hour day.
-Then four suppliers who each want their order by a different hour.
+A till records what left the shelf. It cannot record what somebody wanted and
+did not find.
 
-Nobody gets good at it, because there is never an hour to sit down with the
-numbers. A small bakery keeps **4 to 9%** of what it earns and throws away
-**10 to 15%** of what it makes. The planning never happens at all, because a
-shop deciding tonight's bake at 20:40 is not also thinking about Halloween.
+So a day where the cheesecake sold out at 13:46 looks, in the data, like a good
+day: sixty sold, nothing left over. About a hundred and two people wanted one.
+The other forty-two are not in the file anywhere.
 
-## The thing a till cannot tell you
+That matters because every forecast is built on that file. Trained on sales, a
+forecast learns to under-bake, and it gets worse every year: less made, sells
+out sooner, records an even lower number.
 
-> **Your best days are your worst days.**
-
-Sell 60 cheesecakes by 13:46 and the till records a triumph. Nobody counts the
-people who found an empty tray and left.
-
-Every sell-out undercounts demand. Anything trained on that data learns to
-under-bake for ever, settling on the shop's worst day.
-
-**The timestamps give it away.** A product that stops selling dead while
+**The timestamps are the way out.** A product that stops selling dead while
 everything else keeps going has run out, and that is provable from data the shop
 already has. Sonnabon learns each product's normal shape through the day from
 days it did not run out, then on a day it did, works out how far through that
@@ -78,7 +86,7 @@ served out of a limited tray.
 
 ```bash
 python -m src.bakery.backtest    # replays the year and prices both plans
-pytest                           # 41 tests, 19 seconds
+pytest                           # 41 tests: the maths, and the site
 ```
 
 The counterfactual is worth reading in full. Sonnabon's waste goes **up** and its
@@ -123,10 +131,11 @@ src/bakery/
   analytics.py   sell-out detection, demand estimation, trends, rankings
   plan.py        corrected history, forecast, production quantities
   calendar.py    occasions, and how far ahead each has to be started
-  team.py        whose job is what, and who confirms what ran out
-  tickets.py     which jobs are done
+  team.py        whose job is what, whether it is done, who confirms sell-outs
+  feed.py        a trading day arriving live, one bill at a time
+  state.py       loaded once, cached on the data file's timestamp
   backtest.py    would it actually have done better
-  tools.py       the twelve things the agent can do
+  tools.py       the thirteen things the agent can do
   agent.py       the agent, and the limits it cannot argue with
   runs.py        what happens when the clock goes off
 ui/
