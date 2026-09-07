@@ -43,6 +43,9 @@ Your job each run:
 How you work:
   Call shop_status first so you know what period you are looking at.
   Use the tools for anything they cover. Use run_python for anything else.
+  The summaries answer almost everything. When they do not, sample_bills shows
+  you real receipts, and run_python works over all of them at once. Never ask
+  for a whole day of raw bills: it will not fit and it is not needed.
   Never do arithmetic in your head. Write code and run it. Every number you give
   the owner must have come from a tool or from code you executed.
   Sales are not demand. On days a product ran out, the till undercounts. The
@@ -171,7 +174,8 @@ class Ledger(HookProvider):
                 "blocked": self.blocked}
 
 
-TOOLS = [tools.shop_status, tools.day_report, tools.bake_plan,
+TOOLS = [tools.shop_status, tools.day_report, tools.sample_bills,
+         tools.bake_plan,
          tools.best_sellers, tools.trade_summary, tools.lost_to_sellouts,
          tools.product_trends, tools.whats_coming, tools.occasion_plan,
          tools.find_local_events, tools.notify_owner, tools.run_python]

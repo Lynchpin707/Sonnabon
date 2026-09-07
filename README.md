@@ -139,10 +139,23 @@ prompt is a request a model can talk itself out of. A hook that sets
 `event.cancel` inside the agent loop is a control. Spend, looping and
 irreversible actions are all gated that way.
 
-**The agent never sees a bill.** There are 197,000 of them. Reading them once
-would cost more than the waste it is preventing, and would not fit in context.
-Tools return tens of numbers, not thousands of rows, and `run_python` handles
-anything the tools do not cover.
+**It reads summaries, samples, or code. Never the pile.** There are 197,000
+bills. The arithmetic decides the architecture:
+
+| Reading | Tokens | Cost per read |
+|---|---|---|
+| One day, raw | 31,000 | $0.09 |
+| One week, raw | 196,000 | $0.59, and past the context window |
+| One week, summarised | 4,000 | $0.01 |
+
+So tools return tens of numbers rather than thousands of rows. When a summary is
+not enough, `sample_bills` returns fifteen real receipts, spread across the day
+or clustered around an hour, for about 200 tokens. When the question needs every
+bill, `run_python` runs over all of them and returns the answer instead of the
+data.
+
+That is why a month of running Sonnabon costs a few dollars, and why the cost
+per shop stays flat however long the shop has been trading.
 
 ## Pointing it at a real shop
 

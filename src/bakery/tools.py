@@ -149,6 +149,56 @@ def todays_sales(on: str = None) -> dict:
 
 
 @tool
+def sample_bills(on: str = None, limit: int = 15, around: str = None) -> dict:
+    """A handful of actual receipts, for when a summary is not enough.
+
+    The summaries answer almost everything and cost almost nothing. Occasionally
+    they do not: what people buy together, whether a run of sales was one party
+    or twenty customers, what an odd hour actually looked like. For that you
+    have to see the real thing.
+
+    So this returns a sample, never the day. One day of this shop is about
+    31,000 tokens and a week is 196,000, which is more than the context holds
+    and more than a month of running the agent costs. Fifteen bills is about
+    500 tokens and answers the question.
+
+    ``around`` narrows to a time, as "14:00", which is usually what you want:
+    look at the hour that was strange rather than at the day.
+    """
+    day = _day(on)
+    shop = state.get()
+    rows = [bill for bill in shop.bills if bill.day == day]
+    if not rows:
+        return {"day": day.isoformat(), "trading": False, "bills": []}
+
+    if around:
+        target = datetime.strptime(around[:5], "%H:%M").time()
+        rows.sort(key=lambda bill: abs(
+            (bill.at.hour * 60 + bill.at.minute)
+            - (target.hour * 60 + target.minute)))
+    else:
+        # Spread across the day rather than the first fifteen at opening, or
+        # every sample looks like the morning rush.
+        step = max(1, len(rows) // max(limit, 1))
+        rows = rows[::step]
+
+    limit = max(1, min(limit, 40))
+    return {
+        "day": day.isoformat(),
+        "trading": True,
+        "showing": min(limit, len(rows)),
+        "of_total": len([b for b in shop.bills if b.day == day]),
+        "note": ("A sample, not the day. Ask for a different time with "
+                 "'around', or use run_python to work over all of them."),
+        "bills": [{"at": bill.at.strftime("%H:%M"),
+                   "total": bill.total,
+                   "payment": bill.payment,
+                   "items": {line.item: line.qty for line in bill.lines}}
+                  for bill in sorted(rows[:limit], key=lambda b: b.at)],
+    }
+
+
+@tool
 def bake_plan(for_day: str = None, oven_minutes: float = None) -> dict:
     """How much of each thing to make, and why that number.
 
