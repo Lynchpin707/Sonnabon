@@ -20,7 +20,7 @@ from urllib.parse import urlparse, parse_qs
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.bakery import analytics, catalogue, runs, state, team, tickets, tools  # noqa: E402
+from src.bakery import (analytics, catalogue, feed, runs, state, team, tools)  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PORT = int(os.getenv("PORT", "8000"))
@@ -235,6 +235,10 @@ class Handler(BaseHTTPRequestHandler):
                 day = date.fromisoformat(one("on")) if one("on") else state.today()
                 return self._api(analytics.sellout_shape(
                     shop.bills, day, one("item"), index=shop.index))
+            if url.path == "/api/live":
+                stream = feed.get(state.BILLS)
+                return self._api({**feed.live(stream.path, stream.offset),
+                                  "feed": stream.state()})
             if url.path == "/api/today":
                 return self._api(tools.todays_sales(one("on")))
             if url.path == "/api/source":
@@ -270,6 +274,19 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", 0))
         payload = json.loads(self.rfile.read(length) or b"{}")
 
+        if url.path == "/api/feed":
+            stream = feed.get(state.BILLS)
+            action = payload.get("action", "start")
+            if action == "start":
+                stream.speed = float(payload.get("speed", feed.DEFAULT_SPEED))
+                stream.start()
+            elif action == "stop":
+                stream.stop()
+            else:
+                return self._send(400, json.dumps(
+                    {"error": "action is start or stop"}))
+            return self._api(stream.state())
+
         if url.path == "/api/tickets":
             missing = [key for key in ("id", "done") if key not in payload]
             if missing:
@@ -278,7 +295,7 @@ class Handler(BaseHTTPRequestHandler):
                      "example": {"id": "2026-09-06|Sam|Confirm what ran out",
                                  "done": True, "by": "Sam"}}))
             try:
-                row = tickets.set_done(state.today(), payload["id"],
+                row = team.set_done(state.today(), payload["id"],
                                        bool(payload["done"]), payload.get("by"))
             except ValueError as error:
                 return self._send(400, json.dumps({"error": str(error)}))

@@ -26,7 +26,7 @@ def site(tmp_path_factory):
     """The real server, on a free port, with its own ticket store."""
     os.environ["TICKETS_FILE"] = str(tmp_path_factory.mktemp("t") / "tickets.json")
     import importlib
-    from src.bakery import tickets
+    from src.bakery import team as tickets
     importlib.reload(tickets)
 
     from ui import app

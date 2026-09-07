@@ -85,10 +85,6 @@ class Product:
         return under / (under + over)
 
     @property
-    def perishable(self):
-        return self.shelf_life_days <= 1 and self.bake_minutes > 0
-
-    @property
     def margin_per_oven_minute(self):
         """Contribution per unit of the constrained resource.
 
@@ -138,62 +134,9 @@ PRODUCTS = [
 
 BY_NAME = {product.name: product for product in PRODUCTS}
 
-# Where the shop the agent is actually working for lives. The list above is a
-# demo board, not the truth: the truth is whatever the onboarding interview
-# established and wrote here. Everything downstream reads through BY_NAME, so
-# loading a real shop swaps the whole menu without touching another module.
-SHOP_FILE = "shop.json"
-
-
-def load_shop(path=SHOP_FILE):
-    """Replace the board with a real one.
-
-    Called after onboarding. Returns what was loaded so the caller can say so:
-    quietly swapping a shop's entire cost base and not mentioning it is how a
-    demo ends up reporting somebody else's margins.
-    """
-    global PRODUCTS, BY_NAME
-    with open(path, encoding="utf-8") as handle:
-        records = json.load(handle)
-
-    products = [Product(**record) for record in records]
-    missing = [p.name for p in products if p.cost <= 0]
-    if missing:
-        # A zero cost makes an item look infinitely profitable and puts it top
-        # of every ranking. Refuse rather than flatter.
-        raise ValueError(
-            "These products have no cost, so their margins would be fiction: "
-            + ", ".join(missing)
-        )
-
-    PRODUCTS = products
-    BY_NAME = {product.name: product for product in PRODUCTS}
-    return [product.name for product in PRODUCTS]
-
-
-def save_shop(products, path=SHOP_FILE):
-    """Persist what the interview learned, so it is asked once and not again."""
-    with open(path, "w", encoding="utf-8") as handle:
-        json.dump([asdict(product) for product in products], handle,
-                  ensure_ascii=False, indent=2)
-    return path
-
-
-def guessed_costs():
-    """Products whose cost was derived from a blanket percentage.
-
-    This is what the agent should ask about, and only this. Applying one food
-    cost to the whole board gives every product the same service level, which
-    is almost certainly wrong: a cookie worth pennies in the bin and a
-    cheesecake worth nothing the next morning should not be made to the same
-    confidence. The question is worth a minute of the owner's time; asking about
-    anything the receipts already answer is not.
-    """
-    return [{"item": product.name, "price": product.price,
-             "assumed_cost": product.cost,
-             "assumed_ratio": round(product.cost / product.price, 2)}
-            for product in PRODUCTS
-            if not product.cost_given and product.bake_minutes > 0]
+# The list above is a demo board, not the truth. A real shop's menu comes from
+# learn() below, derived from its own receipts, and adopt() makes it the one
+# everything reads.
 
 
 def unpriced():

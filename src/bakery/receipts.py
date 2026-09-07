@@ -116,26 +116,3 @@ def units_by_day(bills):
         for line in bill.lines:
             row[line.item] = row.get(line.item, 0) + line.qty
     return table
-
-
-def sale_times(bills, item, on=None):
-    """Every moment ``item`` was sold, in order.
-
-    This is the raw material for sell-out detection. Restrict to one day with
-    ``on``; leave it off to get the item's whole history.
-    """
-    times = [bill.at for bill in bills
-             if (on is None or bill.day == on) and bill.qty_of(item)]
-    return sorted(times)
-
-
-def revenue_by_day(bills):
-    table = {}
-    for bill in bills:
-        table[bill.day] = round(table.get(bill.day, 0.0) + bill.total, 2)
-    return table
-
-
-def parse_day(text):
-    """Accept a date the way a person would type it."""
-    return date.fromisoformat(text)

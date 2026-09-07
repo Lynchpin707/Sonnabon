@@ -124,14 +124,6 @@ def weekly():
     }
 
 
-def brief(run):
-    """The run as the owner would read it."""
-    body = "\n".join(run["lines"])
-    if run["asks"]:
-        body += "\n\n" + "\n".join(run["asks"])
-    return body
-
-
 def with_agent(run_kind, model=None, watch=None, prompt=None):
     """Hand the run to the agent and let it decide and write.
 

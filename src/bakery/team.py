@@ -1,4 +1,4 @@
-"""Who does what, and by when.
+"""The board: who does what, whether they have done it, and by when.
 
 A bake list is not a plan until it has names on it. This turns the night's
 quantities and the calendar's lead times into each person's own list, which is
@@ -13,10 +13,12 @@ making on somebody's behalf.
 
 import json
 import os
+import tempfile
 from dataclasses import dataclass, asdict
+from datetime import datetime
 from datetime import timedelta
 
-from . import calendar as occasions, catalogue, state, tickets
+from . import calendar as occasions, catalogue, state
 
 TEAM_FILE = os.getenv("TEAM_FILE", "team.json")
 
@@ -122,7 +124,7 @@ def today(plan=None):
     # A stable id per job, so a tick survives a refresh and means the same
     # thing to whoever opens the board next. Built from the day, the person and
     # the job itself rather than a position, because the list reorders.
-    ticked = tickets.all_for(day)
+    ticked = all_for(day)
     total = 0
     for person in board:
         for job in person["jobs"]:
@@ -136,4 +138,66 @@ def today(plan=None):
 
     return {"day": day.isoformat(), "plan_day": plan["day"], "board": board,
             "units": plan["units"],
-            "progress": tickets.progress(day, total)}
+            "progress": progress(day, total)}
+
+
+# ── which jobs are done ─────────────────────────────────────────────────
+#
+# Server side, not the browser. Two people share a kitchen and they are not
+# on the same phone, so a checkbox that lives in one browser is decoration.
+
+STORE = os.getenv("TICKETS_FILE", "data/tickets.json")
+
+
+def _read():
+    if not os.path.exists(STORE):
+        return {}
+    try:
+        with open(STORE, encoding="utf-8") as handle:
+            return json.load(handle)
+    except (json.JSONDecodeError, OSError):
+        # A half-written file must cost the ticks, never the shift.
+        return {}
+
+
+def _write(state):
+    os.makedirs(os.path.dirname(STORE) or ".", exist_ok=True)
+    # Write beside the target and move it into place, so a crash mid-write
+    # leaves the old file rather than an empty one.
+    handle = tempfile.NamedTemporaryFile(
+        "w", encoding="utf-8", delete=False,
+        dir=os.path.dirname(STORE) or ".", suffix=".tmp")
+    with handle:
+        json.dump(state, handle, ensure_ascii=False, indent=1)
+    os.replace(handle.name, STORE)
+
+
+def all_for(day):
+    """Every tick for one day, as {id: {done, at, by}}."""
+    return _read().get(str(day), {})
+
+
+def set_done(day, ticket_id, done, by=None):
+    """Tick or untick one job. Returns the row as it now stands."""
+    if not ticket_id:
+        raise ValueError("a ticket needs an id, or nothing can be ticked twice")
+
+    state = _read()
+    day_state = state.setdefault(str(day), {})
+    if done:
+        day_state[ticket_id] = {
+            "done": True,
+            "at": datetime.now().isoformat(timespec="seconds"),
+            "by": by,
+        }
+    else:
+        day_state.pop(ticket_id, None)
+    _write(state)
+    return day_state.get(ticket_id, {"done": False})
+
+
+def progress(day, total):
+    """How much of the shift is behind them. Zero total is not an error."""
+    done = len(all_for(day))
+    return {"done": done, "total": total,
+            "share": round(done / total, 2) if total else 0.0}
