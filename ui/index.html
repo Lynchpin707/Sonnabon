@@ -594,7 +594,9 @@ function diary(cal){
 function board(t){
   $("#teamDay").textContent="bake for "+t.plan_day+" · "+t.units+" units";
   const box=$("#people");box.textContent="";
-  const done=JSON.parse(localStorage.getItem("done")||"{}");
+  const save=(id,done)=>fetch("/api/tickets",{method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({id,done})}).then(r=>r.ok).catch(()=>false);
   t.board.forEach(p=>{
     const card=el("section","card person"),head=el("header");
     head.appendChild(el("h3",null,p.name));
@@ -602,34 +604,32 @@ function board(t){
     card.appendChild(head);
     if(!p.jobs.length)card.appendChild(el("p","idle","Nothing assigned."));
     p.jobs.forEach((j,i)=>{
-      const id=p.name+"|"+i+"|"+j.what;
-      const t2=el("div","tick "+j.kind+(done[id]?" done":""));
-      const bx=el("span","box",done[id]?"✓":"");
+      const id=j.id;
+      const t2=el("div","tick "+j.kind+(j.done?" done":""));
+      const bx=el("span","box",j.done?"✓":"");
       t2.appendChild(bx);
       const w=el("span",null,j.what);
       if(j.flag)w.appendChild(el("span","pill "+j.flag,j.flag));
       t2.appendChild(w);
-      t2.onclick=()=>{const now=!t2.classList.contains("done");
+      t2.onclick=async()=>{const now=!t2.classList.contains("done");
         t2.classList.toggle("done",now);bx.textContent=now?"✓":"";
-        const store=JSON.parse(localStorage.getItem("done")||"{}");
-        if(now)store[id]=1;else delete store[id];
-        localStorage.setItem("done",JSON.stringify(store));};
+        if(!await save(id,now)){            // put it back if the server refused
+          t2.classList.toggle("done",!now);bx.textContent=now?"":"✓";}};
       card.appendChild(t2);
       if(j.detail&&j.detail.length){
         const subs=el("div","subs");
         j.detail.forEach(d=>{
-          const sid=id+"|"+d.item;
-          const st=el("div","sub-tick"+(done[sid]?" done":""));
-          const sb=el("span","box",done[sid]?"✓":"");
+          const sid=d.id;
+          const st=el("div","sub-tick"+(d.done?" done":""));
+          const sb=el("span","box",d.done?"✓":"");
           st.appendChild(sb);
           st.appendChild(el("span",null,d.item));
           st.appendChild(el("span","at","last sold "+d.at));
-          st.onclick=e=>{e.stopPropagation();
+          st.onclick=async e=>{e.stopPropagation();
             const now=!st.classList.contains("done");
             st.classList.toggle("done",now);sb.textContent=now?"✓":"";
-            const store=JSON.parse(localStorage.getItem("done")||"{}");
-            if(now)store[sid]=1;else delete store[sid];
-            localStorage.setItem("done",JSON.stringify(store));};
+            if(!await save(sid,now)){
+              st.classList.toggle("done",!now);sb.textContent=now?"":"✓";}};
           subs.appendChild(st);});
         card.appendChild(subs);
       }});

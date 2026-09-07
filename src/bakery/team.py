@@ -16,7 +16,7 @@ import os
 from dataclasses import dataclass, asdict
 from datetime import timedelta
 
-from . import calendar as occasions, catalogue, state
+from . import calendar as occasions, catalogue, state, tickets
 
 TEAM_FILE = os.getenv("TEAM_FILE", "team.json")
 
@@ -119,5 +119,21 @@ def today(plan=None):
         board.append({"name": person.name, "role": person.role,
                       "starts": person.starts, "jobs": jobs})
 
+    # A stable id per job, so a tick survives a refresh and means the same
+    # thing to whoever opens the board next. Built from the day, the person and
+    # the job itself rather than a position, because the list reorders.
+    ticked = tickets.all_for(day)
+    total = 0
+    for person in board:
+        for job in person["jobs"]:
+            job["id"] = f"{day}|{person['name']}|{job['what']}"
+            job["done"] = job["id"] in ticked
+            total += 1
+            for row in job.get("detail", ()):
+                row["id"] = f"{job['id']}|{row['item']}"
+                row["done"] = row["id"] in ticked
+                total += 1
+
     return {"day": day.isoformat(), "plan_day": plan["day"], "board": board,
-            "units": plan["units"]}
+            "units": plan["units"],
+            "progress": tickets.progress(day, total)}

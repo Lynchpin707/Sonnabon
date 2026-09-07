@@ -20,7 +20,7 @@ from urllib.parse import urlparse, parse_qs
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.bakery import analytics, catalogue, runs, state, team, tools  # noqa: E402
+from src.bakery import analytics, catalogue, runs, state, team, tickets, tools  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PORT = int(os.getenv("PORT", "8000"))
@@ -254,6 +254,21 @@ class Handler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         length = int(self.headers.get("Content-Length", 0))
         payload = json.loads(self.rfile.read(length) or b"{}")
+
+        if url.path == "/api/tickets":
+            missing = [key for key in ("id", "done") if key not in payload]
+            if missing:
+                return self._send(400, json.dumps(
+                    {"error": "needs " + " and ".join(missing),
+                     "example": {"id": "2026-09-06|Sam|Confirm what ran out",
+                                 "done": True, "by": "Sam"}}))
+            try:
+                row = tickets.set_done(state.today(), payload["id"],
+                                       bool(payload["done"]), payload.get("by"))
+            except ValueError as error:
+                return self._send(400, json.dumps({"error": str(error)}))
+            return self._send(200, json.dumps(
+                {"ok": True, "id": payload["id"], **row}))
 
         if url.path != "/api/agent":
             return self._send(404, json.dumps({"error": "no such endpoint"}))
