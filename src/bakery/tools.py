@@ -48,6 +48,7 @@ def shop_status() -> dict:
     return {**shop.summary(),
             "menu": [product.name for product in catalogue.PRODUCTS],
             "needs_costs": catalogue.unpriced(),
+            "costs_i_guessed": catalogue.guessed_costs(),
             "currency": catalogue.CURRENCY}
 
 

@@ -35,6 +35,7 @@ class Product:
     bake_minutes: float
     shelf_life_days: int
     salvage: float = 0.0
+    cost_given: bool = False
 
     def __post_init__(self):
         if self.salvage > self.cost:
@@ -177,16 +178,81 @@ def save_shop(products, path=SHOP_FILE):
     return path
 
 
-def unpriced():
-    """Products the agent still has to ask about.
+def guessed_costs():
+    """Products whose cost was derived from a blanket percentage.
 
-    The onboarding interview is driven off this: anything whose cost or bake
-    time is unknown is a question worth a human's time, and everything else is
-    not. Asking about what can be inferred is how an assistant becomes a form.
+    This is what the agent should ask about, and only this. Applying one food
+    cost to the whole board gives every product the same service level, which
+    is almost certainly wrong: a cookie worth pennies in the bin and a
+    cheesecake worth nothing the next morning should not be made to the same
+    confidence. The question is worth a minute of the owner's time; asking about
+    anything the receipts already answer is not.
     """
-    return [product.name for product in PRODUCTS
-            if product.cost <= 0 or (product.category != "drink"
-                                     and product.bake_minutes <= 0)]
+    return [{"item": product.name, "price": product.price,
+             "assumed_cost": product.cost,
+             "assumed_ratio": round(product.cost / product.price, 2)}
+            for product in PRODUCTS
+            if not product.cost_given and product.bake_minutes > 0]
+
+
+def unpriced():
+    """Anything with no cost at all, which cannot be planned for."""
+    return [product.name for product in PRODUCTS if product.cost <= 0]
+
+
+# What a discounted or staff-eaten unit recovers, as a share of what it cost to
+# make. A third is deliberately conservative: the sale is real but it takes a
+# customer from tomorrow's full-price one, and somebody still has to handle it.
+SALVAGE_SHARE = 0.35
+
+
+def learn(bills, food_cost=0.30, overrides=None, no_waste=()):
+    """Build the menu from the shop's own receipts.
+
+    Nothing here is typed in by hand. Names and prices come straight from the
+    bills, because a till already knows both and asking for them again is how a
+    tool becomes a form. The one thing a receipt cannot say is what an item cost
+    to make, so that is derived from a single number the owner can give in a
+    sentence: their food cost, usually somewhere near thirty percent.
+
+    ``overrides`` refines individual items once the owner corrects them, and
+    ``no_waste`` names anything that never goes in the bin, like coffee, so it
+    stays out of every production decision.
+    """
+    from statistics import median
+
+    seen = {}
+    for bill in bills:
+        for line in bill.lines:
+            seen.setdefault(line.item, []).append(line.unit_price)
+
+    products = []
+    for name, prices in sorted(seen.items()):
+        price = round(median(prices), 2)
+        given = (overrides or {}).get(name, {})
+        cost = given.get("cost", round(price * food_cost, 2))
+        salvage = given.get("salvage", round(cost * SALVAGE_SHARE, 2))
+        products.append(Product(
+            name=name,
+            category=given.get("category", "learned"),
+            price=given.get("price", price),
+            cost=cost,
+            bake_minutes=given.get("bake_minutes",
+                                   0.0 if name in no_waste else 1.0),
+            shelf_life_days=given.get("shelf_life_days",
+                                      0 if name in no_waste else 1),
+            salvage=0.0 if name in no_waste else salvage,
+            cost_given="cost" in given,
+        ))
+    return products
+
+
+def adopt(products):
+    """Make a learned menu the one everything else reads."""
+    global PRODUCTS, BY_NAME
+    PRODUCTS = list(products)
+    BY_NAME = {product.name: product for product in PRODUCTS}
+    return [product.name for product in PRODUCTS]
 
 
 def get(name):

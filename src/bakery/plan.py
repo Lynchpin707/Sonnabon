@@ -33,7 +33,25 @@ LOOKBACK_WEEKS = 6
 
 # Nothing is baked in ones. Rounding up to a tray is not a detail, it is how the
 # oven actually works, and a plan that says 37 croissants gets ignored.
+#
+# Sized from how much the shop actually shifts rather than from a category name,
+# so a menu learned from a stranger's receipts gets sensible batches without
+# anybody classifying anything.
 TRAY = {"bread": 20, "viennoiserie": 12, "patisserie": 6, "biscuit": 12}
+
+
+def tray_for(product, typical):
+    """Batch size for one product, given what it usually sells in a day."""
+    named = TRAY.get(product.category)
+    if named:
+        return named
+    if typical >= 120:
+        return 20
+    if typical >= 40:
+        return 12
+    if typical >= 15:
+        return 6
+    return 4
 
 
 def corrected_history(bills, index=None):
@@ -108,7 +126,7 @@ def quantity(product, mean, sd):
     if ratio <= 0:
         return 0
     target = mean + NORMAL.inv_cdf(min(max(ratio, 0.001), 0.999)) * sd
-    tray = TRAY.get(product.category, 6)
+    tray = tray_for(product, mean)
     if target <= 0:
         return 0
     return max(tray, math.ceil(target / tray) * tray)
@@ -161,7 +179,7 @@ def bake_plan(bills, target_day, index=None, history=None, oven_minutes=None):
             if over <= 0:
                 break
             product = catalogue.get(row["item"])
-            tray = TRAY.get(product.category, 6)
+            tray = tray_for(product, row["forecast"])
             floor = math.ceil(row["forecast"] / tray) * tray
             while over > 0 and row["make"] - tray >= floor:
                 row["make"] -= tray
