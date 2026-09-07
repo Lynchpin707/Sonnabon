@@ -100,9 +100,9 @@ def bake_plan(for_day: str = None, oven_minutes: float = None) -> dict:
     """How much of each thing to make, and why that number.
 
     Built on demand corrected for days the shop ran out, so it does not inherit
-    last year's shortfall. Each row carries the service level the product's own
-    economics ask for, which is why cheap bread comes out higher than expensive
-    pastry rather than the other way round.
+    last year's shortfall. Each row carries the service level that product's own
+    economics ask for: a cookie worth little when binned is made past the point
+    of certainty, and a cheesecake worth nothing the next day is not.
     """
     shop = state.get()
     day = _day(for_day) if for_day else state.today() + timedelta(days=1)
@@ -116,11 +116,14 @@ def bake_plan(for_day: str = None, oven_minutes: float = None) -> dict:
 
 @tool
 def best_sellers(weeks: int = 4) -> dict:
-    """The four rankings, because the two owners use are both misleading.
+    """Three rankings, because the two an owner uses are both misleading.
 
     Units finds whatever is cheapest and revenue finds whatever is dearest.
-    Contribution finds what pays the rent. Contribution per oven minute finds
-    what deserves the oven, and it is usually a different answer again.
+    Money kept, revenue less what it cost to make, is the one that says which
+    products are actually holding the shop up, and it disagrees with both.
+
+    Drinks are left out. Coffee outsells everything and is not a thing anybody
+    decides how much of to make, so including it buries the answer.
     """
     shop = state.get()
     end = state.today()

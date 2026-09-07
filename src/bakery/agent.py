@@ -28,7 +28,9 @@ MAX_TOOL_CALLS = int(os.getenv("MAX_TOOL_CALLS", "30"))
 MAX_RUN_COST = float(os.getenv("MAX_RUN_COST_USD", "0.15"))
 
 # Tools that change something outside the agent. Everything else is reading.
-ACTIONS = {"send_email", "place_order"}
+# These names have to match the tool names exactly or the gate silently never
+# fires, which is the worst possible failure for a control: it looks present.
+ACTIONS = {"notify_owner"}
 
 SYSTEM = """You are the operations manager for a small bakery. You were hired
 once and you now run the production side without being asked.
