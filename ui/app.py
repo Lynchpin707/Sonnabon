@@ -25,6 +25,11 @@ from src.bakery import analytics, catalogue, runs, state, team, tickets, tools  
 HERE = os.path.dirname(os.path.abspath(__file__))
 PORT = int(os.getenv("PORT", "8000"))
 
+# Loopback while developing, everything when deployed. A container that binds to
+# 127.0.0.1 accepts nothing from outside itself and looks, from the load
+# balancer, exactly like a crashed one.
+HOST = os.getenv("HOST", "127.0.0.1")
+
 
 def _json_safe(value):
     """Dates do not survive json.dumps, and a 500 here reads as a broken demo."""
@@ -73,10 +78,15 @@ def source_status():
     shop = state.get()
     path = shop.source
     stat = os.stat(path)
+    bucket = os.getenv("BILLS_BUCKET")
     return {
         "connected": True,
-        "kind": "Till export (JSON lines)",
-        "path": os.path.abspath(path),
+        "kind": ("Till export in S3 (JSON lines)" if bucket
+                 else "Till export (JSON lines)"),
+        # Never the absolute path. It is somebody's home directory on somebody's
+        # laptop, it means nothing to anyone else, and it goes on a screen.
+        "where": (f"s3://{bucket}/{os.path.basename(path)}" if bucket
+                  else os.path.relpath(path).replace(os.sep, "/")),
         "bytes": stat.st_size,
         "bills": len(shop.bills),
         "trading_days": len(shop.days),
@@ -301,13 +311,15 @@ class Handler(BaseHTTPRequestHandler):
                            "views work and show the same facts.")})
 
 
-def serve(port=PORT):
-    print(f"warming the shop...", flush=True)
+def serve(port=PORT, host=HOST):
+    print("warming the shop", flush=True)
     shop = state.get()
     print(f"  {len(shop.bills):,} bills, {len(shop.days)} trading days, "
           f"{shop.first_day} to {shop.last_day}", flush=True)
-    print(f"open http://localhost:{port}", flush=True)
-    ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+    print(f"  listening on {host}:{port}", flush=True)
+    if host == "127.0.0.1":
+        print(f"  open http://localhost:{port}", flush=True)
+    ThreadingHTTPServer((host, port), Handler).serve_forever()
 
 
 if __name__ == "__main__":

@@ -651,7 +651,7 @@ function setup(s){
   const dl=$("#source");dl.textContent="";
   const add=(k,v)=>{dl.appendChild(el("dt",null,k));dl.appendChild(el("dd",null,v));};
   add("source",s.kind);
-  add("file",s.path);
+  add("reading",s.where);
   add("bills",s.bills.toLocaleString()+" ("+(s.bytes/1048576).toFixed(1)+" MB)");
   add("covering",s.first_day+" to "+s.last_day+", "+s.trading_days+" trading days");
   add("last write",s.updated.replace("T"," "));
