@@ -202,15 +202,7 @@ h2{font-family:var(--display);font-weight:600;font-size:1.06rem;margin:0;letter-
 .say b{color:var(--blush-ink)}
 .sub{color:var(--ink-2);font-size:.91rem;margin:0 0 .85rem;max-width:50ch}
 svg{display:block;width:100%;height:auto;overflow:visible}
-.chartwrap{display:grid;gap:1rem}
-@media(min-width:800px){.chartwrap{grid-template-columns:1fr 185px;align-items:center}}
-.key{display:flex;flex-direction:column;gap:.6rem}
-.key div{display:flex;gap:.5rem;align-items:flex-start;font-size:.82rem;line-height:1.35}
-.key .sw{width:19px;flex:none;margin-top:.5rem}
-.key .sw.a{border-top:3px solid var(--ink)}
-.key .sw.b{border-top:3px dashed var(--blush)}
-.key .sw.c{border-top:11px solid rgba(222,124,149,.22);margin-top:.3rem}
-.key em{font-style:normal;color:var(--ink-2);display:block;font-size:.81rem;margin-top:.1rem}
+
 
 /* ── plan / lists ──────────────────────────────────────────── */
 .line{display:grid;grid-template-columns:1fr auto auto;gap:.45rem .7rem;align-items:baseline;
@@ -246,6 +238,48 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 .occ .emblem{width:38px;height:38px;flex:none;object-fit:contain}
 .occ b{font-family:var(--display);font-weight:600;font-size:.98rem}
 .occ span{font-size:.83rem;color:var(--ink-2);white-space:nowrap}
+/* The first conversation ------------------------------------------------- */
+.firstrun{display:grid;gap:clamp(1.2rem,2.6vw,2.2rem)}
+@media(min-width:900px){.firstrun{grid-template-columns:1fr 1fr}}
+.sub-h{font-family:var(--display);font-weight:600;font-size:1.02rem;margin:0 0 .3rem}
+.lede{margin:0 0 .8rem;color:var(--ink-2);font-size:.86rem;line-height:1.5;max-width:52ch}
+.lede.foot{margin:.9rem 0 0;font-size:.8rem;color:var(--ink-3)}
+.mrow{display:grid;grid-template-columns:1fr auto auto;gap:.7rem;align-items:center;
+  padding:.4rem 0;border-bottom:1px solid var(--edge);font-size:.86rem}
+.mrow:last-child{border-bottom:0}
+.mrow .p{font-family:var(--figures);color:var(--ink-2);font-variant-numeric:tabular-nums}
+.mrow .sv{font-family:var(--figures);font-size:.8rem;color:var(--ink-3);
+  font-variant-numeric:tabular-nums;min-width:3.4rem;text-align:right}
+.askrow{display:grid;grid-template-columns:1fr 5.6rem auto;gap:.55rem;align-items:center;
+  padding:.42rem 0;border-bottom:1px solid var(--edge);font-size:.86rem}
+.askrow:last-child{border-bottom:0}
+.askrow input{font-family:var(--figures);font-size:.86rem;width:100%;
+  padding:.3rem .45rem;border:1px solid var(--edge);border-radius:8px;
+  background:rgba(255,255,255,.7);color:var(--ink);text-align:right}
+.askrow input:focus{outline:2px solid var(--sky);outline-offset:1px}
+.askrow button{font:inherit;font-size:.8rem;padding:.3rem .7rem;border-radius:999px;
+  border:1px solid var(--edge);background:rgba(255,255,255,.8);color:var(--ink);
+  cursor:pointer}
+.askrow button:hover{background:#fff}
+.askrow .was{font-size:.74rem;color:var(--ink-3)}
+.askrow.done{color:var(--mint-ink)}
+.askrow.done .moved{font-size:.78rem;color:var(--mint-ink)}
+
+/* Duties, in the order they happen -------------------------------------- */
+.duties{list-style:none;margin:0;padding:0;display:grid;gap:.1rem;counter-reset:d}
+.duty{display:grid;grid-template-columns:auto 1fr auto;gap:.9rem;align-items:start;
+  padding:.7rem 0;border-bottom:1px solid var(--edge)}
+.duty:last-child{border-bottom:0}
+.duty .when{font-family:var(--mono);font-size:.74rem;color:var(--ink-3);
+  min-width:9.5rem;padding-top:.15rem}
+.duty b{display:block;font-size:.92rem;font-weight:600;color:var(--ink)}
+.duty i{font-style:normal;display:block;font-size:.82rem;color:var(--ink-2);
+  margin-top:.15rem;line-height:1.45}
+.duty .saved{font-family:var(--figures);font-size:.98rem;font-weight:600;
+  color:var(--mint-ink);white-space:nowrap;font-variant-numeric:tabular-nums;
+  text-align:right}
+.duty .saved small{display:block;font-size:.68rem;color:var(--ink-3);
+  font-weight:400}
 .pill.guess{margin-left:.4rem;color:var(--ink-3);background:rgba(90,117,141,.14)}
 #diary .job span:last-child{white-space:normal;overflow-wrap:anywhere;line-height:1.4}
 .job{display:grid;grid-template-columns:5rem 1fr;gap:.55rem;font-size:.84rem;color:var(--ink-2);padding:.22rem 0}
@@ -317,28 +351,36 @@ svg{display:block;width:100%;height:auto;overflow:visible}
    small enough that it never becomes a target that moves out from under a
    cursor. It settles the moment you reach for it. */
 .fab{position:fixed;right:clamp(1rem,3vw,2.2rem);bottom:clamp(1rem,3vw,2.2rem);z-index:20;
-  width:clamp(76px,7vw,96px);height:clamp(76px,7vw,96px);border-radius:50%;
+  width:clamp(96px,9vw,124px);height:clamp(96px,9vw,124px);border-radius:50%;
   border:1px solid var(--edge);cursor:pointer;
   padding:0;overflow:visible;background:rgba(255,255,255,.86);
   backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
   box-shadow:0 16px 34px -12px rgba(34,56,76,.5);display:grid;place-items:center;
-  animation:drift 19s ease-in-out infinite;
+  animation:fly 26s ease-in-out infinite;
   transition:box-shadow .18s ease-out}
 .fab img{width:100%;height:100%;object-fit:cover;display:block;border-radius:50%;
-  animation:bob 4.6s ease-in-out infinite}
+  animation:bob 3.4s ease-in-out infinite}
 
-/* A slow wander, no two legs the same length, so it never reads as a loop. */
-@keyframes drift{
+/* It actually crosses the page now, rather than fidgeting in its corner. The
+   sweep is horizontal and hugs the bottom edge, because that strip is dead
+   space on every one of these pages. An earlier version rose fourteen percent
+   of the viewport and ended up sitting over the Confirm buttons on Setup,
+   which is worse than leaving it in the corner. Horizontal travel is in vw so
+   it scales with the window; vertical travel is in pixels so it cannot climb
+   into the content on a tall screen. */
+@keyframes fly{
    0%  {transform:translate(0,0)}
-  17%  {transform:translate(-22px,-13px)}
-  33%  {transform:translate(-31px,6px)}
-  51%  {transform:translate(-9px,-19px)}
-  68%  {transform:translate(-26px,-4px)}
-  84%  {transform:translate(-7px,9px)}
+  11%  {transform:translate(-15vw,-14px)}
+  24%  {transform:translate(-38vw,4px)}
+  36%  {transform:translate(-59vw,-22px)}
+  48%  {transform:translate(-73vw,-6px)}
+  60%  {transform:translate(-54vw,-26px)}
+  73%  {transform:translate(-31vw,-10px)}
+  86%  {transform:translate(-12vw,-24px)}
  100%  {transform:translate(0,0)}}
 @keyframes bob{
-   0%,100%{transform:translateY(0) rotate(-1.5deg)}
-  50%    {transform:translateY(-5px) rotate(1.5deg)}}
+   0%,100%{transform:translateY(0) rotate(-4deg)}
+  50%    {transform:translateY(-9px) rotate(4deg)}}
 
 /* A ring that breathes out every so often, so it is noticed without nagging. */
 .fab::after{content:"";position:absolute;inset:-6px;border-radius:50%;
@@ -351,6 +393,10 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 
 /* Reaching for it stops it dead, and so does having it open. */
 .fab:hover,.fab:focus-visible,.fab[aria-expanded="true"]{animation-play-state:paused}
+/* Coming to rest, not stopping dead, so the cursor is not chasing it. */
+.fab{transition:box-shadow .18s ease-out}
+.fab[aria-expanded="true"]{animation:none;transform:translate(0,0);
+  transition:transform .5s cubic-bezier(.22,1,.36,1), box-shadow .18s ease-out}
 .fab:hover img,.fab:focus-visible img,.fab[aria-expanded="true"] img{animation-play-state:paused}
 .fab:hover::after,.fab:focus-visible::after,.fab[aria-expanded="true"]::after{animation:none;opacity:0}
 .fab:hover{box-shadow:0 22px 44px -12px rgba(34,56,76,.62)}
@@ -358,7 +404,10 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 
 @media(prefers-reduced-motion:reduce){
   .fab,.fab img,.fab::after{animation:none}}
-.panel{position:fixed;right:clamp(1rem,3vw,2.2rem);bottom:calc(clamp(1rem,3vw,2.2rem) + clamp(76px,7vw,96px) + 14px);
+@media(max-width:700px){
+  .fab{animation:none}
+  .fab img{animation:bob 3.4s ease-in-out infinite}}
+.panel{position:fixed;right:clamp(1rem,3vw,2.2rem);bottom:calc(clamp(1rem,3vw,2.2rem) + clamp(96px,9vw,124px) + 14px);
   z-index:20;width:min(430px,calc(100vw - 2rem));background:var(--glass);border:1px solid var(--edge);
   border-radius:var(--r);box-shadow:0 26px 60px -30px rgba(34,56,76,.72);padding:1rem;
   backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);display:none;flex-direction:column;gap:.7rem}
@@ -434,14 +483,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
         <header><h2>What the till could not tell you</h2><span class="note" id="heroDay"></span></header>
         <p class="say" id="heroSay">Reading the till…</p>
         <p class="sub" id="heroSub"></p>
-        <div class="chartwrap">
-          <div id="chart"></div>
-          <div class="key">
-            <div><span class="sw a"></span><span>What sold<em id="kSold"></em></span></div>
-            <div><span class="sw b"></span><span>What a normal day would have done<em id="kWould"></em></span></div>
-            <div><span class="sw c"></span><span>The people who left<em id="kGap"></em></span></div>
-          </div>
-        </div>
+        <div id="chart"></div>
       </section>
     </div>
   </div>
@@ -524,9 +566,35 @@ svg{display:block;width:100%;height:auto;overflow:visible}
       </div>
       <dl class="kv" id="source"></dl>
     </section>
+
     <section class="card">
-      <header><h2>When it wakes</h2></header>
-      <div id="schedule"></div>
+      <header><h2>The first conversation</h2>
+        <span class="note" id="setupNote"></span></header>
+      <div class="firstrun">
+        <div>
+          <h3 class="sub-h">What it worked out on its own</h3>
+          <p class="lede">Names, prices and how fast each thing sells come
+            straight off the bills. Nothing here was typed in.</p>
+          <div id="found"></div>
+        </div>
+        <div>
+          <h3 class="sub-h">What it has to ask you</h3>
+          <p class="lede">A receipt cannot say what something cost to make, and
+            cost decides how much gets baked. It guessed from one food cost
+            ratio and marked every guess. Correct one and the service level
+            moves while you watch.</p>
+          <div id="needsYou"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <header><h2>What it takes off you</h2>
+        <span class="note" id="dutyNote"></span></header>
+      <ol class="duties" id="schedule"></ol>
+      <p class="lede foot">Those minutes are what the job takes a person doing
+        it by hand, not something measured in this shop. They are the reason it
+        exists, so they are stated rather than implied.</p>
     </section>
     <section class="card">
       <header><h2>What it sent you</h2><span class="note">it writes only when something needs you</span></header>
@@ -669,35 +737,80 @@ function today(t){
 }
 
 function drawCurve(c){
-  const W=560,H=230,L=32,R=12,T=14,B=24,n=c.sold.length;
-  const top=Math.max(...c.would_have,...c.sold)*1.08||1;
+  // Three things made the old version hard to read, and each is fixed here.
+  // The axis had no unit, so the numbers meant nothing. The key sat off to one
+  // side, so you read sideways. And a flat solid line looks like sales slowing
+  // rather than a shelf being empty, which is the opposite of the point.
+  const W=780,H=300,L=46,R=132,T=30,B=52,n=c.sold.length;
+  const raw=Math.max(...c.would_have,...c.sold)||1;
+  const step=Math.max(10,Math.ceil(raw/4/10)*10);        // round ticks, not 143
+  const top=Math.ceil(raw/step)*step;
   const x=i=>L+i*(W-L-R)/(n-1),y=v=>T+(H-T-B)*(1-v/top);
   const path=p=>p.map((v,i)=>(i?"L":"M")+x(i).toFixed(1)+" "+y(v).toFixed(1)).join(" ");
-  const g=svg("svg",{viewBox:`0 0 ${W} ${H}`,role:"img",
-    "aria-label":`${c.item}: sold ${c.total_sold} of an estimated ${c.estimate}`});
-  [0,.5,1].forEach(f=>{const v=top*f;
-    g.appendChild(svg("line",{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:"rgba(34,56,76,.14)","stroke-width":1}));
-    const t=svg("text",{x:L-7,y:y(v)+4,"text-anchor":"end","font-family":"JetBrains Mono, monospace",
-      "font-size":"10",fill:"#93A8BA"});t.textContent=Math.round(v);g.appendChild(t);});
+  const text=(t,a)=>{const e=svg("text",a);e.textContent=t;return e;};
+  const MONO="JetBrains Mono, monospace";
+  const g=svg("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":
+    `${c.item}: ${c.total_sold} sold, about ${c.estimate} wanted, ran out at ${c.sold_out_at}`});
+
+  for(let v=0;v<=top;v+=step){
+    g.appendChild(svg("line",{x1:L,x2:W-R,y1:y(v),y2:y(v),
+      stroke:"rgba(34,56,76,.13)","stroke-width":1}));
+    g.appendChild(text(v,{x:L-8,y:y(v)+4,"text-anchor":"end","font-family":MONO,
+      "font-size":"11",fill:"#5A7186"}));}
+  g.appendChild(text("units sold, running total",{x:L-8,y:T-13,
+    "text-anchor":"start","font-size":"11.5",fill:"#5A7186"}));
+
   const s=c.sold_out_slot;
   if(s!=null&&s<n-1){
     const up=c.would_have.slice(s).map((v,i)=>`L${x(s+i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
     const dn=c.sold.slice(s).map((v,i)=>[x(s+i),y(v)]).reverse()
       .map(([a,b])=>`L${a.toFixed(1)} ${b.toFixed(1)}`).join(" ");
     g.appendChild(svg("path",{d:`M${x(s).toFixed(1)} ${y(c.would_have[s]).toFixed(1)} ${up} ${dn} Z`,
-      fill:"#DE7C95","fill-opacity":".17"}));
-    g.appendChild(svg("line",{x1:x(s),x2:x(s),y1:T,y2:H-B,stroke:"#DE7C95","stroke-width":1,"stroke-dasharray":"3 3"}));
-    const t=svg("text",{x:x(s)+6,y:T+11,"font-family":"JetBrains Mono, monospace","font-size":"10.5",
-      fill:"#DE7C95","font-weight":"500"});t.textContent="ran out "+c.sold_out_at;g.appendChild(t);}
-  g.appendChild(svg("path",{d:path(c.would_have),fill:"none",stroke:"#DE7C95","stroke-width":2,
-    "stroke-dasharray":"5 4","stroke-linecap":"round"}));
-  const solid=svg("path",{d:path(c.sold),fill:"none",stroke:"#22384C","stroke-width":2.6,
-    "stroke-linecap":"round","stroke-linejoin":"round"});
+      fill:"#DE7C95","fill-opacity":".18"}));
+
+    // The gap is the whole argument, so it says what it is, in the gap.
+    const mid=Math.floor((s+n-1)/2);
+    const gy=(y(c.would_have[mid])+y(c.sold[mid]))/2;
+    g.appendChild(text(c.missed+" people found an empty tray",
+      {x:x(mid),y:gy-2,"text-anchor":"middle","font-size":"12.5",
+       fill:"#CD395F","font-weight":"600"}));
+    g.appendChild(text(money(c.lost_margin)+" of margin walked out",
+      {x:x(mid),y:gy+15,"text-anchor":"middle","font-size":"11.5",fill:"#CD395F"}));
+
+    g.appendChild(svg("line",{x1:x(s),x2:x(s),y1:T,y2:H-B,stroke:"#CD395F",
+      "stroke-width":1.4,"stroke-dasharray":"4 3"}));
+    g.appendChild(svg("circle",{cx:x(s),cy:y(c.sold[s]),r:4.5,fill:"#22384C"}));
+    g.appendChild(text("ran out "+c.sold_out_at,{x:x(s)-8,y:T-13,
+      "text-anchor":"end","font-family":MONO,"font-size":"11.5",
+      fill:"#CD395F","font-weight":"500"}));
+
+    // A band along the bottom, because "empty for six hours" is the fact an
+    // owner actually feels, and no curve conveys a duration.
+    const by=H-B+20;
+    g.appendChild(svg("line",{x1:x(s),x2:x(n-1),y1:by,y2:by,stroke:"#CD395F",
+      "stroke-width":3,"stroke-linecap":"round","opacity":".55"}));
+    g.appendChild(text("nothing on the tray for "+c.empty_for,
+      {x:(x(s)+x(n-1))/2,y:by+15,"text-anchor":"middle","font-size":"11.5",
+       fill:"#CD395F"}));}
+
+  g.appendChild(svg("path",{d:path(c.would_have),fill:"none",stroke:"#DE7C95",
+    "stroke-width":2.2,"stroke-dasharray":"6 4","stroke-linecap":"round"}));
+  const solid=svg("path",{d:path(c.sold),fill:"none",stroke:"#22384C",
+    "stroke-width":2.8,"stroke-linecap":"round","stroke-linejoin":"round"});
   solid.setAttribute("class","draw");g.appendChild(solid);
+
+  // Each line says what it is where it ends, so nothing is read sideways.
+  const label=(v,t1,t2,fill,weight)=>{
+    g.appendChild(text(t1,{x:W-R+10,y:y(v)-1,"font-size":"12.5",fill:fill,
+      "font-weight":weight}));
+    g.appendChild(text(t2,{x:W-R+10,y:y(v)+15,"font-size":"11.5",fill:"#5A7186"}));};
+  label(c.would_have[n-1],"What people wanted",c.estimate+" units","#CD395F","600");
+  label(c.sold[n-1],"What you sold",c.total_sold+" units","#22384C","600");
+
   [0,Math.floor(n/2),n-1].forEach(i=>{
-    const t=svg("text",{x:x(i),y:H-7,"text-anchor":i===0?"start":i===n-1?"end":"middle",
-      "font-family":"JetBrains Mono, monospace","font-size":"10",fill:"#93A8BA"});
-    t.textContent=c.labels[i];g.appendChild(t);});
+    g.appendChild(text(c.labels[i],{x:x(i),y:H-B+7,
+      "text-anchor":i===0?"start":i===n-1?"end":"middle",
+      "font-family":MONO,"font-size":"11",fill:"#5A7186"}));});
   $("#chart").textContent="";$("#chart").appendChild(g);
 }
 
@@ -709,9 +822,6 @@ function hero(c){
   say.appendChild(el("b",null,"About "+c.estimate+" people wanted one."));
   $("#heroSub").textContent="The tray emptied at "+c.sold_out_at
     +". The till recorded a good day. "+money(c.lost_margin)+" of margin left with them.";
-  $("#kSold").textContent=c.total_sold+" units";
-  $("#kWould").textContent=c.estimate+" units · "+c.confidence+" confidence";
-  $("#kGap").textContent=c.missed+" people · "+money(c.lost_margin);
   drawCurve(c);
 }
 
@@ -894,8 +1004,73 @@ function setup(s){
   add("products",s.products);
   add("days corrected",s.corrected_days.toLocaleString()+" sell-outs adjusted");
   const sch=$("#schedule");sch.textContent="";
-  s.schedule.forEach(r=>{const j=el("div","job");
-    j.appendChild(el("span","d",r.at));j.appendChild(el("span",null,r.does));sch.appendChild(j);});
+  s.schedule.forEach(r=>{
+    const li=el("li","duty");
+    li.appendChild(el("div","when",r.at));
+    const mid=el("div");
+    mid.appendChild(el("b",null,r.does));
+    mid.appendChild(el("i",null,r.by_hand));
+    li.appendChild(mid);
+    const hrs=r.minutes*r.times_a_week/60;
+    const saved=el("div","saved");
+    saved.append(hrs>=1?hrs.toFixed(1)+" h":Math.round(hrs*60)+" min");
+    saved.appendChild(el("small",null,"a week, by hand"));
+    li.appendChild(saved);
+    sch.appendChild(li);});
+  $("#dutyNote").textContent="about "+s.hours_a_week+" hours a week, off the owner";
+}
+
+function firstRun(d){
+  const cur=d.currency||CUR;
+  $("#setupNote").textContent=d.needs_you.length
+    ? d.answered+" of "+d.total+" costs confirmed"
+    : "all "+d.total+" costs confirmed";
+
+  const found=$("#found");found.textContent="";
+  d.found.forEach(p=>{const r=el("div","mrow");
+    r.appendChild(el("span",null,p.item));
+    r.appendChild(el("span","p",cur+p.price.toFixed(2)));
+    r.appendChild(el("span","sv",p.baked?Math.round(p.service*100)+"%":"no waste"));
+    found.appendChild(r);});
+
+  const box=$("#needsYou");box.textContent="";
+  if(!d.needs_you.length){
+    box.appendChild(el("p","idle","Nothing outstanding. Every cost came from you."));
+    return;}
+  d.needs_you.forEach(g=>{
+    const row=el("div","askrow");
+    const name=el("div");
+    name.append(g.item);
+    name.appendChild(el("div","was","guessed "+cur+g.assumed_cost.toFixed(2)
+      +" · sells for "+cur+g.price.toFixed(2)));
+    row.appendChild(name);
+    const input=el("input");input.type="number";input.step="0.01";input.min="0.01";
+    input.value=g.assumed_cost.toFixed(2);
+    input.setAttribute("aria-label","Cost to make one "+g.item);
+    row.appendChild(input);
+    const go=el("button",null,"Confirm");
+    const send=async()=>{
+      go.disabled=true;
+      try{
+        const res=await fetch("/api/costs",{method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({item:g.item,cost:parseFloat(input.value)})});
+        const out=await res.json();
+        if(!res.ok)throw new Error(out.error||"could not save that");
+        row.className="askrow done";row.textContent="";
+        row.appendChild(el("div",null,g.item));
+        row.appendChild(el("div","moved",cur+out.cost.toFixed(2)));
+        row.appendChild(el("div","moved","bakes to "+Math.round(out.service*100)+"%"));
+        $("#setupNote").textContent=(d.total-out.still_guessed)+" of "+d.total
+          +" costs confirmed";
+      }catch(err){
+        go.disabled=false;
+        const say=row.querySelector(".was");
+        if(say){say.textContent=err.message;say.style.color="var(--blush-ink)";}}};
+    go.onclick=send;
+    input.addEventListener("keydown",e=>{if(e.key==="Enter")send();});
+    row.appendChild(go);
+    box.appendChild(row);});
 }
 
 function stream(body){
@@ -937,6 +1112,7 @@ function stream(body){
     today(await api("/api/today"));
     board(await api("/api/team"));
     setup(await api("/api/source"));
+    firstRun(await api("/api/setup"));
     messages((await api("/api/outbox")).messages);
   }catch(err){
     $("#heroSay").textContent="Cannot reach the shop.";

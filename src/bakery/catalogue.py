@@ -209,6 +209,74 @@ def adopt(products):
     return [product.name for product in PRODUCTS]
 
 
+def confirm_cost(name, cost, path=None):
+    """Replace a guessed cost with one the owner actually told it.
+
+    Cost is the one thing a receipt cannot say, and it decides the service
+    level, so a guess quietly biases every quantity that follows. Confirming it
+    is the whole setup conversation, and it is worth persisting: a shop should
+    not answer the same question every time the server restarts.
+    """
+    import dataclasses
+    import json
+    import os
+
+    product = get(name)
+    cost = round(float(cost), 4)
+    if cost <= 0:
+        raise ValueError(f"{name}: a cost of {cost} is not a cost.")
+    if cost >= product.price:
+        raise ValueError(
+            f"{name}: a cost of {cost} is not below the {product.price} it "
+            f"sells for. Check whether that is the batch price rather than "
+            f"the unit price.")
+
+    updated = dataclasses.replace(
+        product, cost=cost, cost_given=True,
+        # Salvage was derived from the old guess, so it has to move with it or
+        # it can end up above cost and make over-baking look free.
+        salvage=min(product.salvage, round(cost * SALVAGE_SHARE, 4)))
+    adopt([updated if p.name == name else p for p in PRODUCTS])
+
+    target = path or os.getenv("COSTS_FILE", "data/costs.json")
+    try:
+        known = {}
+        if os.path.exists(target):
+            with open(target, encoding="utf-8") as handle:
+                known = json.load(handle)
+        known[name] = cost
+        os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
+        with open(target, "w", encoding="utf-8") as handle:
+            json.dump(known, handle, ensure_ascii=False, indent=2)
+    except OSError:
+        pass                       # answered for this session, not for the next
+    return updated
+
+
+def load_confirmed(path=None):
+    """Apply costs the owner confirmed on an earlier run."""
+    import json
+    import os
+
+    target = path or os.getenv("COSTS_FILE", "data/costs.json")
+    if not os.path.exists(target):
+        return []
+    try:
+        with open(target, encoding="utf-8") as handle:
+            known = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return []
+    applied = []
+    for name, cost in known.items():
+        if name in BY_NAME:
+            try:
+                confirm_cost(name, cost, path=target)
+                applied.append(name)
+            except ValueError:
+                continue           # the menu changed under it; ask again
+    return applied
+
+
 def get(name):
     """Look a product up, loudly.
 

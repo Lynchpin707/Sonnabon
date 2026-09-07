@@ -74,6 +74,9 @@ def overview():
     }
 
 
+catalogue.load_confirmed()          # answers from an earlier run still stand
+
+
 def source_status():
     """What the agent is connected to, and how fresh it is.
 
@@ -101,13 +104,34 @@ def source_status():
         "updated": datetime.fromtimestamp(stat.st_mtime).isoformat(timespec="seconds"),
         "products": len(catalogue.PRODUCTS),
         "corrected_days": sum(len(v) for v in shop.corrected.values()),
-        "schedule": [
-            {"at": "19:00 daily", "does": "read the day's bills, spot what ran out"},
-            {"at": "20:00 daily", "does": "decide tomorrow's production, send the lists"},
-            {"at": "per supplier cutoff", "does": "raise the ingredient orders"},
-            {"at": "Sunday 18:00", "does": "review trends, look four weeks ahead"},
-        ],
+        "schedule": DUTIES,
+        "hours_a_week": round(sum(d["minutes"] * d["times_a_week"]
+                                  for d in DUTIES) / 60, 1),
     }
+
+
+# What Sonnabon takes off the owner, in order, with how long each one costs a
+# person who does it by hand. These are estimates of somebody's evening, not
+# measurements of this shop, and the page says so rather than dressing them up
+# as data. Override any of them in .env if your own shop runs differently.
+DUTIES = [
+    {"at": "19:00, every close",
+     "does": "Read the day's bills and work out what ran out",
+     "by_hand": "Scrolling the till report, guessing what emptied early",
+     "minutes": 20, "times_a_week": 6},
+    {"at": "20:00, every close",
+     "does": "Decide tomorrow's production, product by product",
+     "by_hand": "Thirty numbers from memory at the end of a seventeen hour day",
+     "minutes": 35, "times_a_week": 6},
+    {"at": "Each supplier cutoff",
+     "does": "Work back to ingredients and raise the orders",
+     "by_hand": "Four suppliers, each wanting theirs by a different hour",
+     "minutes": 15, "times_a_week": 4},
+    {"at": "Sunday evening",
+     "does": "Review what is growing and dying, look four weeks ahead",
+     "by_hand": "The job that never happens, because there is no evening left",
+     "minutes": 45, "times_a_week": 1},
+]
 
 
 def weekly_report():
@@ -259,6 +283,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._api(self._outbox())
             if url.path == "/api/journal":
                 return self._api(self._journal())
+            if url.path == "/api/setup":
+                return self._api(self._setup())
 
             return self._send(404, json.dumps({"error": "no such endpoint"}))
         except Exception as error:
@@ -266,6 +292,29 @@ class Handler(BaseHTTPRequestHandler):
             # fails loudly, because nobody can fix it in the room.
             traceback.print_exc()
             return self._send(500, json.dumps({"error": str(error)}))
+
+    @staticmethod
+    def _setup():
+        """The first conversation: what it worked out, and what it still needs.
+
+        Everything on the left it derived from the receipts on its own. The
+        right is the one thing a bill cannot say, so it is the only thing worth
+        asking a person about.
+        """
+        guessed = catalogue.guessed_costs()
+        return {
+            "currency": catalogue.CURRENCY,
+            "found": [{"item": p.name, "price": p.price,
+                       "keeps": round(p.margin, 2),
+                       "baked": p.bake_minutes > 0,
+                       "service": round(p.critical_ratio, 2),
+                       "cost": round(p.cost, 2),
+                       "confirmed": p.cost_given}
+                      for p in catalogue.PRODUCTS],
+            "needs_you": guessed,
+            "answered": len(catalogue.PRODUCTS) - len(guessed),
+            "total": len(catalogue.PRODUCTS),
+        }
 
     @staticmethod
     def _journal():
@@ -336,6 +385,25 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(400, json.dumps({"error": str(error)}))
             return self._send(200, json.dumps(
                 {"ok": True, "id": payload["id"], **row}))
+
+        if url.path == "/api/costs":
+            if "item" not in payload or "cost" not in payload:
+                return self._send(400, json.dumps(
+                    {"error": "needs item and cost",
+                     "example": {"item": "Croissant", "cost": 0.52}}))
+            try:
+                product = catalogue.confirm_cost(payload["item"],
+                                                 payload["cost"])
+            except (KeyError, ValueError, TypeError) as error:
+                return self._send(400, json.dumps({"error": str(error)}))
+            # The service level moves with the cost, so hand it straight back
+            # and let the page show what the answer changed.
+            return self._send(200, json.dumps(
+                {"ok": True, "item": product.name,
+                 "cost": round(product.cost, 2),
+                 "keeps": round(product.margin, 2),
+                 "service": round(product.critical_ratio, 2),
+                 "still_guessed": len(catalogue.guessed_costs())}))
 
         if url.path != "/api/agent":
             return self._send(404, json.dumps({"error": "no such endpoint"}))

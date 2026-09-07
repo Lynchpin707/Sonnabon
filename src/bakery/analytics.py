@@ -509,9 +509,19 @@ def sellout_shape(bills, day, item, index=None):
         minutes = slot * 30
         labels.append(f"{7 + minutes // 60:02d}:{minutes % 60:02d}")
 
+    # How long the shelf stood empty. A curve shows a shortfall but never a
+    # duration, and "nothing on the tray for six hours" is the part an owner
+    # actually recognises.
+    empty_for = None
+    if last:
+        minutes = max(0, int((slots * 30) - _minutes_open(last)))
+        hours, rest = divmod(minutes, 60)
+        empty_for = (f"{hours}h {rest:02d}m" if hours else f"{rest} minutes")
+
     return {
         "item": item, "day": day.isoformat(),
         "labels": labels,
+        "empty_for": empty_for,
         "sold": [round(value, 1) for value in cumulative],
         "would_have": expected,
         "sold_out_at": last.strftime("%H:%M") if last else None,
