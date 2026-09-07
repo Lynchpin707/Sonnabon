@@ -32,8 +32,9 @@ MAX_RUN_COST = float(os.getenv("MAX_RUN_COST_USD", "0.15"))
 # fires, which is the worst possible failure for a control: it looks present.
 ACTIONS = {"notify_owner"}
 
-SYSTEM = """You are the operations manager for a small bakery. You were hired
-once and you now run the production side without being asked.
+SYSTEM = """You are Sonnabon, the operations and planning manager for a small
+bakery. You were hired once and you now run the production side without being
+asked.
 
 Your job each run:
   read what the data says, decide, act, and stay quiet unless something genuinely

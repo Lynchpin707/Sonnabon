@@ -1,4 +1,7 @@
-# The operations manager a small bakery cannot afford to hire
+# Sonnabon
+
+**Operations and planning, for bakeries.** The manager a small shop cannot
+afford to hire.
 
 A bakery owner decides, from memory, at the end of a seventeen hour day, how
 much of thirty things to make tomorrow. Then what to order from four suppliers
