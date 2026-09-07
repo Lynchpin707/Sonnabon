@@ -127,7 +127,7 @@ def best_sellers(weeks: int = 4) -> dict:
     """
     shop = state.get()
     end = state.today()
-    start = end - timedelta(weeks=weeks * 7)
+    start = end - timedelta(weeks=weeks)
     days = [day for day in shop.days if start <= day <= end]
     result = analytics.best_sellers(shop.bills, days=days, top=5)
     result["period"] = {"from": start.isoformat(), "to": end.isoformat(),
@@ -140,7 +140,7 @@ def trade_summary(weeks: int = 4) -> dict:
     """Customers, baskets and the shape of the week."""
     shop = state.get()
     end = state.today()
-    start = end - timedelta(weeks=weeks * 7)
+    start = end - timedelta(weeks=weeks)
     days = [day for day in shop.days if start <= day <= end]
     people = analytics.customers(shop.bills, days=days)
     people["busiest"] = people["busiest"].isoformat() if people.get("busiest") else None
@@ -160,7 +160,7 @@ def lost_to_sellouts(weeks: int = 4) -> dict:
     """
     shop = state.get()
     end = state.today()
-    start = end - timedelta(weeks=weeks * 7)
+    start = end - timedelta(weeks=weeks)
     days = [day for day in shop.days if start <= day <= end]
     result = analytics.lost_to_sellouts(shop.bills, days=days)
     result["rows"] = [{**row, "day": row["day"].isoformat()}
