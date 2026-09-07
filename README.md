@@ -109,17 +109,14 @@ about thirty seconds. Every start after that is instant.
 The background is a fragment shader: vertical stripes with a slow wave through
 them, which is an awning rather than a pattern. Panels are glass over it.
 
-Two assets are deliberately **not** in this repo, and the page is built to work
-without them:
+Headings are set in **Super Bakery**, which is free for personal and commercial
+use. Its licence ships beside it in `ui/assets/` so the repo carries its own
+proof rather than a claim. Every figure on the page is set in the text face
+instead, because a display font is lovely on a name and unreadable on a column
+of numbers.
 
-| | |
-|---|---|
-| `ui/assets/CreamCake.otf`, `BlissBloom.otf` | Display faces. Cream Cake is licensed for personal use only, so redistributing it here would breach that. Without them the headings fall back to a serif |
-| `ui/assets/logo.jpg`, `fab.png` | Placeholder artwork while the real mark is drawn |
-
-Drop your own into `ui/assets/` and the page picks them up. Cream Cake's
-numerals are decorative and unreadable at a glance, which is why every figure on
-the page is set in the text face regardless of what display font is installed.
+The two images in `ui/assets/` are placeholders and are not committed. Drop your
+own `logo.jpg` and `fab.png` in and the page picks them up.
 
 ## How it is built
 
@@ -192,9 +189,8 @@ Currency, data paths and limits are all environment variables. See
 - Web search returns "not configured" without an API key instead of inventing an
   event.
 - Purchase orders and emails go to `data/outbox.jsonl` until SES is set up.
-- The display font and the placeholder logo are not redistributed here, for the
-  licensing reasons above. The interface degrades to a system serif rather than
-  breaking.
+- The artwork is a placeholder and is not committed. The font is, along with its
+  licence.
 
 ## Licence
 

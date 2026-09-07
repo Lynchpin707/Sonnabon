@@ -208,7 +208,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._file("index.html", "text/html; charset=utf-8")
             if url.path.startswith("/assets/"):
                 name = os.path.basename(url.path)
-                kind = {"otf": "font/otf", "jpg": "image/jpeg",
+                kind = {"otf": "font/otf", "ttf": "font/ttf",
+                        "txt": "text/plain; charset=utf-8", "jpg": "image/jpeg",
                         "png": "image/png", "svg": "image/svg+xml"}
                 return self._file(os.path.join("assets", name),
                                   kind.get(name.rsplit(".", 1)[-1].lower(),

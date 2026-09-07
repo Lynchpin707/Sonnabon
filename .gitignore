@@ -23,8 +23,7 @@ server.err
 # Generated trading data and the corrected-history cache.
 data/
 
-# Licensed display faces and the placeholder logo. Cream Cake is personal-use
-# only, so the .otf must not be redistributed here. The page falls back cleanly.
-ui/assets/*.otf
+# Placeholder artwork only. The display font is free for commercial use and
+# ships with its licence, so it stays in.
 ui/assets/logo.*
 ui/assets/fab.*

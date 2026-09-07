@@ -8,15 +8,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* Display faces are served from ui/assets and are not in the repo: Cream Cake
-   is licensed for personal use only, so redistributing it here would breach
-   that. Drop the .otf files in and the headings pick them up; without them the
-   page falls back to a system serif and still reads correctly. */
-@font-face{font-family:"Cream Cake";src:url("assets/CreamCake.otf") format("opentype");
-  font-weight:400;font-display:swap}
-@font-face{font-family:"Cream Cake";src:url("assets/CreamCake-Bold.otf") format("opentype");
-  font-weight:700;font-display:swap}
-@font-face{font-family:"Bliss Bloom";src:url("assets/BlissBloom.otf") format("opentype");
+/* Super Bakery, from allsuperfont.com, released free for personal and
+   commercial use. Its licence ships beside it in ui/assets, so the repo carries
+   its own proof rather than a claim. */
+@font-face{font-family:"Super Bakery";src:url("assets/SuperBakery.ttf") format("truetype");
   font-display:swap}
 </style>
 <style>
@@ -34,9 +29,9 @@
   --edge:rgba(34,56,76,.10);
   --shadow:0 18px 40px -30px rgba(34,56,76,.55);
 
-  /* Cream Cake is decorative and its numerals are unreadable at a glance, so
-     it is scoped to headings and names. Every figure uses --figures. */
-  --display:"Cream Cake","Bliss Bloom",Georgia,"Times New Roman",serif;
+  /* Super Bakery is a display face: lovely on a name, unreadable on a column of
+     figures. Scoped to headings and names; every number uses --figures. */
+  --display:"Super Bakery",Georgia,"Times New Roman",serif;
   --figures:"Outfit",-apple-system,"Segoe UI",Helvetica,sans-serif;
   --sans:"Outfit",-apple-system,"Segoe UI",Helvetica,sans-serif;
   --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
