@@ -5,9 +5,9 @@ lead time is the part nobody keeps in their head. Ordering more butter three
 weeks out is a different task from baking more on the day, and the shop that
 only remembers the second one sells out at eleven and cannot make more.
 
-Dates that move each year (Easter, Ramadan) are listed explicitly rather than
-computed. A wrong Easter is worse than no Easter, and a lunar calendar is not
-something to approximate in a module about pastry.
+Dates that move each year are flagged and set per year rather than computed. A
+wrong Easter is worse than no Easter, and a lunar calendar is not something to
+approximate in a module about pastry.
 """
 
 from dataclasses import dataclass, field
@@ -59,20 +59,25 @@ STANDARD_TASKS = (
 )
 
 OCCASIONS = [
-    Occasion("Halloween", 10, 31, 6, 1.7,
-             ("Cinnamon roll", "Cookie", "Chausson aux pommes"), STANDARD_TASKS),
+    Occasion("Halloween", 10, 31, 6, 1.8,
+             ("Cinnamon roll", "Chocolate chip cookie", "Glazed donut", "Brownie"),
+             STANDARD_TASKS),
     Occasion("Christmas", 12, 25, 14, 3.2,
-             ("Paris-Brest", "Mille-feuille", "Tarte au citron",
-              "Flan pâtissier", "Chou crème brûlée"),
-             STANDARD_TASKS + (Task(35, "Open pre-orders, the peak days cannot absorb walk-ins"),)),
-    Occasion("Galette des Rois", 1, 6, 10, 2.4,
-             ("Paris-Brest", "Mille-feuille"), STANDARD_TASKS),
-    Occasion("Chandeleur", 2, 2, 3, 1.5,
-             ("Chou crème brûlée", "Cookie"), STANDARD_TASKS),
-    Occasion("Valentine", 2, 14, 4, 1.8,
-             ("Éclair chocolat", "Paris-Brest", "Chou crème brûlée"), STANDARD_TASKS),
+             ("Cheesecake slice", "Lemon tart", "Chocolate éclair",
+              "Crème brûlée crêpe", "Carrot cake slice"),
+             STANDARD_TASKS + (Task(35, "Open pre-orders, the peak days cannot "
+                                        "absorb walk-ins"),)),
+    Occasion("Valentine", 2, 14, 4, 1.9,
+             ("Chocolate éclair", "Brownie", "Crème brûlée crêpe"), STANDARD_TASKS),
     Occasion("Easter", 4, 12, 7, 1.9,
-             ("Chou crème brûlée", "Éclair chocolat", "Tarte au citron"),
+             ("Carrot cake slice", "Chocolate éclair", "Lemon tart"),
+             STANDARD_TASKS, moves_yearly=True),
+    Occasion("Mother's Day", 5, 11, 5, 2.1,
+             ("Cheesecake slice", "Lemon tart", "Crème brûlée crêpe"),
+             STANDARD_TASKS, moves_yearly=True),
+    Occasion("Eid", 3, 20, 6, 2.3,
+             ("Cinnamon roll", "Brownie", "Chocolate chip cookie",
+              "Blueberry muffin"),
              STANDARD_TASKS, moves_yearly=True),
 ]
 
@@ -140,8 +145,8 @@ def whats_due(today, within_days=45):
     """Every task from every upcoming occasion, in date order.
 
     This is what the weekly run reads. Occasions are handled as one queue rather
-    than one at a time, because Christmas and Galette overlap and the ingredient
-    orders for both land in the same week.
+    than one at a time, because occasions overlap and the ingredient orders for two
+    of them can land in the same week.
     """
     rows = []
     for row in upcoming(today, within_days + 40):

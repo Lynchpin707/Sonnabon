@@ -42,28 +42,33 @@ SHAPES = {
 
 # Typical units a day at an ordinary midweek rate, before any multiplier.
 BASE_DEMAND = {
-    "Baguette": 210, "Pain de campagne": 34, "Sourdough loaf": 22,
-    "Croissant": 132, "Pain au chocolat": 108, "Chausson aux pommes": 41,
-    "Cinnamon roll": 37, "Escargot pistache": 29,
-    "Éclair chocolat": 26, "Mille-feuille": 19, "Tarte au citron": 17,
-    "Paris-Brest": 14, "Flan pâtissier": 31, "Chou crème brûlée": 21,
-    "Cookie": 44, "Madeleines x4": 26,
-    "Café": 96,
+    "Baguette": 210, "Sourdough loaf": 26,
+    "Croissant": 132, "Chocolate croissant": 108, "Cinnamon roll": 58,
+    "Apple turnover": 41, "Glazed donut": 64,
+    "Crème brûlée crêpe": 24, "Cheesecake slice": 33, "Chocolate éclair": 26,
+    "Lemon tart": 19, "Carrot cake slice": 28,
+    "Brownie": 39, "Chocolate chip cookie": 47, "Blueberry muffin": 44,
+    "Coffee": 96,
 }
 
 # Occasions that move volume, as (month, day, days_before, peak_multiplier) and
 # the products that carry them. The ramp is linear into the date, which is crude
 # but it is the shape an owner would recognise: it builds for a week, not a day.
 OCCASIONS = [
-    ("Halloween", 10, 31, 6, 1.7, ["Cinnamon roll", "Cookie", "Chausson aux pommes"]),
-    ("Christmas", 12, 25, 14, 3.2, ["Paris-Brest", "Mille-feuille", "Tarte au citron",
-                                    "Flan pâtissier", "Chou crème brûlée"]),
-    ("Galette des Rois", 1, 6, 10, 2.4, ["Paris-Brest", "Mille-feuille"]),
-    ("Chandeleur", 2, 2, 3, 1.5, ["Chou crème brûlée", "Cookie"]),
-    ("Valentine", 2, 14, 4, 1.8, ["Éclair chocolat", "Paris-Brest", "Chou crème brûlée"]),
-    ("Easter", 4, 12, 7, 1.9, ["Chou crème brûlée", "Éclair chocolat", "Tarte au citron"]),
+    ("Halloween", 10, 31, 6, 1.8,
+     ["Cinnamon roll", "Chocolate chip cookie", "Glazed donut", "Brownie"]),
+    ("Christmas", 12, 25, 14, 3.2,
+     ["Cheesecake slice", "Lemon tart", "Chocolate éclair",
+      "Crème brûlée crêpe", "Carrot cake slice"]),
+    ("Valentine", 2, 14, 4, 1.9,
+     ["Chocolate éclair", "Brownie", "Crème brûlée crêpe"]),
+    ("Easter", 4, 12, 7, 1.9,
+     ["Carrot cake slice", "Chocolate éclair", "Lemon tart"]),
+    ("Mother's Day", 5, 11, 5, 2.1,
+     ["Cheesecake slice", "Lemon tart", "Crème brûlée crêpe"]),
+    ("Eid", 3, 20, 6, 2.3,
+     ["Cinnamon roll", "Brownie", "Chocolate chip cookie", "Blueberry muffin"]),
 ]
-
 
 def _occasion_multiplier(day, item):
     """How much a date lifts one product. Multiplicative and capped at the peak,

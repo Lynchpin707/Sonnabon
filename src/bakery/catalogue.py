@@ -102,32 +102,31 @@ class Product:
 PRODUCTS = [
     # Bread. Cheap, high volume, and the thing customers walk out over.
     Product("Baguette", "bread", 1.20, 0.30, 2.0, 1, salvage=0.18),
-    Product("Pain de campagne", "bread", 3.40, 0.85, 5.5, 2, salvage=0.50),
     Product("Sourdough loaf", "bread", 4.20, 1.05, 6.0, 2, salvage=0.60),
 
-    # Viennoiserie. The morning trade.
+    # The morning trade.
     Product("Croissant", "viennoiserie", 1.30, 0.45, 2.2, 1, salvage=0.20),
-    Product("Pain au chocolat", "viennoiserie", 1.50, 0.55, 2.2, 1, salvage=0.25),
-    Product("Chausson aux pommes", "viennoiserie", 1.80, 0.62, 2.6, 1, salvage=0.30),
+    Product("Chocolate croissant", "viennoiserie", 1.50, 0.55, 2.2, 1, salvage=0.25),
     Product("Cinnamon roll", "viennoiserie", 2.80, 0.90, 3.4, 1, salvage=0.40),
-    Product("Escargot pistache", "viennoiserie", 2.60, 0.95, 2.8, 1, salvage=0.35),
+    Product("Apple turnover", "viennoiserie", 1.80, 0.62, 2.6, 1, salvage=0.30),
+    Product("Glazed donut", "viennoiserie", 2.00, 0.60, 2.0, 1, salvage=0.25),
 
-    # Pâtisserie. The afternoon, and most of the margin.
-    Product("Éclair chocolat", "patisserie", 4.20, 1.55, 4.0, 1),
-    Product("Mille-feuille", "patisserie", 4.80, 1.80, 4.5, 1),
-    Product("Tarte au citron", "patisserie", 4.50, 1.60, 4.5, 2, salvage=0.80),
-    Product("Paris-Brest", "patisserie", 5.20, 2.00, 4.5, 1),
-    Product("Flan pâtissier", "patisserie", 3.60, 1.10, 6.5, 2, salvage=0.70),
-    Product("Chou crème brûlée", "patisserie", 4.60, 1.70, 4.0, 1),
+    # The afternoon, and most of the margin.
+    Product("Crème brûlée crêpe", "patisserie", 4.60, 1.70, 4.0, 1),
+    Product("Cheesecake slice", "patisserie", 4.20, 1.45, 5.0, 2, salvage=0.60),
+    Product("Chocolate éclair", "patisserie", 4.20, 1.55, 4.0, 1),
+    Product("Lemon tart", "patisserie", 4.50, 1.60, 4.5, 2, salvage=0.80),
+    Product("Carrot cake slice", "patisserie", 3.80, 1.20, 5.0, 2, salvage=0.55),
 
-    # Keeps for days, so the newsvendor barely applies. Useful as a control:
-    # the agent should not be making urgent calls about biscuits.
-    Product("Cookie", "biscuit", 2.20, 0.55, 1.8, 4, salvage=0.30),
-    Product("Madeleines x4", "biscuit", 3.20, 0.85, 1.6, 5, salvage=0.45),
+    # Keeps for days, so running out is barely a loss. A useful control: the
+    # agent should not be making urgent calls about biscuits.
+    Product("Brownie", "biscuit", 2.60, 0.75, 2.0, 3, salvage=0.35),
+    Product("Chocolate chip cookie", "biscuit", 2.20, 0.55, 1.8, 4, salvage=0.30),
+    Product("Blueberry muffin", "biscuit", 2.40, 0.70, 2.2, 2, salvage=0.35),
 
     # Not baked. Rides along with everything else and never goes to waste, which
     # is why it must be excluded from any waste or oven ranking.
-    Product("Café", "drink", 1.80, 0.35, 0.0, 0),
+    Product("Coffee", "drink", 1.80, 0.35, 0.0, 0),
 ]
 
 BY_NAME = {product.name: product for product in PRODUCTS}
