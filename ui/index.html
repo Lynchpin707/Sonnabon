@@ -175,6 +175,14 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 .tick .box{width:15px;height:15px;border-radius:5px;border:1.5px solid var(--cocoa-3);flex:none;
   margin-top:.15rem;display:grid;place-items:center;font-size:.7rem;color:var(--cream)}
 .tick.bake .box{border-color:var(--caramel)} .tick.prep .box{border-color:var(--blueberry)}
+.tick.check .box{border-color:var(--raspberry)}
+.subs{margin:.15rem 0 .4rem 2.1rem;display:flex;flex-direction:column;gap:.1rem}
+.sub-tick{display:flex;gap:.5rem;align-items:center;font-size:.8rem;cursor:pointer;padding:.14rem 0}
+.sub-tick .box{width:13px;height:13px;border-radius:4px;border:1.5px solid var(--raspberry);
+  flex:none;display:grid;place-items:center;font-size:.62rem;color:var(--cream)}
+.sub-tick.done .box{background:var(--pistachio);border-color:var(--pistachio)}
+.sub-tick.done span{text-decoration:line-through;color:var(--cocoa-3)}
+.sub-tick .at{font-family:var(--mono);font-size:.66rem;color:var(--cocoa-3);margin-left:auto}
 .tick.done .box{background:var(--pistachio);border-color:var(--pistachio)}
 .tick.done span{text-decoration:line-through;color:var(--cocoa-3)}
 
@@ -600,7 +608,25 @@ function board(t){
         const store=JSON.parse(localStorage.getItem("done")||"{}");
         if(now)store[id]=1;else delete store[id];
         localStorage.setItem("done",JSON.stringify(store));};
-      card.appendChild(t2);});
+      card.appendChild(t2);
+      if(j.detail&&j.detail.length){
+        const subs=el("div","subs");
+        j.detail.forEach(d=>{
+          const sid=id+"|"+d.item;
+          const st=el("div","sub-tick"+(done[sid]?" done":""));
+          const sb=el("span","box",done[sid]?"✓":"");
+          st.appendChild(sb);
+          st.appendChild(el("span",null,d.item));
+          st.appendChild(el("span","at","last sold "+d.at));
+          st.onclick=e=>{e.stopPropagation();
+            const now=!st.classList.contains("done");
+            st.classList.toggle("done",now);sb.textContent=now?"✓":"";
+            const store=JSON.parse(localStorage.getItem("done")||"{}");
+            if(now)store[sid]=1;else delete store[sid];
+            localStorage.setItem("done",JSON.stringify(store));};
+          subs.appendChild(st);});
+        card.appendChild(subs);
+      }});
     box.appendChild(card);});
 }
 

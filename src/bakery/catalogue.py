@@ -19,11 +19,12 @@ under-bake the one product where running out costs the most.
 """
 
 import json
+import os
 from dataclasses import dataclass, asdict
 
-# The unit every figure in this module is in. Changed in one place so a demo can
-# be re-denominated without hunting through the analytics.
-CURRENCY = "€"
+# The unit every figure in this module is in. Set per shop, because this runs
+# wherever there is a till, and a hard-coded symbol is a hard-coded country.
+CURRENCY = os.getenv("CURRENCY", "€")
 
 
 @dataclass(frozen=True)

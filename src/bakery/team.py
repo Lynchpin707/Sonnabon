@@ -28,13 +28,14 @@ class Person:
     starts: str        # when their shift begins
 
 
-# A small shop: two in the kitchen, one on the counter, and the owner. Replaced
-# wholesale by team.json once a real shop is onboarded.
+# A small shop: two in the kitchen, one on the counter, and the owner. Names are
+# placeholders and deliberately from nowhere in particular, because the shop
+# this runs for could be anywhere. Replaced wholesale by team.json on onboarding.
 DEFAULT = [
-    Person("Nadia", "owner", "06:30"),
-    Person("Karim", "baker", "03:00"),
-    Person("Inès", "baker", "05:00"),
-    Person("Tom", "front", "06:45"),
+    Person("Amara", "owner", "06:30"),
+    Person("Luca", "baker", "03:00"),
+    Person("Mei", "baker", "05:00"),
+    Person("Sam", "front", "06:45"),
 ]
 
 
@@ -82,6 +83,10 @@ def today(plan=None):
     day = state.today()
     due = occasions.whats_due(day, within_days=45)
 
+    shop = state.get()
+    suspected = [row for row in shop.index.sellouts() if row["day"] == day]
+    shop_last = lambda row: shop.index.last[day][row["item"]].strftime("%H:%M")
+
     board = []
     for person in people:
         jobs = []
@@ -90,6 +95,20 @@ def today(plan=None):
                 jobs.append({"what": f"{row['make']} {row['item'].lower()}",
                              "kind": "bake",
                              "flag": "occasion" if row["lifted"] else None})
+        if person.role == "front":
+            # The agent works out what ran out from the timestamps, which is an
+            # inference. Somebody standing at the counter knows. Confirming it
+            # turns a good guess into a fact the next forecast can lean on, and
+            # it costs whoever closes up about a minute.
+            jobs.append({
+                "what": "Confirm what ran out today, and when",
+                "kind": "check",
+                "flag": None,
+                "detail": [{"item": row["item"],
+                            "at": shop_last(row)}
+                           for row in suspected],
+            })
+
         for task in due:
             if task["owner"] == person.role or (task["owner"] == "owner"
                                                 and person.role == "owner"):
