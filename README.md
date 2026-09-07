@@ -6,6 +6,8 @@ One [Strands](https://strandsagents.com) agent. Point it at the till once. From
 then on it decides tomorrow's production, orders the ingredients, holds the
 calendar, and emails the owner only when something genuinely needs a person.
 
+Ask it anything from any page. It answers in place and shows its working.
+
 ![The day so far](docs/today.png)
 
 ---
@@ -47,6 +49,7 @@ Everything downstream reads that corrected history. Never the raw sales.
 | **Every week** | Says what is growing and what is dying, and refuses to call it when the movement is noise |
 | **Weeks ahead** | Holds the occasion calendar, so Christmas arrives with the flour already ordered |
 | **Rarely** | Emails the owner, when something actually needs deciding |
+| **On demand** | Answers whatever you ask it, from the button on any page |
 
 **About twenty runs a week. One or two reach the owner.** That ratio is the
 product.
@@ -92,6 +95,23 @@ python ui/app.py
 
 Open <http://localhost:8000>. The first start generates a year and corrects it,
 about thirty seconds. Every start after that is instant.
+
+### The look
+
+The background is a fragment shader: vertical stripes with a slow wave through
+them, which is an awning rather than a pattern. Panels are glass over it.
+
+Two assets are deliberately **not** in this repo, and the page is built to work
+without them:
+
+| | |
+|---|---|
+| `ui/assets/CreamCake.otf`, `BlissBloom.otf` | Display faces. Cream Cake is licensed for personal use only, so redistributing it here would breach that. Without them the headings fall back to a serif |
+| `ui/assets/logo.jpg`, `fab.png` | Placeholder artwork while the real mark is drawn |
+
+Drop your own into `ui/assets/` and the page picks them up. Cream Cake's
+numerals are decorative and unreadable at a glance, which is why every figure on
+the page is set in the text face regardless of what display font is installed.
 
 ## How it is built
 
@@ -150,6 +170,9 @@ Currency, data paths and limits are all environment variables. See
 - Web search returns "not configured" without an API key instead of inventing an
   event.
 - Purchase orders and emails go to `data/outbox.jsonl` until SES is set up.
+- The display font and the placeholder logo are not redistributed here, for the
+  licensing reasons above. The interface degrades to a system serif rather than
+  breaking.
 
 ## Licence
 

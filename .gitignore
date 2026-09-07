@@ -27,3 +27,4 @@ data/
 # only, so the .otf must not be redistributed here. The page falls back cleanly.
 ui/assets/*.otf
 ui/assets/logo.*
+ui/assets/fab.*
