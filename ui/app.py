@@ -206,8 +206,13 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if url.path in ("/", "/index.html"):
                 return self._file("index.html", "text/html; charset=utf-8")
-            if url.path.endswith(".png"):
-                return self._file(os.path.basename(url.path), "image/png")
+            if url.path.startswith("/assets/"):
+                name = os.path.basename(url.path)
+                kind = {"otf": "font/otf", "jpg": "image/jpeg",
+                        "png": "image/png", "svg": "image/svg+xml"}
+                return self._file(os.path.join("assets", name),
+                                  kind.get(name.rsplit(".", 1)[-1].lower(),
+                                           "application/octet-stream"))
 
             if url.path == "/api/overview":
                 return self._api(overview())
