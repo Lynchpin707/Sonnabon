@@ -65,13 +65,15 @@ Then the receipt photo for four seconds.
 
 ### 0:45 · Hiring it (30s)
 
-Show the app. Type into the brief bar and send:
+Show the app. The bar across the top is where you talk to it. Type and send:
 
 ```
 Read today, plan tomorrow, and email me only if something needs deciding.
 ```
 
-Let the run stream. Point at the tool calls going past.
+Let the run stream. Point at the tool calls going past. The chef in the corner
+opens the same thing from any page, with two buttons on it: **Plan tomorrow's
+bake** and **What stood out today**.
 
 > "You brief it once. After that it wakes on its own: close of trade, before the
 > night shift, at every supplier cutoff."
@@ -113,14 +115,23 @@ Then the board.
 
 Tick one. It saves to the server, not the browser.
 
-### 3:00 · The planning half (40s)
+### 3:00 · The planning half, and the proof it works alone (45s)
 
-The Diary tab.
+The Diary tab. This is the autonomy shot, so let it sit on screen.
 
-> "Halloween is fifty-four days away. The ingredient order is due on the tenth
-> of October, because the supplier needs three weeks for a quantity change.
-> That is the job nobody does, because the shop deciding tonight's bake at
-> twenty to nine is not also thinking about October."
+> "This is its own diary. Every time it wakes it writes a line, including the
+> nights it had nothing to say. Six wakings this week, it reached the owner
+> twice, and the other four say 'nothing needed you'. That ratio is the whole
+> product."
+
+Then the right hand column.
+
+> "Halloween is fifty-five days away, and it worked the lift out from this
+> shop's own tills rather than a number somebody typed: 1.91 times, last year,
+> on those three lines. The ingredient order is due on the tenth of October,
+> because the supplier needs notice for a quantity change. That is the job
+> nobody does, because the shop deciding tonight's bake at twenty to nine is
+> not also thinking about October."
 
 ### 3:40 · It is actually live (35s)
 
@@ -175,7 +186,8 @@ Do not apologise for it. It is the method:
 |---|---|
 | Page says "cannot reach the shop" | The server is not up, or still warming. Wait for "listening on" |
 | Everything reads zero | `data/` was deleted and not regenerated. See step 1 |
-| The agent run fails | No model configured. Run `ollama pull qwen3`, or set AWS_REGION and credentials. The read-only views still show every number |
+| The agent run fails | No model configured. Run `ollama pull qwen3`, or set AWS_REGION and credentials. It says which, in the panel. Every page keeps working without one |
+| The welcome screen appears | It is off by default. Only `?welcome=1` opens it |
 | The feed does nothing | It appends from the day *after* the last one on file. Check `GET /api/live` |
 | Nothing ran out today | Pick another day: `/api/today?on=2026-09-05` |
 | A tab will not open on reload | Each page has its own address now, `#today`, `#diary` and so on |
@@ -188,7 +200,7 @@ Cut these even though they work, because they cost more time than they earn:
 
 - The Reports tab and the printable week
 - Best sellers three ways
-- The cost ledger and the tier split
+- The Setup page, apart from the four seconds of receipt photo at 0:00
 - Trends, unless you have a spare twenty seconds at 3:40
 
 They belong in the README and the repo, where a judge who wants them will look.
