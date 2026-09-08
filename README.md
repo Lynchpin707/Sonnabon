@@ -106,7 +106,7 @@ weeks of history is enough to start.
 
 ```bash
 sonnabon-backtest    # replays the year and prices both plans
-pytest               # 65 tests: the maths, and the site
+pytest               # 69 tests: the maths, and the site
 ```
 
 The backtest is the interesting one. Waste goes **up** and lost sales go **down

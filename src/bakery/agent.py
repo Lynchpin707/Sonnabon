@@ -77,6 +77,7 @@ class Ledger(HookProvider):
     calls: int = 0
     tool_calls: list = field(default_factory=list)
     blocked: list = field(default_factory=list)
+    refused: list = field(default_factory=list)   # actions stopped at the gate
     input_tokens: int = 0
     output_tokens: int = 0
     approvals: dict = field(default_factory=dict)
@@ -111,11 +112,21 @@ class Ledger(HookProvider):
         self.tool_calls.append(name)
         self.say(kind="tool", tool=name, n=self.calls)
 
-        if name in ACTIONS and not self.approvals.get(name):
-            # An action the owner has not authorised for this run. Refusing here
-            # rather than in the prompt is the difference between a control and
-            # a suggestion.
-            self._stop(event, f"{name} needs the owner's approval first")
+        if name in ACTIONS:
+            # An irreversible action runs once. The gate used to require an
+            # entry in ``approvals`` that nothing ever supplied, so the one
+            # thing this agent exists to do was blocked every time, and nothing
+            # noticed because no model had run. Once is the rule the docstring
+            # always described: the second send is the dangerous one, not the
+            # first. Refusing here rather than in the prompt is still the
+            # difference between a control and a suggestion.
+            allowed = int(self.approvals.get(name, 1))
+            if self.tool_calls.count(name) - self.refused.count(name) > allowed:
+                self.refused.append(name)
+                self._stop(event,
+                           f"{name} has already run {allowed} time(s) this "
+                           f"run, and sending the same decision twice is worse "
+                           f"than not sending it")
 
     # -------------------------------------------------------------- helpers
 
@@ -171,11 +182,12 @@ class Ledger(HookProvider):
                 "input_tokens": self.input_tokens,
                 "output_tokens": self.output_tokens,
                 "cost_usd": round(self.cost, 5), "seconds": self.seconds,
-                # Counted from the tools actually run, not from what the closing
-                # paragraph claims. An agent that says it emailed you and did
-                # not is the one failure nobody would catch.
+                # Counted from the tools that actually ran, not from what the
+                # closing paragraph claims and not from attempts the gate
+                # stopped. An agent that says it emailed you and did not is the
+                # one failure nobody would catch.
                 "notified": sum(1 for name in self.tool_calls
-                                if name in ACTIONS),
+                                if name in ACTIONS) - len(self.refused),
                 "blocked": self.blocked}
 
 

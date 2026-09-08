@@ -507,3 +507,72 @@ def test_a_menu_it_already_knows_is_not_relearned(shop):
     changed = state._learn_menu_if_new(shop["bills"])
     assert changed == [], "the demo menu was replaced by a derived one"
     assert {p.name: p for p in catalogue.PRODUCTS} == held
+
+
+# ── the gate on irreversible actions ────────────────────────────────────────
+
+class _Call:
+    """Just enough of a tool call event for the hook to read."""
+
+    def __init__(self, name):
+        self.tool_use = {"name": name}
+        self.cancel = None
+
+
+def test_the_agent_can_actually_send_the_one_thing_it_exists_to_send():
+    """This was broken and nothing could see it.
+
+    The gate required an entry in ``approvals`` that no caller ever supplied,
+    so notify_owner was cancelled every single time. The product's whole claim
+    is that it emails the owner when a decision is needed, and it could not.
+    It stayed invisible because no model had ever run.
+    """
+    from src.bakery import agent
+
+    ledger = agent.Ledger()
+    first = _Call("notify_owner")
+    ledger.before_tool(first)
+    assert first.cancel is None, "it still cannot email anyone"
+    assert ledger.report()["notified"] == 1
+
+
+def test_the_same_decision_is_not_sent_twice():
+    """The second send is the dangerous one. One is the point, not zero."""
+    from src.bakery import agent
+
+    ledger = agent.Ledger()
+    calls = [_Call("notify_owner") for _ in range(3)]
+    for call in calls:
+        ledger.before_tool(call)
+
+    assert calls[0].cancel is None
+    assert calls[1].cancel and "twice" in calls[1].cancel
+    assert calls[2].cancel
+    assert ledger.report()["notified"] == 1, (
+        "a blocked attempt was counted as a message sent, which is the exact "
+        "lie the counter exists to prevent")
+
+
+def test_a_run_that_needs_two_messages_can_be_allowed_two():
+    from src.bakery import agent
+
+    ledger = agent.Ledger(approvals={"notify_owner": 2})
+    calls = [_Call("notify_owner") for _ in range(3)]
+    for call in calls:
+        ledger.before_tool(call)
+    assert calls[0].cancel is None and calls[1].cancel is None
+    assert calls[2].cancel
+    assert ledger.report()["notified"] == 2
+
+
+def test_reading_tools_are_never_gated():
+    """Only irreversible things are gated. Reading the shop twenty times is
+    wasteful, which the call ceiling handles, not dangerous."""
+    from src.bakery import agent
+
+    ledger = agent.Ledger()
+    for _ in range(5):
+        call = _Call("day_report")
+        ledger.before_tool(call)
+        assert call.cancel is None
+    assert ledger.report()["notified"] == 0
