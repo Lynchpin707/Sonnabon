@@ -2,12 +2,18 @@
 
 **Operations and planning, for small bakeries.**
 
-Small bakeries run on admin nobody was trained for, done late and from memory.
-Sonnabon takes some of that off the owner.
+A small bakery cannot afford an operations manager or a planner, so the owner is
+both, late at night, from memory. Sonnabon does that job.
 
-It reads the till, works out tomorrow's production, keeps the calendar so
-occasions are prepared for instead of noticed late, gives each person their
-list, and emails the owner only when there is a decision to make.
+**Operations.** It reads the till and works out what to make tomorrow, product
+by product, from the statistics an owner has no evening to sit down with.
+
+**Planning.** It holds the calendar, works backwards from each occasion to the
+day the ingredients have to be ordered, hands each person their list, and looks
+outward for the markets and fairs worth taking a stall at.
+
+It runs on its own and emails the owner only when there is a decision that needs
+a person.
 
 Point it at the till once. It does not need setting up again.
 
@@ -23,19 +29,22 @@ The bar across the top is where you talk to it. Type what you want it to look
 after and it works from there, or press the chef in the corner to ask it
 something and watch the run.
 
-## What it helps with
+## The two halves of the job
 
 **The maths that does not get done.** How much of each thing to make is a real
-calculation. It happens after close, tired, from memory, and nobody was taught
-which numbers to look at.
+calculation, and a counterintuitive one: cheap things should be made past the
+point of certainty because running out costs more than binning does, and
+expensive things should not. Most owners believe the opposite. It happens after
+close, tired, from memory, and nobody was taught which numbers to look at.
 
 **The planning that gets left too late.** Christmas needs flour ordered weeks
-out. A shop deciding tonight's bake at twenty to nine is not also thinking about
-October, so occasions arrive with no time left to prepare for them.
+out and a trial batch before that. A shop deciding tonight's bake at twenty to
+nine is not also thinking about October, so occasions arrive with no time left
+to prepare for them, and the market whose applications closed in August is
+simply missed.
 
-It does not replace the owner and it does not claim their evening back. It does
-the part that is arithmetic and the part that is a calendar, and it stays quiet
-otherwise.
+It does not replace the owner. It does the part that is arithmetic and the part
+that is a calendar, and it stays quiet otherwise.
 
 ## Setting it up is one kind of question, asked once
 
