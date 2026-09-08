@@ -106,32 +106,26 @@ def source_status():
         "corrected_days": sum(len(v) for v in shop.corrected.values()),
         "model": model.describe(),
         "schedule": DUTIES,
-        "hours_a_week": round(sum(d["minutes"] * d["times_a_week"]
-                                  for d in DUTIES) / 60, 1),
     }
 
 
-# What Sonnabon takes off the owner, in order, with how long each one costs a
-# person who does it by hand. These are estimates of somebody's evening, not
-# measurements of this shop, and the page says so rather than dressing them up
-# as data. Override any of them in .env if your own shop runs differently.
+# What Sonnabon does, and when. An earlier version of this carried a count of
+# minutes per job and a total of hours a week, and both were made up: nobody
+# timed a bakery owner. A number nobody measured does not belong next to ones
+# that were, so it says what it does and leaves the size of it alone.
 DUTIES = [
-    {"at": "19:00, every close",
-     "does": "Read the day's bills and work out what ran out",
-     "by_hand": "Scrolling the till report, guessing what emptied early",
-     "minutes": 20, "times_a_week": 6},
-    {"at": "20:00, every close",
-     "does": "Decide tomorrow's production, product by product",
-     "by_hand": "Thirty numbers from memory at the end of a seventeen hour day",
-     "minutes": 35, "times_a_week": 6},
+    {"at": "Every close of trade",
+     "does": "Reads the day's bills and works out what ran out",
+     "note": "The till records what sold, not what people wanted"},
+    {"at": "Every close of trade",
+     "does": "Decides tomorrow's production, product by product",
+     "note": "Corrected for the days something sold out"},
     {"at": "Each supplier cutoff",
-     "does": "Work back to ingredients and raise the orders",
-     "by_hand": "Four suppliers, each wanting theirs by a different hour",
-     "minutes": 15, "times_a_week": 4},
-    {"at": "Sunday evening",
-     "does": "Review what is growing and dying, look four weeks ahead",
-     "by_hand": "The job that never happens, because there is no evening left",
-     "minutes": 45, "times_a_week": 1},
+     "does": "Works back to ingredients and raises the orders",
+     "note": "Suppliers need notice for a quantity change"},
+    {"at": "Once a week",
+     "does": "Says what is moving, and what is coming on the calendar",
+     "note": "So an occasion is prepared for, not noticed late"},
 ]
 
 
@@ -379,6 +373,18 @@ class Handler(BaseHTTPRequestHandler):
                     {"error": "needs " + " and ".join(missing),
                      "example": {"id": "2026-09-06|Sam|Confirm what ran out",
                                  "done": True, "by": "Sam"}}))
+            board = team.today()
+            known = {job["id"] for person in board["board"]
+                     for job in person["jobs"]}
+            known |= {row["id"] for person in board["board"]
+                      for job in person["jobs"] for row in job.get("detail", ())}
+            if payload["id"] not in known:
+                return self._send(400, json.dumps(
+                    {"error": f"{payload['id']!r} is not a job on today's "
+                              f"board. A tick nothing can show is a tick that "
+                              f"never happened.",
+                     "example": {"id": sorted(known)[0] if known else "",
+                                 "done": True}}))
             try:
                 row = team.set_done(state.today(), payload["id"],
                                        bool(payload["done"]), payload.get("by"))

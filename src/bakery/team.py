@@ -145,9 +145,18 @@ def today(plan=None):
                 row["done"] = row["id"] in ticked
                 total += 1
 
+    # Counted from the jobs actually on the board, not from the size of the
+    # ticket store. Anything in the store that no longer matches a job, from a
+    # bad id or from yesterday's plan, would otherwise show as work done with
+    # nothing ticked to show for it.
+    real = {job["id"] for person in board for job in person["jobs"]}
+    real |= {row["id"] for person in board for job in person["jobs"]
+             for row in job.get("detail", ())}
+    done = len(set(ticked) & real)
     return {"day": day.isoformat(), "plan_day": plan["day"], "board": board,
             "units": plan["units"],
-            "progress": progress(day, total)}
+            "progress": {"done": done, "total": total,
+                         "share": round(done / total, 2) if total else 0.0}}
 
 
 # ── which jobs are done ─────────────────────────────────────────────────
@@ -205,8 +214,13 @@ def set_done(day, ticket_id, done, by=None):
     return day_state.get(ticket_id, {"done": False})
 
 
-def progress(day, total):
-    """How much of the shift is behind them. Zero total is not an error."""
-    done = len(all_for(day))
+def progress(day, total, done=None):
+    """How much of the shift is behind them. Zero total is not an error.
+
+    ``done`` should be the count of ticks that match a job on today's board.
+    Falling back to the size of the store counts ticks for jobs that no longer
+    exist, which reads as work nobody can see.
+    """
+    done = len(all_for(day)) if done is None else done
     return {"done": done, "total": total,
             "share": round(done / total, 2) if total else 0.0}

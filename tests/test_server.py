@@ -365,3 +365,22 @@ def test_the_board_does_not_pile_work_on_the_owner(site):
                 f"{job['what']!r} is on both {seen[job['what']]} and "
                 f"{person['name']}")
             seen[job["what"]] = person["name"]
+
+
+def test_a_tick_for_a_job_that_does_not_exist_is_refused(site):
+    """It was accepted and stored, and the board then reported one job done
+    with nothing ticked anywhere on it. A wrong number with no visible cause is
+    the exact failure this project exists to avoid."""
+    status, result = post(site, "/api/tickets", {"id": "not-a-job", "done": True})
+    assert status == 400
+    assert "not a job" in result["error"]
+
+    _, body, _ = get(site, "/api/team")
+    board = json.loads(body)
+    ticked = sum(1 for person in board["board"] for job in person["jobs"]
+                 if job["done"])
+    ticked += sum(1 for person in board["board"] for job in person["jobs"]
+                  for row in job.get("detail", []) if row["done"])
+    assert board["progress"]["done"] == ticked, (
+        f"progress says {board['progress']['done']} done, the board shows "
+        f"{ticked}")
