@@ -11,6 +11,12 @@ list, and emails the owner only when there is a decision to make.
 
 Point it at the till once. It does not need setting up again.
 
+Built on the [Strands Agents SDK](https://strandsagents.com). One agent, thirteen
+tools, and its limits enforced as SDK hooks rather than as prompt text. Runs on
+Amazon Bedrock, or on a local model, whichever is configured.
+
+*AWS Agents for Humans, Professional Agents track.*
+
 ![The day so far](docs/shots/today.png)
 
 The bar across the top is where you talk to it. Type what you want it to look
@@ -196,10 +202,34 @@ is raised once rather than nightly.
 
 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) has the diagram and the numbers.**
 
+### How Strands is used
+
+One `Agent`, built in `agent.py`, with thirteen `@tool` functions and a single
+`HookProvider` attached. Nothing is orchestrated by hand: the SDK runs the loop
+and the hook decides when it stops.
+
 **The limits are hooks, not prompt text.** A ceiling written into a system
-prompt is a request a model can talk itself out of. A hook that sets
-`event.cancel` inside the agent loop is a control. Spend, looping and
-irreversible actions are all gated that way.
+prompt is a request, and a model can talk itself out of a request. A hook that
+sets `event.cancel` inside the loop is a control the model is never consulted
+about. `Ledger` subscribes to three events and gates three things:
+
+| Event | Gate |
+|---|---|
+| `BeforeModelCallEvent` | Cancels the next inference once the run passes its spend ceiling, or once thirty tool calls have gone by without finishing, which is looping rather than working |
+| `AfterModelCallEvent` | Reads token usage from whichever shape the provider reports, so the cost is counted as the run goes rather than after it |
+| `BeforeToolCallEvent` | Counts every call, and lets an irreversible action run once. The second send is the dangerous one |
+
+The third is the one worth pausing on. Because the count comes from the tool
+about to run, **"did it email the owner?" is answered by the invocation, not by
+the model's closing paragraph.** An agent that says it sent something and did
+not is caught, and the diary reports what actually happened rather than what was
+claimed.
+
+The provider is resolved rather than assumed. `model.py` picks Bedrock when a
+region and credentials are present, a local Ollama model when one is running,
+and otherwise raises with the two commands that would fix it. There is
+deliberately no scripted stand-in for the agent: a templated sentence presented
+as its answer would make the whole thing a lie.
 
 **It reads summaries, samples, or code. Never the pile.** There are 149,384
 bills. The arithmetic decides the architecture:
