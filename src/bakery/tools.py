@@ -488,6 +488,53 @@ def find_local_events(query: str, near: str = None) -> dict:
 
 
 @tool
+def team_board(on: str = None) -> dict:
+    """Who has what today, and what has actually been ticked off.
+
+    The other half of handing out work. Without this the agent assigns jobs and
+    is blind to whether any of them happened, which is not managing anything.
+
+    The field that matters most is ``confirmations``. A sell-out was inferred
+    from the timestamps, and somebody standing at the counter either confirmed
+    it or did not. A confirmed one is a fact the next forecast can lean on; an
+    unconfirmed one is still a good guess. Say which when it matters, and if
+    the confirmations are not coming back, that is worth the owner knowing:
+    every night nobody ticks makes the following day's numbers weaker.
+    """
+    from . import team
+
+    board = team.today()
+    people, waiting = [], []
+    confirmations = []
+    for person in board["board"]:
+        jobs = []
+        for job in person["jobs"]:
+            jobs.append({"what": job["what"], "kind": job["kind"],
+                         "done": job["done"]})
+            if not job["done"]:
+                waiting.append(f"{person['name']}: {job['what']}")
+            for row in job.get("detail", ()):
+                confirmations.append({"item": row["item"], "at": row["at"],
+                                      "confirmed": row["done"]})
+        people.append({"name": person["name"], "role": person["role"],
+                       "starts": person["starts"],
+                       "done": sum(1 for job in jobs if job["done"]),
+                       "jobs": jobs})
+
+    settled = [row for row in confirmations if row["confirmed"]]
+    return {
+        "day": board["day"],
+        "plan_day": board["plan_day"],
+        "board": people,
+        "progress": board["progress"],
+        "still_waiting": waiting,
+        "confirmations": confirmations,
+        "confirmed": len(settled),
+        "unconfirmed": len(confirmations) - len(settled),
+    }
+
+
+@tool
 def notify_owner(subject: str, body: str, urgency: str = "normal",
                  default_action: str = None, answer_by: str = None) -> dict:
     """Reach the owner by email. Use this sparingly.

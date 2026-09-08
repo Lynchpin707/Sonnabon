@@ -384,3 +384,40 @@ def test_a_tick_for_a_job_that_does_not_exist_is_refused(site):
     assert board["progress"]["done"] == ticked, (
         f"progress says {board['progress']['done']} done, the board shows "
         f"{ticked}")
+
+
+def test_the_agent_can_see_what_the_team_ticked(site):
+    """It hands out the work, so it has to be able to read what came back.
+
+    Without this it assigns jobs and is blind to whether any happened, and the
+    confirmation that makes the next forecast better is invisible to the thing
+    that asked for it.
+    """
+    from src.bakery import tools
+
+    board = tools.team_board()
+    for key in ("board", "progress", "still_waiting", "confirmations",
+                "confirmed", "unconfirmed"):
+        assert key in board, key
+
+    assert board["confirmed"] + board["unconfirmed"] == len(board["confirmations"])
+    for row in board["confirmations"]:
+        assert row["item"] and row["at"]
+        assert isinstance(row["confirmed"], bool)
+
+    # Ticking one has to change what the agent sees.
+    _, body, _ = get(site, "/api/team")
+    checks = [row for person in json.loads(body)["board"]
+              for job in person["jobs"] for row in job.get("detail", [])]
+    if not checks:
+        pytest.skip("nothing ran out today, so there is nothing to confirm")
+
+    # Clear it first. An earlier test in this module ticks every confirmation,
+    # and a test that only passes when it runs first is not a test.
+    target = checks[0]["id"]
+    assert post(site, "/api/tickets", {"id": target, "done": False})[0] == 200
+    before = tools.team_board()["confirmed"]
+
+    assert post(site, "/api/tickets", {"id": target, "done": True})[0] == 200
+    assert tools.team_board()["confirmed"] == before + 1, (
+        "a confirmation the counter made did not reach the agent")

@@ -104,8 +104,13 @@ only reach the owner when a decision needs making.
 
 The person on the counter gets one ticket: confirm what ran out. Sonnabon
 inferred it from the timestamps and says so; only somebody standing there can
-settle it, and their tick makes the next forecast better. That is the loop
-closing through the staff rather than through a dashboard.
+settle it, and their tick makes the next forecast better.
+
+The loop closes both ways. `team_board` is one of its tools, so it reads back
+what was actually ticked: a sell-out somebody confirmed is a fact it can lean
+on, one nobody confirmed is still its own inference, and it knows the
+difference when it speaks. If the confirmations stop coming back the numbers
+get weaker every night, and that is something it can raise.
 
 ## Watch a day run itself
 
@@ -144,7 +149,7 @@ weeks of history is enough to start.
 
 ```bash
 sonnabon-backtest    # replays the year and prices both plans
-pytest               # 69 tests: the maths, and the site
+pytest               # 70 tests: the maths, and the site
 ```
 
 The backtest is the interesting one. Waste goes **up** and lost sales go **down

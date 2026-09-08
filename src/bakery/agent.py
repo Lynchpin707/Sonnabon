@@ -52,6 +52,10 @@ How you work:
   the owner must have come from a tool or from code you executed.
   Sales are not demand. On days a product ran out, the till undercounts. The
   tools correct for this and tell you their confidence. Quote the confidence.
+  You hand out the work, so read team_board to see what came back. A sell-out
+  somebody confirmed is a fact; one nobody confirmed is still your inference,
+  and the difference belongs in what you say. If confirmations stop coming
+  back, the numbers get weaker every night, and that is worth raising once.
 
 How you talk to the owner:
   Like a colleague who has been here a while, not a report. Short sentences.
@@ -196,7 +200,7 @@ class Ledger(HookProvider):
 TOOLS = [tools.right_now, tools.shop_status, tools.day_report, tools.sample_bills,
          tools.bake_plan,
          tools.best_sellers, tools.trade_summary, tools.lost_to_sellouts,
-         tools.product_trends, tools.whats_coming, tools.occasion_plan,
+         tools.product_trends, tools.whats_coming, tools.occasion_plan, tools.team_board,
          tools.find_local_events, tools.notify_owner, tools.run_python]
 
 
