@@ -1300,6 +1300,10 @@ function stream(body){
             const l=e.ledger||{};
             write("\n  "+l.tool_calls+" tool calls   $"+(l.cost_usd||0).toFixed(5)+"   "+l.seconds+"s");
             $("#pCost").textContent="$"+(l.cost_usd||0).toFixed(3);
+            // The run just wrote a line to the diary, so the counters that
+            // report it move now rather than on the next reload. It is the one
+            // moment the autonomy is visible happening.
+            api("/api/journal").then(journalView).catch(()=>{});
             api("/api/outbox").then(o=>messages(o.messages)).catch(()=>{});}}}
     })
     .catch(err=>write("lost the connection: "+err.message,"b"))
