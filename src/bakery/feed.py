@@ -24,7 +24,7 @@ import threading
 import time
 from datetime import date, datetime, timedelta
 
-from . import catalogue, generate
+from . import catalogue, generate, state
 from .receipts import Bill, Line, from_json, to_json
 
 # Where the day starts from when a feed begins. Real trade, replayed fast.
@@ -60,6 +60,9 @@ class Feed:
         self.total = len(bills)
         self.written = 0
         self.started_at = time.monotonic()
+        # Today is being written. Hold the corrected history where it is until
+        # the day is done, or every page pays for a rebuild per bill.
+        state.hold(True)
         self._thread = threading.Thread(target=self._run, args=(bills,),
                                         daemon=True)
         self._thread.start()
@@ -67,6 +70,7 @@ class Feed:
 
     def stop(self):
         self._stop.set()
+        state.hold(False)
         return self
 
     @property
@@ -104,6 +108,7 @@ class Feed:
             self._append(bill)
             self.written += 1
             self.clock = bill.at
+        state.hold(False)          # the day finished on its own
 
     def _append(self, bill):
         # One line, flushed, so a reader mid-file never sees half a bill.

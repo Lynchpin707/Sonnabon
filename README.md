@@ -25,9 +25,9 @@ Amazon Bedrock, or on a local model, whichever is configured.
 
 ![The day so far](docs/shots/today.png)
 
-The bar across the top is where you talk to it. Type what you want it to look
-after and it works from there, or press the chef in the corner to ask it
-something and watch the run.
+The bar across the top is where the first prompt goes. You brief it on the shop
+once, the way you would a manager you had just hired, and it works from there.
+The chef in the corner opens the same thing from any page.
 
 ## The two halves of the job
 
@@ -89,14 +89,37 @@ sales. Measured off the till, Christmas looks like a 1.6x week. Measured off
 what people actually wanted, it is 3.8x. A shop planning from the till would
 under-bake Christmas by more than half, and the till would report a triumph.
 
-## The work goes to people, not into a report
+## It hands out the work and tracks it
 
 ![The board](docs/shots/board.png)
 
-The board splits the night's work by who starts when. The person on the counter
-gets one job: confirm what ran out. Sonnabon inferred it from the timestamps and
-says so; only somebody standing there can settle it, and their tick makes the
-next forecast better.
+A decision that stays in a report is not a decision. Sonnabon turns the night's
+plan into tickets, splits them by who starts when, and tracks what has actually
+been done. Ticks live on the server, not in one person's browser, because two
+people share a kitchen and are not on the same phone.
+
+The owner's column is empty on purpose. Work landing back on them is the thing
+this exists to stop, so the calendar's run-up tasks go to whoever does them and
+only reach the owner when a decision needs making.
+
+The person on the counter gets one ticket: confirm what ran out. Sonnabon
+inferred it from the timestamps and says so; only somebody standing there can
+settle it, and their tick makes the next forecast better. That is the loop
+closing through the staff rather than through a dashboard.
+
+## Watch a day run itself
+
+Press **Start the till** on the day card. Bills replay into the same file the
+agent reads, one at a time, at 240 times real speed, and the figures climb with
+the shop clock beside them.
+
+The rest happens without anybody pressing anything. The bakers finish their
+trays through the morning and the board ticks. Near close, whoever is on the
+counter confirms what ran out. At close of trade the agent wakes by itself,
+reads the day, plans tomorrow, and decides whether the owner needs to hear
+about it. The diary gains a line either way.
+
+That is the whole claim, running in about three minutes.
 
 ## You can see what it did while you were not looking
 

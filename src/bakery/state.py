@@ -127,10 +127,31 @@ def ensure(path=None):
     return path
 
 
+_holding = False
+
+
+def hold(on):
+    """Stop rebuilding while the till is mid-day.
+
+    Corrected history is history. A day still being written does not belong in
+    it, and rebuilding a year on every appended bill costs about twenty seconds
+    a call, which is enough to stall every page while trade is live. The live
+    view reads only the bills that have arrived and never comes through here,
+    so holding costs nothing and the day joins the history once it is complete.
+    """
+    global _holding
+    _holding = bool(on)
+    return _holding
+
+
 def get(path=None, refresh=False):
     """The shop, built once. Cheap on every call after the first."""
     global _state
     path = ensure(path)
+
+    if _holding and _state is not None and not refresh:
+        return _state
+
     stamp = os.path.getmtime(path)
 
     if _state is not None and _state.source == path and _state.stamp == stamp \

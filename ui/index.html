@@ -196,6 +196,10 @@ h2{font-family:var(--display);font-weight:600;font-size:1.06rem;margin:0;letter-
 .brow .ghost{position:absolute;top:0;bottom:0;border-radius:0 7px 7px 0;
   background:repeating-linear-gradient(115deg,rgba(222,124,149,.34) 0 5px,transparent 5px 10px);
   border:1px dashed rgba(222,124,149,.65);border-left:0}
+/* The till switch. Small, because it is a demo affordance rather than part of
+   the shop's day, but on the page so nobody has to reach for a terminal. */
+.act.till{margin-left:auto;font-size:.76rem;padding:.26rem .7rem}
+.act.till.on{background:var(--blush);border-color:var(--blush);color:#fff}
 .pulsedot{width:7px;height:7px;border-radius:50%;background:var(--mint);
   display:inline-block;margin-right:.45rem;animation:pulsedot 1.6s ease-in-out infinite}
 @keyframes pulsedot{0%,100%{opacity:1}50%{opacity:.25}}
@@ -493,11 +497,12 @@ svg{display:block;width:100%;height:auto;overflow:visible}
   <div class="view on" id="v-today">
     <div class="brief">
       <input id="prompt" type="text" autocomplete="off"
-        placeholder="Tell Sonnabon what to look after, then leave it to work…"
+        placeholder="Brief it on the shop, the way you would a new manager…"
         aria-label="Brief Sonnabon">
       <button class="act go" id="send">Brief it</button>
     </div>
     <div class="hints">
+      <button class="hint" data-p="I run a small bakery, four of us, open six days a week. Take the production planning and the ordering off me. Read the till yourself, decide what we make each day, give the team their lists, keep the calendar, and only come to me when something actually needs deciding.">Brief it on the shop</button>
       <button class="hint" data-p="Read today, plan tomorrow's production, and email me only if something needs deciding.">Plan tomorrow</button>
       <button class="hint" data-p="What is growing and what is dying? Give me one recommendation.">What is moving</button>
       <button class="hint" data-p="Halloween is coming. Work out what to make, order against it, and tell the team.">Get ready for Halloween</button>
@@ -505,7 +510,11 @@ svg{display:block;width:100%;height:auto;overflow:visible}
     </div>
 
     <section class="card raised">
-      <header style="border:0;padding:0;margin-bottom:.9rem"><h2>The day so far</h2><span class="note" id="dayNote"></span></header>
+      <header style="border:0;padding:0;margin-bottom:.9rem">
+        <h2>The day so far</h2>
+        <span class="note" id="dayNote"></span>
+        <button class="act till" id="tillBtn" title="Replay a trading day into the till file, one bill at a time">Start the till</button>
+      </header>
       <div class="figs" id="figs"></div>
       <div class="bars" id="bars"></div>
     </section>
@@ -668,7 +677,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 <button class="fab" id="fab" aria-label="Ask Sonnabon" aria-expanded="false"><img src="assets/fab.png" alt=""></button>
 <div class="panel" id="panel" role="dialog" aria-label="Ask Sonnabon">
   <div class="brief" style="box-shadow:none;padding-left:.9rem">
-    <input id="prompt2" type="text" autocomplete="off" placeholder="Ask, or tell it what to do…"
+    <input id="prompt2" type="text" autocomplete="off" placeholder="Ask it something, or hand it a job…"
       aria-label="Ask Sonnabon">
     <button class="act go" id="send2">Ask</button>
   </div>
@@ -816,12 +825,30 @@ function closeWelcome(){
 }
 
 (function live(){
-  const shown={};
-  let last=null;
+  let last=null, seenTicks=-1, seenWake=false;
+
+  // Starting and stopping the till from the page. It appends to the same file
+  // the agent reads, in the same format, so nothing here is a demo-only path.
+  const btn=$("#tillBtn");
+  btn.onclick=async()=>{
+    const running=btn.classList.contains("on");
+    btn.disabled=true;
+    try{
+      await fetch("/api/feed",{method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(running?{action:"stop"}:{action:"start",speed:240})});
+    }catch(err){/* the next poll will show whether it took */}
+    btn.disabled=false;
+    tick();
+  };
+
   async function tick(){
     try{
       const d=await api("/api/live");
       const on=!!(d.trading&&d.feed&&d.feed.running);
+      const feeding=!!(d.feed&&d.feed.running);
+      btn.classList.toggle("on",feeding);
+      btn.textContent=feeding?"Stop the till":"Start the till";
       if(on){
         // Same shape the completed day uses, so one renderer draws both and
         // there is no second code path to keep in step.
@@ -833,6 +860,24 @@ function closeWelcome(){
         today(await api("/api/today"));      // the feed stopped; settle back
         last=null;
       }
+
+      // The shift works while the till runs. When it ticks something off or
+      // the agent wakes at close, the pages that report it have to change
+      // there and then, or the autonomy happens off screen.
+      const sh=d.shift||{};
+      const ticks=(sh.ticked||[]).length;
+      if(ticks!==seenTicks){
+        seenTicks=ticks;
+        if(ticks>0)api("/api/team").then(board).catch(()=>{});
+      }
+      if(sh.woke&&!seenWake){
+        seenWake=true;
+        api("/api/journal").then(journalView).catch(()=>{});
+        api("/api/today").then(today).catch(()=>{});
+        api("/api/overview").then(o=>{docket(o.nightly.plan);ask(o.weekly);})
+          .catch(()=>{});
+      }
+      if(!feeding)seenWake=false;
     }catch(err){/* the server is restarting; the next tick will find it */}
   }
   setInterval(tick,2000);

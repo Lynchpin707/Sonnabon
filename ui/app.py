@@ -21,7 +21,7 @@ from urllib.parse import urlparse, parse_qs
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.bakery import (analytics, catalogue, feed, journal, model,  # noqa: E402
-                        paths, runs, state, team, tools)
+                        paths, runs, shift, state, team, tools)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PORT = int(os.getenv("PORT", "8000"))
@@ -264,7 +264,8 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == "/api/live":
                 stream = feed.get(state.BILLS)
                 return self._api({**feed.live(stream.path, stream.offset),
-                                  "feed": stream.state()})
+                                  "feed": stream.state(),
+                                  "shift": shift.get(stream).state()})
             if url.path == "/api/today":
                 return self._api(tools.todays_sales(one("on")))
             if url.path == "/api/source":
@@ -355,16 +356,22 @@ class Handler(BaseHTTPRequestHandler):
 
         if url.path == "/api/feed":
             stream = feed.get(state.BILLS)
+            # The shift rides along with the till. Starting one and not the
+            # other would give a day where bills arrive and nobody works, or
+            # work happens with no trade behind it.
+            day = shift.get(stream)
             action = payload.get("action", "start")
             if action == "start":
                 stream.speed = float(payload.get("speed", feed.DEFAULT_SPEED))
                 stream.start()
+                day.start()
             elif action == "stop":
                 stream.stop()
+                day.stop()
             else:
                 return self._send(400, json.dumps(
                     {"error": "action is start or stop"}))
-            return self._api(stream.state())
+            return self._api({**stream.state(), "shift": day.state()})
 
         if url.path == "/api/tickets":
             missing = [key for key in ("id", "done") if key not in payload]

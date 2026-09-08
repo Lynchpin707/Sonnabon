@@ -41,7 +41,9 @@ Your job each run:
   needs the owner.
 
 How you work:
-  Call shop_status first so you know what period you are looking at.
+  Call right_now first, then shop_status, so you know what time it is and what
+  period the figures cover. A shortfall at nine in the morning and the same one
+  at closing are not the same fact.
   Use the tools for anything they cover. Use run_python for anything else.
   The summaries answer almost everything. When they do not, sample_bills shows
   you real receipts, and run_python works over all of them at once. Never ask
@@ -191,7 +193,7 @@ class Ledger(HookProvider):
                 "blocked": self.blocked}
 
 
-TOOLS = [tools.shop_status, tools.day_report, tools.sample_bills,
+TOOLS = [tools.right_now, tools.shop_status, tools.day_report, tools.sample_bills,
          tools.bake_plan,
          tools.best_sellers, tools.trade_summary, tools.lost_to_sellouts,
          tools.product_trends, tools.whats_coming, tools.occasion_plan,

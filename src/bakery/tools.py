@@ -38,6 +38,50 @@ def _day(value):
 
 
 @tool
+def right_now() -> dict:
+    """The time, and where the shop is in its trading day.
+
+    The agent is told it wakes at close of trade and reads the day so far, and
+    until this existed it had no way to know either. Without a clock it cannot
+    tell a quiet morning from a finished day, and "the day so far" is a phrase
+    with nothing behind it.
+
+    ``trading`` is whether the shop is open at this moment. ``through_day`` is
+    how far into opening hours we are, so a shortfall at 09:00 and the same
+    shortfall at 18:00 are not read the same way.
+    """
+    from datetime import datetime
+
+    from . import generate
+
+    now = datetime.now()
+    shop = state.get()
+    day = state.today()
+
+    opens, closes = generate.OPEN, generate.CLOSE
+    minutes_open = (closes.hour * 60 + closes.minute) - (opens.hour * 60 + opens.minute)
+    since_open = (now.hour * 60 + now.minute) - (opens.hour * 60 + opens.minute)
+    closed_today = now.weekday() == generate.CLOSED_WEEKDAY
+    trading = (not closed_today) and 0 <= since_open <= minutes_open
+
+    return {
+        "now": now.isoformat(timespec="seconds"),
+        "time": now.strftime("%H:%M"),
+        "weekday": now.strftime("%A"),
+        "opens": opens.strftime("%H:%M"),
+        "closes": closes.strftime("%H:%M"),
+        "trading": trading,
+        "closed_today": closed_today,
+        "through_day": (round(min(max(since_open / minutes_open, 0.0), 1.0), 2)
+                        if not closed_today else None),
+        # The day the figures describe, which is the last one with trade on
+        # file and not necessarily today.
+        "reporting_on": day.isoformat(),
+        "latest_bill": (shop.last_day.isoformat() if shop.days else None),
+    }
+
+
+@tool
 def shop_status() -> dict:
     """What data the shop has, and what is on the menu.
 
