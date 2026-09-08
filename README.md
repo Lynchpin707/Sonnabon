@@ -2,40 +2,34 @@
 
 **Operations and planning, for small bakeries.**
 
-A bakery owner does about **seven hours of admin a week** that nobody trained
-them for, at the end of days that are already too long. Sonnabon does it
-instead, and asks for them only when something genuinely needs a person.
+Small bakeries run on admin nobody was trained for, done late and from memory.
+Sonnabon takes some of that off the owner.
 
-| Every | What it takes off you | By hand |
-|---|---|---|
-| Close of trade | Read the day's bills and work out what ran out | 2.0 h a week |
-| Close of trade | Decide tomorrow's production, product by product | 3.5 h a week |
-| Supplier cutoff | Work back to ingredients and raise the orders | 1.0 h a week |
-| Sunday | Review what is growing and dying, look four weeks ahead | 0.75 h a week |
+It reads the till, works out tomorrow's production, keeps the calendar so
+occasions are prepared for instead of noticed late, gives each person their
+list, and emails the owner only when there is a decision to make.
 
-The last row is the one that matters most, because it is the one that never
-happens. There is no evening left for it.
-
-Point it at the till once. From then on it decides tomorrow's production, orders
-the ingredients, holds the calendar, gives each person their list, and emails
-the owner only when there is a decision to make.
+Point it at the till once. It does not need setting up again.
 
 ![The day so far](docs/shots/today.png)
 
-## The three burdens, plainly
+The bar across the top is where you talk to it. Type what you want it to look
+after and it works from there, or press the chef in the corner to ask it
+something and watch the run.
 
-**The time.** Deciding tomorrow's production and placing the orders is roughly
-an hour a day, at the end of a seventeen hour one. It happens after close,
-tired, from memory.
+## What it helps with
 
-**The maths that never gets done.** How much of each thing to make is a real
-calculation. No small shop does it, because there is no hour to sit down with
-the numbers and nobody was ever taught which numbers to look at.
+**The maths that does not get done.** How much of each thing to make is a real
+calculation. It happens after close, tired, from memory, and nobody was taught
+which numbers to look at.
 
-**The planning that gets left too late.** Christmas needs flour ordered three
-weeks out and a trial batch two weeks before that. A shop deciding tonight's
-bake at twenty to nine is not also thinking about October, so occasions arrive
-three days early with an apology.
+**The planning that gets left too late.** Christmas needs flour ordered weeks
+out. A shop deciding tonight's bake at twenty to nine is not also thinking about
+October, so occasions arrive with no time left to prepare for them.
+
+It does not replace the owner and it does not claim their evening back. It does
+the part that is arithmetic and the part that is a calendar, and it stays quiet
+otherwise.
 
 ## Setting it up is one kind of question, asked once
 
@@ -100,42 +94,40 @@ days, and a late task is raised once rather than once a night.
 
 That ratio is the product, so it is on the page rather than in a sentence.
 
-## How we know any of it works
+## How the estimate was checked
 
-These are not the pitch. They are the reason the pitch is allowed to exist.
+The shop in `data/` is generated. No real till can say how many people wanted
+something and left, so no real dataset can score a sell-out estimate. This one
+can, because demand was decided first and then served out of a limited tray.
 
-The shop in `data/` is generated, and that is deliberate. **No real till can say
-how many people wanted something and left**, so no real dataset can score a
-sell-out estimate. Here demand is known, because it was generated first and then
-served out of a limited tray.
-
-| | |
-|---|---|
-| Sell-out detection | 91% precision, 80% recall |
-| Demand estimate | 3.0% median error, within 20% on 99% of 649 days |
-| History needed | Three weeks. 94% precision on 18 trading days |
-| Counterfactual, 120 days | Lost sales cut 56%, net cost down 10.8% |
+Against that known demand the estimate lands within 3% of the truth on the
+median day, and the detector finds a real sell-out nine times in ten. Three
+weeks of history is enough to start.
 
 ```bash
-python -m src.bakery.backtest    # replays the year and prices both plans
-pytest                           # 64 tests: the maths, and the site
+sonnabon-backtest    # replays the year and prices both plans
+pytest               # 65 tests: the maths, and the site
 ```
 
-Over 120 days Sonnabon's waste goes **up**, from 9,912 to 12,579, and its lost
-sales go **down from 8,321 to 3,690**. Net it saves 1,964, about 5,000 a year,
-and it is better on 65 days of 120. Running out costs more than binning does,
-which most owners believe the other way round.
+The backtest is the interesting one. Waste goes **up** and lost sales go **down
+by more than half**, because running out costs more than binning does, which
+most owners believe the other way round.
 
 ## Run it
 
 ```bash
 pip install -e .
-python ui/app.py
+sonnabon
 ```
 
 Open <http://localhost:8000>. The first start generates a year and corrects it,
 about thirty seconds. Every start after that is instant. Each page has its own
 address, so `#diary` and `#setup` can be linked and reloaded.
+
+```bash
+sonnabon-reset       # back to a known state before a demo
+sonnabon-generate    # a fresh year of trade, --days and --seed optional
+```
 
 The agent needs a model and will say so plainly if it has none. Two ways to give
 it one, either is enough:

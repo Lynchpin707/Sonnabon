@@ -311,7 +311,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 
 /* Duties, in the order they happen -------------------------------------- */
 .duties{list-style:none;margin:0;padding:0;display:grid;gap:.1rem;counter-reset:d}
-.duty{display:grid;grid-template-columns:auto 1fr auto;gap:.9rem;align-items:start;
+.duty{display:grid;grid-template-columns:auto 1fr;gap:.9rem;align-items:start;
   padding:.7rem 0;border-bottom:1px solid var(--edge)}
 .duty:last-child{border-bottom:0}
 .duty .when{font-family:var(--mono);font-size:.74rem;color:var(--ink-3);
@@ -319,11 +319,6 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 .duty b{display:block;font-size:.92rem;font-weight:600;color:var(--ink)}
 .duty i{font-style:normal;display:block;font-size:.82rem;color:var(--ink-2);
   margin-top:.15rem;line-height:1.45}
-.duty .saved{font-family:var(--figures);font-size:.98rem;font-weight:600;
-  color:var(--mint-ink);white-space:nowrap;font-variant-numeric:tabular-nums;
-  text-align:right}
-.duty .saved small{display:block;font-size:.68rem;color:var(--ink-3);
-  font-weight:400}
 .pill.guess{margin-left:.4rem;color:var(--ink-3);background:rgba(90,117,141,.14)}
 #diary .job span:last-child{white-space:normal;overflow-wrap:anywhere;line-height:1.4}
 .job{display:grid;grid-template-columns:5rem 1fr;gap:.55rem;font-size:.84rem;color:var(--ink-2);padding:.22rem 0}
@@ -632,12 +627,9 @@ svg{display:block;width:100%;height:auto;overflow:visible}
     </section>
 
     <section class="card">
-      <header><h2>What it takes off you</h2>
+      <header><h2>What it does, and when</h2>
         <span class="note" id="dutyNote"></span></header>
       <ol class="duties" id="schedule"></ol>
-      <p class="lede foot">Those minutes are what the job takes a person doing
-        it by hand, not something measured in this shop. They are the reason it
-        exists, so they are stated rather than implied.</p>
     </section>
     <section class="card">
       <header><h2>What it sent you</h2><span class="note">it writes only when something needs you</span></header>
@@ -978,13 +970,16 @@ function drawCurve(c){
       fill:"#DE7C95","fill-opacity":".18"}));
 
     // The gap is the whole argument, so it says what it is, in the gap.
+    // Sat on the dashed line at the midpoint. Pushed into the shaded area so
+    // the words are on the fill they describe rather than across its edge.
     const mid=Math.floor((s+n-1)/2);
-    const gy=(y(c.would_have[mid])+y(c.sold[mid]))/2;
+    const top=y(c.would_have[mid]), bottom=y(c.sold[mid]);
+    const gy=top+(bottom-top)*0.42;
     g.appendChild(text(c.missed+" people found an empty tray",
-      {x:x(mid),y:gy-2,"text-anchor":"middle","font-size":"12.5",
+      {x:x(mid),y:gy,"text-anchor":"middle","font-size":"12.5",
        fill:"#CD395F","font-weight":"600"}));
     g.appendChild(text(money(c.lost_margin)+" of margin walked out",
-      {x:x(mid),y:gy+15,"text-anchor":"middle","font-size":"11.5",fill:"#CD395F"}));
+      {x:x(mid),y:gy+17,"text-anchor":"middle","font-size":"11.5",fill:"#CD395F"}));
 
     g.appendChild(svg("line",{x1:x(s),x2:x(s),y1:T,y2:H-B,stroke:"#CD395F",
       "stroke-width":1.4,"stroke-dasharray":"4 3"}));
@@ -1220,15 +1215,10 @@ function setup(s){
     li.appendChild(el("div","when",r.at));
     const mid=el("div");
     mid.appendChild(el("b",null,r.does));
-    mid.appendChild(el("i",null,r.by_hand));
+    mid.appendChild(el("i",null,r.note));
     li.appendChild(mid);
-    const hrs=r.minutes*r.times_a_week/60;
-    const saved=el("div","saved");
-    saved.append(hrs>=1?hrs.toFixed(1)+" h":Math.round(hrs*60)+" min");
-    saved.appendChild(el("small",null,"a week, by hand"));
-    li.appendChild(saved);
     sch.appendChild(li);});
-  $("#dutyNote").textContent="about "+s.hours_a_week+" hours a week, off the owner";
+  $("#dutyNote").textContent="";
 }
 
 function firstRun(d){
