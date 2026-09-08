@@ -430,6 +430,13 @@ def find_local_events(query: str, near: str = None) -> dict:
                          "instead of guessing them.")}
     try:
         from strands_tools import tavily
+    except ImportError:
+        # The key is set but the package that uses it is not installed, which
+        # would otherwise surface to the agent as "No module named".
+        return {"ok": False, "searched": terms,
+                "error": "TAVILY_API_KEY is set but strands-agents-tools is "
+                         "not installed. Run: pip install 'sonnabon[search]'"}
+    try:
         return {"ok": True, "searched": terms,
                 "results": tavily.tavily_search(query=terms, max_results=5)}
     except Exception as error:

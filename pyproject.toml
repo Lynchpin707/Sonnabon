@@ -10,6 +10,17 @@ dependencies = [
     "strands-agents>=1.54.0",
 ]
 
+[project.scripts]
+sonnabon = "src.bakery.cli:serve"
+sonnabon-generate = "src.bakery.cli:generate"
+sonnabon-backtest = "src.bakery.cli:backtest"
+sonnabon-reset = "src.bakery.cli:reset"
+
+[project.optional-dependencies]
+# Only needed if you give it a TAVILY_API_KEY. Without one it says web search
+# is not configured rather than inventing an event, so this stays optional.
+search = ["strands-agents-tools>=0.2.0"]
+
 [dependency-groups]
 dev = ["pytest>=8.0"]
 

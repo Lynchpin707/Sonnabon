@@ -25,7 +25,7 @@ end = date.today(); generate.write(end - timedelta(days=370), end)"
 about thirty seconds. Do it now, not on camera.
 
 ```bash
-python ui/app.py                  # wait for "listening on"
+sonnabon                          # wait for "listening on"
 ```
 
 **3. Have these ready in tabs**
@@ -141,7 +141,7 @@ Let a bar turn pink on camera if you can time it.
 Terminal.
 
 ```bash
-python -m src.bakery.backtest
+sonnabon-backtest
 ```
 
 > "We replayed a hundred and twenty days and priced both plans against demand we
@@ -175,7 +175,7 @@ Do not apologise for it. It is the method:
 |---|---|
 | Page says "cannot reach the shop" | The server is not up, or still warming. Wait for "listening on" |
 | Everything reads zero | `data/` was deleted and not regenerated. See step 1 |
-| The agent run fails | No model configured. The read-only views still show every number; say the agent is the reasoning layer and the tools are the facts |
+| The agent run fails | No model configured. Run `ollama pull qwen3`, or set AWS_REGION and credentials. The read-only views still show every number |
 | The feed does nothing | It appends from the day *after* the last one on file. Check `GET /api/live` |
 | Nothing ran out today | Pick another day: `/api/today?on=2026-09-05` |
 | A tab will not open on reload | Each page has its own address now, `#today`, `#diary` and so on |

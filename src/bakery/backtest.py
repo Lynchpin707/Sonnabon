@@ -98,8 +98,9 @@ def _truth(path="data/truth.json"):
         return {row["day"]: row["products"] for row in json.load(handle)}
 
 
-if __name__ == "__main__":
-    result = run(days=120)
+def main(days=120):
+    """Print the counterfactual. Kept a function so the CLI can call it."""
+    result = run(days=days)
     money = result["currency"]
     print(f"Replayed {result['days_tested']} trading days, "
           f"{result['from']} to {result['to']}")
@@ -117,3 +118,7 @@ if __name__ == "__main__":
     print(f"annualised {money}{result['per_year']:,}")
     print()
     print(result["caveat"])
+
+
+if __name__ == "__main__":
+    main()
