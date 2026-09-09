@@ -19,7 +19,7 @@ import json
 import os
 from datetime import datetime, timedelta
 
-from . import paths
+from ..ops import paths
 
 PATH = paths.of("journal")
 

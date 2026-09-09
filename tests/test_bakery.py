@@ -509,6 +509,49 @@ def test_a_menu_it_already_knows_is_not_relearned(shop):
     assert {p.name: p for p in catalogue.PRODUCTS} == held
 
 
+def test_a_cached_shop_still_learns_new_menu(tmp_path, monkeypatch):
+    """When state is restored from a pickle cache, the menu must be adopted so
+    downstream catalogue.get() calls don't crash with KeyError."""
+    import json
+    import pickle
+    from src.bakery import state
+
+    menu = {"Focaccia": 3.50, "Espresso": 2.00}
+    rows = [
+        {"number": 1, "at": "2026-08-01T08:00:00",
+         "lines": [{"item": "Focaccia", "qty": 1, "unit_price": 3.50}]},
+        {"number": 2, "at": "2026-08-01T08:30:00",
+         "lines": [{"item": "Espresso", "qty": 1, "unit_price": 2.00}]},
+    ]
+    bills_file = tmp_path / "bills.jsonl"
+    bills_file.write_text(NEWLINE.join(json.dumps(r) for r in rows), encoding="utf-8")
+    cache_file = tmp_path / "cache.pkl"
+
+    bills = receipts.load(bills_file, validate=False)
+    index = analytics.Index(bills)
+    history = {"Focaccia": {date(2026, 8, 1): 1}, "Espresso": {date(2026, 8, 1): 1}}
+    stamp = bills_file.stat().st_mtime
+
+    with open(cache_file, "wb") as h:
+        pickle.dump({"source": str(bills_file), "stamp": stamp, "bills": bills,
+                     "index": index, "history": history, "corrected": {}}, h)
+
+    monkeypatch.setattr(state, "BILLS", str(bills_file))
+    monkeypatch.setattr(state, "CACHE", str(cache_file))
+    monkeypatch.setattr(state, "_state", None)
+
+    held = list(catalogue.PRODUCTS)
+    try:
+        loaded = state.get(str(bills_file))
+        assert "Focaccia" in catalogue.BY_NAME
+        assert "Espresso" in catalogue.BY_NAME
+        assert catalogue.get("Focaccia").price == 3.50
+    finally:
+        catalogue.adopt(held)
+        state._state = None
+
+
+
 # ── the gate on irreversible actions ────────────────────────────────────────
 
 class _Call:

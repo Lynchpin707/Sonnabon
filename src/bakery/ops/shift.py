@@ -20,7 +20,11 @@ import threading
 import time
 from datetime import datetime, time as clock
 
-from . import feed, journal, runs, state, team
+from ..ops import feed
+from ..ops import journal
+from ..agent import runs
+from ..ops import state
+from ..ops import team
 
 # When each kind of work lands in the day. Bakers are finishing trays from
 # before opening; the counter can only confirm a sell-out once the day is

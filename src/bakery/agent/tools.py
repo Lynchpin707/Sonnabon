@@ -25,7 +25,12 @@ from datetime import date, datetime, timedelta
 
 from strands import tool
 
-from . import paths, analytics, calendar as bakery_calendar, catalogue, plan, state
+from ..ops import paths
+from ..core import analytics
+from ..core import calendar as bakery_calendar
+from ..core import catalogue
+from ..core import plan
+from ..ops import state
 
 
 def _day(value):
@@ -52,7 +57,7 @@ def right_now() -> dict:
     """
     from datetime import datetime
 
-    from . import generate
+    from ..simulation import generate
 
     now = datetime.now()
     shop = state.get()
@@ -501,7 +506,7 @@ def team_board(on: str = None) -> dict:
     the confirmations are not coming back, that is worth the owner knowing:
     every night nobody ticks makes the following day's numbers weaker.
     """
-    from . import team
+    from ..ops import team
 
     board = team.today()
     people, waiting = [], []

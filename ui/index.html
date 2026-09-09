@@ -514,6 +514,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
         <h2>The day so far</h2>
         <span class="note" id="dayNote"></span>
         <button class="act till" id="tillBtn" title="Replay a trading day into the till file, one bill at a time">Start the till</button>
+        <button class="act till" id="genBtn" style="display:none;" title="Generate a year of demo data to test the application">Generate Demo Data</button>
       </header>
       <div class="figs" id="figs"></div>
       <div class="bars" id="bars"></div>
@@ -737,7 +738,7 @@ let CUR="€";
 // which is why Christmas does not get a pumpkin.
 const EMBLEMS={"Halloween":"assets/pumpkin.png"};
 const money=v=>CUR+Math.round(v).toLocaleString();
-const api=async p=>{const r=await fetch(p);if(!r.ok)throw new Error(r.status);return r.json();};
+const api=async p=>{const r=await fetch(p);if(!r.ok){let m=""+r.status;try{const j=await r.json();if(j&&j.error)m=j.error;}catch(_){}throw new Error(m);}return r.json();};
 const el=(t,c,x)=>{const n=document.createElement(t);if(c)n.className=c;if(x!=null)n.textContent=x;return n;};
 const NS="http://www.w3.org/2000/svg";
 const svg=(t,a)=>{const n=document.createElementNS(NS,t);for(const k in a)n.setAttribute(k,a[k]);return n;};
@@ -829,6 +830,20 @@ function closeWelcome(){
 
   // Starting and stopping the till from the page. It appends to the same file
   // the agent reads, in the same format, so nothing here is a demo-only path.
+  
+  const genBtn=$("#genBtn");
+  genBtn.onclick=async()=>{
+    genBtn.disabled=true;
+    genBtn.textContent="Generating...";
+    try{
+      await fetch("/api/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({})});
+      location.reload();
+    }catch(err){
+      genBtn.disabled=false;
+      genBtn.textContent="Generate Demo Data";
+    }
+  };
+
   const btn=$("#tillBtn");
   btn.onclick=async()=>{
     const running=btn.classList.contains("on");
@@ -1364,7 +1379,107 @@ function stream(body){
   if(new URLSearchParams(location.search).has("welcome")){await welcome();}
 
   try{
+
     const o=await api("/api/overview");
+    if(o.shop && o.shop.bills === 0) {
+      $("#tillBtn").style.display="none";
+      $("#genBtn").style.display="none";
+      
+      // Hide all the cards that don't make sense empty
+      document.querySelectorAll(".card").forEach(c => c.style.display="none");
+      
+      // Hide navigation, prompt, and pulse stats
+      document.querySelector("nav").style.display="none";
+      document.querySelector(".brief").style.display="none";
+      document.querySelector(".hints").style.display="none";
+      document.querySelector(".pulse").style.display="none";
+      
+      // But keep the "The day so far" header visible because it has the generate button
+      // Let's rewrite its title to "Welcome to Sonnabon"
+      const daySection = $("#tillBtn").closest("section");
+      daySection.style.display="block";
+      daySection.querySelector("h2").textContent="Awaiting Data";
+      daySection.querySelector("#figs").innerHTML = `
+      <div class="onboard" style="padding: 1.5rem 0;">
+        <p style="margin-bottom: 1.5rem; color: var(--ink-2); font-size: 1.05rem;">
+          Sonnabon needs your till exports to understand what sells, when you run out, and what to bake next. Upload your raw receipts, and tell it how you want it to run your shop.
+        </p>
+        <div style="margin-bottom: 1.5rem;">
+          <label for="tillUpload" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">1. Upload Till Export (.jsonl)</label>
+          <input type="file" id="tillUpload" accept=".jsonl,.csv" style="display: block; width: 100%; border: 1px dashed var(--edge); padding: 1rem; border-radius: var(--r); cursor: pointer;" />
+        </div>
+        <div style="margin-bottom: 1.5rem;">
+          <label for="shopBrief" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">2. Brief the Agent</label>
+          <textarea id="shopBrief" rows="3" style="width: 100%; border: 1px solid var(--edge); border-radius: var(--r); padding: 0.8rem; font-family: inherit; font-size: 0.95rem; resize: vertical;" placeholder="e.g. I run a small bakery, four of us, open six days a week. Take the production planning and the ordering off me..."></textarea>
+        </div>
+        <div style="display: flex; gap: 1rem; align-items: center;">
+          <button class="act go" id="startShopBtn" style="padding: 0.6rem 1.5rem; font-size: 1rem;">Start Shop</button>
+          <span style="color: var(--ink-2); font-size: 0.9rem;">or</span>
+          <button class="act" id="genDemoBtn" style="background: transparent; border: 1px solid var(--edge); color: var(--ink);">Generate Demo Data instead</button>
+        </div>
+      </div>
+`;
+      
+      const fileInput = document.getElementById('tillUpload');
+      const briefInput = document.getElementById('shopBrief');
+      const startBtn = document.getElementById('startShopBtn');
+      const demoBtn = document.getElementById('genDemoBtn');
+
+      startBtn.onclick = async () => {
+        if (fileInput.files.length === 0) {
+          alert("Please upload a .jsonl or .csv receipts file.");
+          return;
+        }
+        startBtn.disabled = true;
+        demoBtn.disabled = true;
+        startBtn.textContent = "Uploading & processing...";
+        try {
+          const billsData = await fileInput.files[0].text();
+          await fetch("/api/upload_bills", {
+            method: "POST",
+            headers: { "Content-Type": "text/plain" },
+            body: billsData
+          });
+          const brief = briefInput.value.trim();
+          if (brief) localStorage.setItem("initialPrompt", brief);
+          location.reload();
+        } catch(e) {
+          alert("Upload failed: " + e.message);
+          startBtn.disabled = false;
+          demoBtn.disabled = false;
+          startBtn.textContent = "Start Shop";
+        }
+      };
+
+      demoBtn.onclick = async () => {
+        startBtn.disabled = true;
+        demoBtn.disabled = true;
+        demoBtn.textContent = "Generating...";
+        try {
+          await fetch("/api/generate", {method: "POST", body: "{}"});
+          const brief = briefInput.value.trim();
+          if (brief) localStorage.setItem("initialPrompt", brief);
+          location.reload();
+        } catch(e) {
+          alert("Generation failed: " + e.message);
+          startBtn.disabled = false;
+          demoBtn.disabled = false;
+          demoBtn.textContent = "Generate Demo Data instead";
+        }
+      };
+
+      daySection.querySelector("#bars").style.display="none";
+      daySection.querySelector("#dayNote").textContent="";
+      
+      return; // Skip rendering the rest of the empty data
+    } else {
+      $("#tillBtn").style.display="inline-block";
+      $("#genBtn").style.display="none";
+      document.querySelectorAll(".card").forEach(c => c.style.display="block");
+      document.querySelector(".pulse").style.display="flex";
+    }
+
+
     CUR=o.currency||CUR;
     hero(o.worst);docket(o.nightly.plan);ask(o.weekly);
     moving(o.weekly.trends);diary(o.weekly.ahead);sellersList(o.weekly.best_sellers);
@@ -1378,12 +1493,23 @@ function stream(body){
     messages((await api("/api/outbox")).messages);
   }catch(err){
     $("#heroSay").textContent="Cannot reach the shop.";
-    $("#heroSub").textContent="The server is not answering ("+err.message+"). Start it with python ui/app.py";
+    $("#heroSub").textContent=(err.message&&err.message!=="500"&&!/^\d{3}$/.test(err.message))
+      ? "Server error: "+err.message
+      : "The server is not answering ("+err.message+"). Start it with python ui/app.py";
   }
   $("#runNight").onclick=()=>stream({kind:"nightly"});
   $("#runWeek").onclick=()=>stream({kind:"noticed"});
   const fire=input=>{const p=input.value.trim();if(p)stream({kind:"nightly",prompt:p});};
+
   $("#send").onclick=()=>fire($("#prompt"));
+  
+  const savedPrompt = localStorage.getItem("initialPrompt");
+  if (savedPrompt) {
+    localStorage.removeItem("initialPrompt");
+    $("#prompt").value = savedPrompt;
+    setTimeout(() => fire($("#prompt")), 500);
+  }
+
   $("#send2").onclick=()=>fire($("#prompt2"));
   $("#welcome").addEventListener("keydown",e=>{if(e.key==="Escape")closeWelcome();});
   $("#prompt").addEventListener("keydown",e=>{if(e.key==="Enter")$("#send").click();});

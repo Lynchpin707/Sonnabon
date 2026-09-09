@@ -19,8 +19,10 @@ import math
 import random
 from datetime import date, datetime, time, timedelta
 
-from . import catalogue
-from .receipts import Bill, Line, save
+from ..core import catalogue
+
+
+from ..core.receipts import Bill, Line, save
 
 OPEN, CLOSE = time(7, 0), time(19, 30)
 CLOSED_WEEKDAY = 0  # Monday

@@ -22,7 +22,8 @@ from strands import Agent
 from strands.hooks import (AfterModelCallEvent, BeforeModelCallEvent,
                            BeforeToolCallEvent, HookProvider)
 
-from . import model as models, tools
+from ..agent import model as models
+from ..agent import tools
 
 MAX_TOOL_CALLS = int(os.getenv("MAX_TOOL_CALLS", "30"))
 MAX_RUN_COST = float(os.getenv("MAX_RUN_COST_USD", "0.15"))

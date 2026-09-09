@@ -12,8 +12,12 @@ demonstrable before any credentials exist.
 
 from datetime import datetime, time, timedelta
 
-from . import calendar as occasions, catalogue, journal, state, tools
-from .journal import TRIGGERS
+from ..core import calendar as occasions
+from ..core import catalogue
+from ..ops import journal
+from ..ops import state
+from ..agent import tools
+from ..ops.journal import TRIGGERS
 
 # A day's shortfall worth mentioning. Below this the owner does not need an
 # email about it, and an agent that writes every evening is one that gets
@@ -41,7 +45,7 @@ def _unusual_loss(days_back=28):
     if len(window) < 10:
         return WORTH_MENTIONING
 
-    from . import analytics
+    from ..core import analytics
     priced = analytics.lost_to_sellouts(shop.bills, days=window,
                                         index=shop.index)
     per_day = {}
@@ -214,7 +218,7 @@ def with_agent(run_kind, model=None, watch=None, prompt=None):
     judgement on top: which of today's facts matter, what to do about them, and
     whether any of it is worth the owner's attention.
     """
-    from . import agent
+    from ..agent import agent
 
     tasks = {
         "nightly": ("The shop has closed. Read yesterday, decide tomorrow's "

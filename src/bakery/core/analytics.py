@@ -20,8 +20,8 @@ import statistics
 from collections import defaultdict
 from datetime import datetime, time, timedelta
 
-from . import catalogue
-from .receipts import units_by_day
+from ..core import catalogue
+from ..core.receipts import units_by_day
 
 OPEN, CLOSE = time(7, 0), time(19, 30)
 
@@ -370,7 +370,7 @@ def trend(bills, item, weeks=26, index=None, history=None):
     # much again as Tuesday, so daily scatter is larger than several months of
     # real drift and a slope fitted on daily values finds nothing. Weekly totals
     # remove the day-of-week swing completely and leave the trend standing.
-    from . import calendar as occasions
+    from ..core import calendar as occasions
 
     by_week = defaultdict(float)
     lifted = set()

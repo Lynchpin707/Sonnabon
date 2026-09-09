@@ -21,8 +21,9 @@ import statistics
 from collections import defaultdict
 from datetime import timedelta
 
-from . import calendar, catalogue
-from .analytics import Index, estimate_true_demand, find_sellouts
+from ..core import calendar
+from ..core import catalogue
+from ..core.analytics import Index, estimate_true_demand, find_sellouts
 
 NORMAL = statistics.NormalDist()
 
