@@ -85,8 +85,8 @@ Everything downstream reads that corrected history, never the raw sales.
 ![What the till could not tell you](docs/shots/sellout.png)
 
 It is also why occasion lifts are measured off corrected demand rather than off
-sales. Measured off the till, Christmas looks like a 1.6x week. Measured off
-what people actually wanted, it is 3.8x. A shop planning from the till would
+sales. Measured off the till, Christmas looks like a 1.5x week. Measured off
+what people actually wanted, it is 3.5x. A shop planning from the till would
 under-bake Christmas by more than half, and the till would report a triumph.
 
 ## It hands out the work and tracks it
