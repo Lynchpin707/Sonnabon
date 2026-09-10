@@ -192,6 +192,19 @@ def live(path, offset):
                      "last_at": last_sold[item].strftime("%H:%M")})
     rows.sort(key=lambda row: -row["sold"])
 
+    # The last few bills, individually. A climbing total tells you trade is
+    # happening; a receipt landing shows you. On a screen the second one is the
+    # only one anybody believes.
+    recent = []
+    for bill in bills[-6:][::-1]:
+        recent.append({
+            "number": bill.number,
+            "at": bill.at.strftime("%H:%M:%S"),
+            "total": bill.total,
+            "items": [{"item": line.item, "qty": line.qty}
+                      for line in bill.lines],
+        })
+
     return {
         "trading": True,
         "day": bills[0].day.isoformat(),
@@ -203,4 +216,5 @@ def live(path, offset):
         "from": bills[0].at.strftime("%H:%M"),
         "to": bills[-1].at.strftime("%H:%M"),
         "rows": rows,
+        "recent": recent,
     }

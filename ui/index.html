@@ -200,6 +200,23 @@ h2{font-family:var(--display);font-weight:600;font-size:1.06rem;margin:0;letter-
    the shop's day, but on the page so nobody has to reach for a terminal. */
 .act.till{margin-left:auto;font-size:.76rem;padding:.26rem .7rem}
 .act.till.on{background:var(--blush);border-color:var(--blush);color:#fff}
+/* Receipts landing. A total climbing says trade is happening; a bill arriving
+   shows it, and on a screen only the second one is believed. */
+.tape{display:flex;flex-direction:column;gap:.18rem;margin:.1rem 0 .9rem;
+  border-left:2px solid var(--edge);padding-left:.8rem}
+.tape .rcpt{display:flex;gap:.7rem;align-items:baseline;font-size:.8rem;
+  color:var(--ink-2);animation:land .45s ease-out}
+.tape .rcpt:first-child{color:var(--ink)}
+.tape .rcpt .no{font-family:var(--mono);font-size:.72rem;color:var(--ink-3);
+  min-width:4.6rem}
+.tape .rcpt .what{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+.tape .rcpt .tot{font-family:var(--figures);font-variant-numeric:tabular-nums}
+@keyframes land{from{opacity:0;transform:translateY(-5px)}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.tape .rcpt{animation:none}}
+
+/* What the shift just did, so it is not only visible on another tab. */
+.didit{font-size:.82rem;color:var(--mint-ink);margin:.15rem 0 .7rem}
 .pulsedot{width:7px;height:7px;border-radius:50%;background:var(--mint);
   display:inline-block;margin-right:.45rem;animation:pulsedot 1.6s ease-in-out infinite}
 @keyframes pulsedot{0%,100%{opacity:1}50%{opacity:.25}}
@@ -517,6 +534,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}
         <button class="act till" id="genBtn" style="display:none;" title="Generate a year of demo data to test the application">Generate Demo Data</button>
       </header>
       <div class="figs" id="figs"></div>
+      <div class="tape" id="tape" hidden></div>
       <div class="bars" id="bars"></div>
     </section>
 
@@ -826,7 +844,7 @@ function closeWelcome(){
 }
 
 (function live(){
-  let last=null, seenTicks=-1, seenWake=false;
+  let last=null, seenTicks=-1, seenWake=false, seenBill=0;
 
   // Starting and stopping the till from the page. It appends to the same file
   // the agent reads, in the same format, so nothing here is a demo-only path.
@@ -879,14 +897,51 @@ function closeWelcome(){
       // The shift works while the till runs. When it ticks something off or
       // the agent wakes at close, the pages that report it have to change
       // there and then, or the autonomy happens off screen.
+      // Receipts landing, newest first. Only the ones that are actually new get
+      // added: rebuilding the list every poll made all six rows replay their
+      // fade-in every two seconds, which on camera is a flicker rather than a
+      // shop.
+      const tape=$("#tape");
+      if(on&&d.recent&&d.recent.length){
+        tape.hidden=false;
+        const fresh=d.recent.filter(r=>r.number>seenBill)
+                            .sort((a,b)=>a.number-b.number);
+        fresh.forEach(r=>{
+          const row=el("div","rcpt");
+          row.appendChild(el("span","no","#"+r.number));
+          row.appendChild(el("span","what",
+            r.items.map(i=>i.qty+" "+i.item.toLowerCase()).join(", ")));
+          row.appendChild(el("span","tot",money(r.total)));
+          tape.prepend(row);
+          seenBill=r.number;});
+        while(tape.children.length>6)tape.lastChild.remove();
+      }else if(!on){tape.hidden=true;tape.textContent="";seenBill=0;}
+
       const sh=d.shift||{};
       const ticks=(sh.ticked||[]).length;
       if(ticks!==seenTicks){
         seenTicks=ticks;
-        if(ticks>0)api("/api/team").then(board).catch(()=>{});
+        if(ticks>0){
+          api("/api/team").then(board).catch(()=>{});
+          // Say it on this page too. Otherwise the board ticks itself on a tab
+          // nobody is looking at, which is the whole thing happening off screen.
+          const last=sh.ticked[sh.ticked.length-1];
+          if(last){
+            let note=$("#didit");
+            if(!note){note=el("div","didit");note.id="didit";
+              $("#tape").after(note);}
+            note.textContent=(last.kind==="check"
+              ? "The counter just confirmed what ran out."
+              : "The bakers just finished their trays.")
+              +"  "+last.jobs+" ticked off the board.";
+          }
+        }
       }
       if(sh.woke&&!seenWake){
         seenWake=true;
+        const note=$("#didit");
+        if(note)note.textContent="Close of trade. It woke on its own and planned "
+          +sh.woke.units.toLocaleString()+" units for tomorrow.";
         api("/api/journal").then(journalView).catch(()=>{});
         api("/api/today").then(today).catch(()=>{});
         api("/api/overview").then(o=>{docket(o.nightly.plan);ask(o.weekly);})
