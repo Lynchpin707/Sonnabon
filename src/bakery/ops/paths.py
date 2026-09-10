@@ -30,6 +30,7 @@ STORES = {
     "tickets": ("TICKETS_FILE", "tickets.json"),
     "outbox": ("OUTBOX_FILE", "outbox.jsonl"),
     "team": ("TEAM_FILE", "team.json"),
+    "notes": ("NOTES_FILE", "notes.md"),
 }
 
 

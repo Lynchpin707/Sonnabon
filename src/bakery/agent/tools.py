@@ -43,6 +43,38 @@ def _day(value):
 
 
 @tool
+def what_i_know() -> dict:
+    """What Sonnabon has learned about this particular shop.
+
+    Read this early. The receipts say what sold; they do not say that the
+    Tuesday market takes forty extra croissants or that one supplier needs three
+    weeks rather than one. Those live in a markdown file the owner can open and
+    correct, and whatever it says is treated as true.
+    """
+    from ..ops import notes
+    return notes.summary()
+
+
+@tool
+def remember(note: str, section: str = "The shop") -> dict:
+    """Write down something about this shop that the receipts cannot say.
+
+    Use it for a fact that will still be true next month and that changes a
+    decision: a supplier's real lead time, a standing order, a day the shop is
+    shut, a correction the owner made. Do not use it for anything already in the
+    data, and do not use it for one day's events.
+
+    Sections: The shop, Products, Suppliers, Occasions, Corrections.
+    """
+    from ..ops import notes
+    try:
+        return notes.remember(note, section)
+    except ValueError as error:
+        return {"added": False, "error": str(error),
+                "sections": list(notes.SECTIONS)}
+
+
+@tool
 def right_now() -> dict:
     """The time, and where the shop is in its trading day.
 

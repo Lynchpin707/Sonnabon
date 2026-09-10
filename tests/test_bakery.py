@@ -624,3 +624,83 @@ def test_reading_tools_are_never_gated():
         ledger.before_tool(call)
         assert call.cancel is None
     assert ledger.report()["notified"] == 0
+
+
+# ── what it learns about one shop, and keeps ────────────────────────────────
+
+def test_it_keeps_what_it_learns_and_a_person_can_read_it(tmp_path, monkeypatch):
+    """The receipts cannot say a supplier needs three weeks. Something has to
+    hold that between runs, and the owner has to be able to see it."""
+    import importlib
+    from src.bakery.ops import notes, paths
+
+    monkeypatch.setenv("NOTES_FILE", str(tmp_path / "notes.md"))
+    importlib.reload(paths)
+    importlib.reload(notes)
+
+    assert notes.summary()["known"] == 0
+
+    first = notes.remember("The pistachio supplier needs three weeks.",
+                           "Suppliers")
+    assert first["added"] is True
+    again = notes.remember("The pistachio supplier needs three weeks.",
+                            "Suppliers")
+    assert again["added"] is False, "the same fact was written twice"
+    assert notes.summary()["known"] == 1
+
+    body = notes.read()
+    assert body.startswith("# "), "it has to be readable markdown, not a blob"
+    assert "## Suppliers" in body
+    assert "three weeks" in body
+
+
+def test_the_owner_can_cross_a_line_out(tmp_path, monkeypatch):
+    """An agent whose memory cannot be corrected becomes quietly wrong."""
+    import importlib
+    from src.bakery.ops import notes, paths
+
+    monkeypatch.setenv("NOTES_FILE", str(tmp_path / "notes.md"))
+    importlib.reload(paths)
+    importlib.reload(notes)
+
+    notes.remember("Closed the second week of August.", "The shop")
+    notes.remember("The Tuesday market takes 40 extra croissants.", "The shop")
+    assert notes.summary()["known"] == 2
+
+    assert notes.forget("August")["removed"] == 1
+    assert notes.summary()["known"] == 1
+    assert "August" not in notes.read()
+
+    with pytest.raises(ValueError, match="every line"):
+        notes.forget("   ")
+
+
+def test_a_note_it_cannot_file_is_refused_with_the_sections(tmp_path, monkeypatch):
+    import importlib
+    from src.bakery.ops import notes, paths
+
+    monkeypatch.setenv("NOTES_FILE", str(tmp_path / "notes.md"))
+    importlib.reload(paths)
+    importlib.reload(notes)
+
+    with pytest.raises(ValueError, match="not a section"):
+        notes.remember("something", "Wherever")
+    with pytest.raises(ValueError, match="empty note"):
+        notes.remember("   ")
+
+
+def test_the_memory_shown_to_the_model_is_capped(tmp_path, monkeypatch):
+    """It is prepended to every run, so an unbounded file would quietly become
+    the largest thing the agent reads."""
+    import importlib
+    from src.bakery.ops import notes, paths
+
+    monkeypatch.setenv("NOTES_FILE", str(tmp_path / "notes.md"))
+    importlib.reload(paths)
+    importlib.reload(notes)
+
+    for i in range(60):
+        notes.remember(f"Fait numero {i}.", "Products")
+    assert notes.summary()["known"] == 60
+    shown = sum(len(v) for v in notes.summary(limit=40)["notes"].values())
+    assert shown <= 40, f"{shown} notes would be sent every run"

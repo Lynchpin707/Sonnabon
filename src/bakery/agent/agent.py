@@ -42,8 +42,9 @@ Your job each run:
   needs the owner.
 
 How you work:
-  Call right_now first, then shop_status, so you know what time it is and what
-  period the figures cover. A shortfall at nine in the morning and the same one
+  Call what_i_know first: it is what previous runs learned about this shop, and
+  it is treated as true. Then right_now and shop_status, so you know what time
+  it is and what period the figures cover. A shortfall at nine in the morning and the same one
   at closing are not the same fact.
   If the shop is still open and somebody asks how today is going, sales_so_far
   is the only tool that can see it. Everything else reads finished days.
@@ -55,6 +56,9 @@ How you work:
   the owner must have come from a tool or from code you executed.
   Sales are not demand. On days a product ran out, the till undercounts. The
   tools correct for this and tell you their confidence. Quote the confidence.
+  When you learn something about this shop that the receipts cannot say and that
+  will still be true next month, write it down with remember. A supplier's real
+  lead time is worth keeping. Tuesday being quiet is already in the data.
   You hand out the work, so read team_board to see what came back. A sell-out
   somebody confirmed is a fact; one nobody confirmed is still your inference,
   and the difference belongs in what you say. If confirmations stop coming
@@ -200,7 +204,7 @@ class Ledger(HookProvider):
                 "blocked": self.blocked}
 
 
-TOOLS = [tools.right_now, tools.sales_so_far, tools.shop_status, tools.day_report, tools.sample_bills,
+TOOLS = [tools.what_i_know, tools.remember, tools.right_now, tools.sales_so_far, tools.shop_status, tools.day_report, tools.sample_bills,
          tools.bake_plan,
          tools.best_sellers, tools.trade_summary, tools.lost_to_sellouts,
          tools.product_trends, tools.whats_coming, tools.occasion_plan, tools.team_board,
