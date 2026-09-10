@@ -82,6 +82,55 @@ def right_now() -> dict:
 
 
 @tool
+def sales_so_far() -> dict:
+    """What has sold today, up to this minute, while the shop is still open.
+
+    Every other tool reads finished days. This one reads the day in progress,
+    which is the only way to answer "how are we doing so far" without waiting
+    for closing time.
+
+    It reads only the bills that have arrived since trade began, never the
+    corrected history, so it costs milliseconds and stays honest about what it
+    is: raw sales, uncorrected. A product that has stopped selling this morning
+    might have run out or might just be slow, and until the day is over there is
+    no way to tell. Say that rather than guessing.
+    """
+    from . import feed
+
+    stream = feed.get(state.BILLS)
+    live = feed.live(stream.path, stream.offset)
+    clock = right_now()
+
+    if not live.get("trading"):
+        return {
+            "trading": False,
+            "note": ("No trade has arrived yet today. The figures on the page "
+                     "are the last completed day."),
+            "time": clock["time"],
+            "shop_open": clock["trading"],
+            "last_complete_day": clock["reporting_on"],
+        }
+
+    return {
+        "trading": True,
+        "day": live["day"],
+        "time": clock["time"],
+        "from": live["from"],
+        "to": live["to"],
+        "through_day": clock["through_day"],
+        "customers": live["customers"],
+        "units": live["units"],
+        "revenue": live["revenue"],
+        "average_basket": live["average_basket"],
+        "rows": live["rows"],
+        "note": ("Raw sales for a day still running. Not corrected for "
+                 "sell-outs, because a product that has gone quiet this "
+                 "morning may have run out or may just be slow, and only the "
+                 "finished day can tell those apart."),
+    }
+
+
+@tool
 def shop_status() -> dict:
     """What data the shop has, and what is on the menu.
 

@@ -121,7 +121,7 @@ DUTIES = [
      "does": "Decides tomorrow's production, product by product",
      "note": "Corrected for the days something sold out"},
     {"at": "Each supplier cutoff",
-     "does": "Works back to ingredients and raises the orders",
+     "does": "Works out the day each order is due and says so in time",
      "note": "Suppliers need notice for a quantity change"},
     {"at": "Once a week",
      "does": "Says what is moving, and what is coming on the calendar",

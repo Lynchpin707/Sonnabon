@@ -12,6 +12,7 @@ that will not serialise, a stream that closes early.
 
 import json
 import os
+import time
 import socket
 import threading
 import urllib.error
@@ -421,3 +422,50 @@ def test_the_agent_can_see_what_the_team_ticked(site):
     assert post(site, "/api/tickets", {"id": target, "done": True})[0] == 200
     assert tools.team_board()["confirmed"] == before + 1, (
         "a confirmation the counter made did not reach the agent")
+
+
+def test_it_can_see_the_day_it_is_still_in(site):
+    """Asked at two in the afternoon how today is going, every other tool would
+    answer about yesterday, because they all read finished days."""
+    from src.bakery import feed, state, tools
+
+    quiet = tools.sales_so_far()
+    assert quiet["trading"] is False
+    assert quiet["last_complete_day"], "it should still say what it can see"
+
+    stream = feed.get(state.BILLS)
+    # The feed appends to the real till file. Put it back afterwards, or the
+    # suite leaves half a trading day in the demo shop.
+    was = os.path.getsize(state.BILLS)
+    try:
+        stream.speed = 100000       # a whole day in a moment
+        stream.start()
+        for _ in range(60):
+            if stream.written > 20:
+                break
+            time.sleep(0.1)
+        live = tools.sales_so_far()
+        assert live["trading"] is True, "it still cannot see today"
+        assert live["customers"] > 0 and live["rows"]
+        assert live["day"] > quiet["last_complete_day"], "that is not today"
+        assert "not corrected" in live["note"].lower(), (
+            "it has to say these are raw sales, or it will be quoted as demand")
+    finally:
+        stream.stop()
+        state.hold(False)
+        time.sleep(0.3)                      # let the writer finish its line
+        with open(state.BILLS, "r+", encoding="utf-8") as handle:
+            handle.truncate(was)
+        feed._feed = None                    # its offset now points past the end
+
+
+def test_a_question_is_not_logged_as_a_nightly_run(site):
+    """Asking something at two in the afternoon put "close of trade" in the
+    diary, because the page sent every free-form prompt as a nightly run."""
+    page = open("ui/index.html", encoding="utf-8").read()
+    assert 'kind:"asked"' in page, "the page still mislabels a typed question"
+    assert 'kind:"nightly",prompt' not in page
+
+    from src.bakery import journal, runs
+    assert "asked" in journal.TRIGGERS
+    assert runs.TRIGGERS["asked"] == "you asked"

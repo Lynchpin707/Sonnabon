@@ -316,7 +316,10 @@ Currency, data paths and limits are all environment variables. See
   they plan. The tool prints this caveat rather than burying it.
 - Web search returns "not configured" without an API key instead of inventing an
   event.
-- Purchase orders and emails go to `data/outbox.jsonl` until SES is set up.
+- It does not order anything. It works out the day an order is due and says so
+  in time. Anything with a supplier or money on the other end stays a person's
+  job, and the agent is told so in its own prompt.
+- Emails go to `data/outbox.jsonl` until SES is set up.
 - The artwork is a placeholder and is not committed. The font is, along with its
   licence.
 

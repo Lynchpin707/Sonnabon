@@ -228,7 +228,10 @@ def with_agent(run_kind, model=None, watch=None, prompt=None):
                     "what you think caused it. If everything sat inside its usual "
                     "range, say that in one line and stop. Do not write a report."),
     }
-    task = prompt or tasks.get(run_kind)
+    if run_kind == "asked" and prompt:
+        task = prompt          # whatever was typed, answered on its own terms
+    else:
+        task = prompt or tasks.get(run_kind)
     if not task:
         raise ValueError(f"{run_kind!r} is not a run. Use {sorted(tasks)}, "
                          "or pass a prompt of your own.")

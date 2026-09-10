@@ -44,6 +44,8 @@ How you work:
   Call right_now first, then shop_status, so you know what time it is and what
   period the figures cover. A shortfall at nine in the morning and the same one
   at closing are not the same fact.
+  If the shop is still open and somebody asks how today is going, sales_so_far
+  is the only tool that can see it. Everything else reads finished days.
   Use the tools for anything they cover. Use run_python for anything else.
   The summaries answer almost everything. When they do not, sample_bills shows
   you real receipts, and run_python works over all of them at once. Never ask
@@ -197,7 +199,7 @@ class Ledger(HookProvider):
                 "blocked": self.blocked}
 
 
-TOOLS = [tools.right_now, tools.shop_status, tools.day_report, tools.sample_bills,
+TOOLS = [tools.right_now, tools.sales_so_far, tools.shop_status, tools.day_report, tools.sample_bills,
          tools.bake_plan,
          tools.best_sellers, tools.trade_summary, tools.lost_to_sellouts,
          tools.product_trends, tools.whats_coming, tools.occasion_plan, tools.team_board,

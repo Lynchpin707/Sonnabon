@@ -995,6 +995,13 @@ function drawCurve(c){
   const path=p=>p.map((v,i)=>(i?"L":"M")+x(i).toFixed(1)+" "+y(v).toFixed(1)).join(" ");
   const text=(t,a)=>{const e=svg("text",a);e.textContent=t;return e;};
   const MONO="JetBrains Mono, monospace";
+  // Read the palette rather than repeating it. SVG presentation attributes
+  // cannot take a var(), so the chart used hex literals and stayed navy and
+  // pink whatever the tokens said. One shop, one palette, this included.
+  const css=getComputedStyle(document.documentElement);
+  const tone=n=>css.getPropertyValue("--"+n).trim();
+  const INK=tone("ink"), INK2=tone("ink-2"), BLUSH=tone("blush"),
+        BLUSHINK=tone("blush-ink");
   const g=svg("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":
     `${c.item}: ${c.total_sold} sold, about ${c.estimate} wanted, ran out at ${c.sold_out_at}`});
 
@@ -1002,9 +1009,9 @@ function drawCurve(c){
     g.appendChild(svg("line",{x1:L,x2:W-R,y1:y(v),y2:y(v),
       stroke:"rgba(34,56,76,.13)","stroke-width":1}));
     g.appendChild(text(v,{x:L-8,y:y(v)+4,"text-anchor":"end","font-family":MONO,
-      "font-size":"11",fill:"#5A7186"}));}
+      "font-size":"11",fill:INK2}));}
   g.appendChild(text("units sold, running total",{x:L-8,y:T-13,
-    "text-anchor":"start","font-size":"11.5",fill:"#5A7186"}));
+    "text-anchor":"start","font-size":"11.5",fill:INK2}));
 
   const s=c.sold_out_slot;
   if(s!=null&&s<n-1){
@@ -1012,7 +1019,7 @@ function drawCurve(c){
     const dn=c.sold.slice(s).map((v,i)=>[x(s+i),y(v)]).reverse()
       .map(([a,b])=>`L${a.toFixed(1)} ${b.toFixed(1)}`).join(" ");
     g.appendChild(svg("path",{d:`M${x(s).toFixed(1)} ${y(c.would_have[s]).toFixed(1)} ${up} ${dn} Z`,
-      fill:"#DE7C95","fill-opacity":".18"}));
+      fill:BLUSH,"fill-opacity":".18"}));
 
     // The gap is the whole argument, so it says what it is, in the gap.
     // Sat on the dashed line at the midpoint. Pushed into the shaded area so
@@ -1022,29 +1029,29 @@ function drawCurve(c){
     const gy=top+(bottom-top)*0.42;
     g.appendChild(text(c.missed+" people found an empty tray",
       {x:x(mid),y:gy,"text-anchor":"middle","font-size":"12.5",
-       fill:"#CD395F","font-weight":"600"}));
+       fill:BLUSHINK,"font-weight":"600"}));
     g.appendChild(text(money(c.lost_margin)+" of margin walked out",
-      {x:x(mid),y:gy+17,"text-anchor":"middle","font-size":"11.5",fill:"#CD395F"}));
+      {x:x(mid),y:gy+17,"text-anchor":"middle","font-size":"11.5",fill:BLUSHINK}));
 
-    g.appendChild(svg("line",{x1:x(s),x2:x(s),y1:T,y2:H-B,stroke:"#CD395F",
+    g.appendChild(svg("line",{x1:x(s),x2:x(s),y1:T,y2:H-B,stroke:BLUSHINK,
       "stroke-width":1.4,"stroke-dasharray":"4 3"}));
-    g.appendChild(svg("circle",{cx:x(s),cy:y(c.sold[s]),r:4.5,fill:"#22384C"}));
+    g.appendChild(svg("circle",{cx:x(s),cy:y(c.sold[s]),r:4.5,fill:INK}));
     g.appendChild(text("ran out "+c.sold_out_at,{x:x(s)-8,y:T-13,
       "text-anchor":"end","font-family":MONO,"font-size":"11.5",
-      fill:"#CD395F","font-weight":"500"}));
+      fill:BLUSHINK,"font-weight":"500"}));
 
     // A band along the bottom, because "empty for six hours" is the fact an
     // owner actually feels, and no curve conveys a duration.
     const by=H-B+20;
-    g.appendChild(svg("line",{x1:x(s),x2:x(n-1),y1:by,y2:by,stroke:"#CD395F",
+    g.appendChild(svg("line",{x1:x(s),x2:x(n-1),y1:by,y2:by,stroke:BLUSHINK,
       "stroke-width":3,"stroke-linecap":"round","opacity":".55"}));
     g.appendChild(text("nothing on the tray for "+c.empty_for,
       {x:(x(s)+x(n-1))/2,y:by+15,"text-anchor":"middle","font-size":"11.5",
-       fill:"#CD395F"}));}
+       fill:BLUSHINK}));}
 
-  g.appendChild(svg("path",{d:path(c.would_have),fill:"none",stroke:"#DE7C95",
+  g.appendChild(svg("path",{d:path(c.would_have),fill:"none",stroke:BLUSH,
     "stroke-width":2.2,"stroke-dasharray":"6 4","stroke-linecap":"round"}));
-  const solid=svg("path",{d:path(c.sold),fill:"none",stroke:"#22384C",
+  const solid=svg("path",{d:path(c.sold),fill:"none",stroke:INK,
     "stroke-width":2.8,"stroke-linecap":"round","stroke-linejoin":"round"});
   solid.setAttribute("class","draw");g.appendChild(solid);
 
@@ -1052,14 +1059,14 @@ function drawCurve(c){
   const label=(v,t1,t2,fill,weight)=>{
     g.appendChild(text(t1,{x:W-R+10,y:y(v)-1,"font-size":"12.5",fill:fill,
       "font-weight":weight}));
-    g.appendChild(text(t2,{x:W-R+10,y:y(v)+15,"font-size":"11.5",fill:"#5A7186"}));};
-  label(c.would_have[n-1],"What people wanted",c.estimate+" units","#CD395F","600");
-  label(c.sold[n-1],"What you sold",c.total_sold+" units","#22384C","600");
+    g.appendChild(text(t2,{x:W-R+10,y:y(v)+15,"font-size":"11.5",fill:INK2}));};
+  label(c.would_have[n-1],"What people wanted",c.estimate+" units",BLUSHINK,"600");
+  label(c.sold[n-1],"What you sold",c.total_sold+" units",INK,"600");
 
   [0,Math.floor(n/2),n-1].forEach(i=>{
     g.appendChild(text(c.labels[i],{x:x(i),y:H-B+7,
       "text-anchor":i===0?"start":i===n-1?"end":"middle",
-      "font-family":MONO,"font-size":"11",fill:"#5A7186"}));});
+      "font-family":MONO,"font-size":"11",fill:INK2}));});
   $("#chart").textContent="";$("#chart").appendChild(g);
 }
 
@@ -1382,7 +1389,9 @@ function stream(body){
   }
   $("#runNight").onclick=()=>stream({kind:"nightly"});
   $("#runWeek").onclick=()=>stream({kind:"noticed"});
-  const fire=input=>{const p=input.value.trim();if(p)stream({kind:"nightly",prompt:p});};
+  // A question typed at two in the afternoon is not a close-of-trade run, and
+  // the diary should not record it as one.
+  const fire=input=>{const p=input.value.trim();if(p)stream({kind:"asked",prompt:p});};
   $("#send").onclick=()=>fire($("#prompt"));
   $("#send2").onclick=()=>fire($("#prompt2"));
   $("#welcome").addEventListener("keydown",e=>{if(e.key==="Escape")closeWelcome();});
