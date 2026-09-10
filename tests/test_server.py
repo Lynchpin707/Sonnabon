@@ -36,7 +36,7 @@ def site(tmp_path_factory):
     # meant to ask has already been answered.
     os.environ["COSTS_FILE"] = str(root / "costs.json")
     import importlib
-    from src.bakery import team as tickets, journal, paths
+    from src.bakery.ops import team as tickets, journal, paths
     importlib.reload(paths)
     importlib.reload(tickets)
     importlib.reload(journal)
@@ -281,7 +281,7 @@ def test_every_read_only_agent_tool_actually_runs(site):
     Anything with a side effect or a network call is left out on purpose.
     """
     import inspect
-    from src.bakery import agent
+    from src.bakery.agent import agent
 
     skip = set(agent.ACTIONS) | {"run_python", "find_local_events"}
     ran, failed = [], []
@@ -394,7 +394,7 @@ def test_the_agent_can_see_what_the_team_ticked(site):
     confirmation that makes the next forecast better is invisible to the thing
     that asked for it.
     """
-    from src.bakery import tools
+    from src.bakery.agent import tools
 
     board = tools.team_board()
     for key in ("board", "progress", "still_waiting", "confirmations",
@@ -427,7 +427,8 @@ def test_the_agent_can_see_what_the_team_ticked(site):
 def test_it_can_see_the_day_it_is_still_in(site):
     """Asked at two in the afternoon how today is going, every other tool would
     answer about yesterday, because they all read finished days."""
-    from src.bakery import feed, state, tools
+    from src.bakery.ops import feed, state
+    from src.bakery.agent import tools
 
     quiet = tools.sales_so_far()
     assert quiet["trading"] is False
@@ -466,6 +467,37 @@ def test_a_question_is_not_logged_as_a_nightly_run(site):
     assert 'kind:"asked"' in page, "the page still mislabels a typed question"
     assert 'kind:"nightly",prompt' not in page
 
-    from src.bakery import journal, runs
+    from src.bakery.ops import journal
+
+    from src.bakery.agent import runs
     assert "asked" in journal.TRIGGERS
     assert runs.TRIGGERS["asked"] == "you asked"
+
+
+def test_a_handler_never_shadows_a_module_it_also_uses(site):
+    """This broke saving a ticket, and the traceback pointed nowhere useful.
+
+    An import inside a request handler makes that name local for the whole
+    function, so every later use of the module-level one raises
+    UnboundLocalError. It only shows up on the paths that run after the import,
+    which is why it survived being added.
+    """
+    import ast
+
+    tree = ast.parse(open("ui/app.py", encoding="utf-8").read())
+    handler = next(n for n in ast.walk(tree)
+                   if isinstance(n, ast.ClassDef) and n.name == "Handler")
+    top = {alias.asname or alias.name.split(".")[0]
+           for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+           and node.col_offset == 0 for alias in node.names}
+
+    for method in [n for n in handler.body if isinstance(n, ast.FunctionDef)]:
+        inner = {alias.asname or alias.name.split(".")[0]
+                 for node in ast.walk(method)
+                 if isinstance(node, (ast.Import, ast.ImportFrom))
+                 for alias in node.names}
+        clash = inner & top
+        assert not clash, (
+            f"{method.name} imports {sorted(clash)}, which is already imported "
+            f"at module level. That makes it local for the whole method and "
+            f"every later use of it raises UnboundLocalError.")

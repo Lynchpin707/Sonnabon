@@ -20,7 +20,9 @@ day in turn, which costs hours and moves the answer very little.
 import json
 from datetime import timedelta
 
-from . import catalogue, plan, state
+from ..core import catalogue
+from ..core import plan
+from ..ops import state
 
 
 def run(days=90, from_day=None):

@@ -148,8 +148,8 @@ median day, and the detector finds a real sell-out nine times in ten. Three
 weeks of history is enough to start.
 
 ```bash
-sonnabon-backtest    # replays the year and prices both plans
-pytest               # 70 tests: the maths, and the site
+uv run sonnabon-backtest    # replays the year and prices both plans
+uv run pytest               # 71 tests: the maths, and the site
 ```
 
 The backtest is the interesting one. Waste goes **up** and lost sales go **down
@@ -158,26 +158,37 @@ most owners believe the other way round.
 
 ## Run it
 
+Using `uv`, you can run the application directly in two ways:
+
+**1. Normal usage (Blank slate)**
+Start the server without any trading history. You can then point it at your own data.
 ```bash
-pip install -e .
-sonnabon
+uv run sonnabon
 ```
 
-Open <http://localhost:8000>. The first start generates a year and corrects it,
-about thirty seconds. Every start after that is instant. Each page has its own
-address, so `#diary` and `#setup` can be linked and reloaded.
+**2. Demonstration mode**
+To populate the shop with a year of simulated trading data before starting:
+```bash
+uv run sonnabon-generate    # a fresh year of trade, --days and --seed optional
+uv run sonnabon
+```
+
+Open <http://localhost:8000>. When running the demonstration, building the corrected history from the generated year takes about thirty seconds on the first start. Every start after that is instant. Each page has its own address, so `#diary` and `#setup` can be linked and reloaded.
 
 ```bash
-sonnabon-reset       # back to a known state before a demo
-sonnabon-generate    # a fresh year of trade, --days and --seed optional
+uv run sonnabon-reset       # back to a known state before a demo
+uv run sonnabon-clear       # remove all data and return to an empty state
+uv run sonnabon --provider ollama   # explicitly force ollama
+uv run sonnabon --provider bedrock  # explicitly force bedrock
 ```
 
 The agent needs a model and will say so plainly if it has none. Two ways to give
 it one, either is enough:
 
 ```bash
-ollama pull qwen3                 # local, no account, works immediately
-# or set AWS_REGION and credentials in .env and enable Claude in Bedrock
+ollama pull qwen3                 # local, no account, works
+# or set AWS_REGION and credentials (and optionally AWS_BEARER_TOKEN_BEDROCK)
+# in .env and enable Claude in Bedrock
 ```
 
 There is deliberately no scripted stand-in. A templated sentence presented as
@@ -202,22 +213,28 @@ on a name and unreadable on a column of numbers.
 
 ```
 src/bakery/
-  receipts.py    bills, exactly as a till prints them
-  catalogue.py   the menu, learned from the receipts themselves
-  generate.py    a year of trade, sell-outs on purpose, truth kept aside
-  analytics.py   sell-out detection, demand estimation, trends, rankings
-  plan.py        corrected history, forecast, production quantities
-  calendar.py    occasions, and how far ahead each has to be started
-  team.py        whose job is what, whether it is done, who confirms sell-outs
-  feed.py        a trading day arriving live, one bill at a time
-  journal.py     what it did and when, so the autonomy is evidence not a claim
-  model.py       which provider answers, and what to do when none can
-  paths.py       one shop id, every store under it, one process per bakery
-  state.py       loaded once, cached on the data file's timestamp
-  backtest.py    would it actually have done better
-  tools.py       the thirteen things the agent can do
-  agent.py       the agent, and the limits it cannot argue with
-  runs.py        what happens when the clock goes off
+  core/
+    analytics.py   sell-out detection, demand estimation, trends, rankings
+    calendar.py    occasions, and how far ahead each has to be started
+    catalogue.py   the menu, learned from the receipts themselves
+    plan.py        corrected history, forecast, production quantities
+    receipts.py    bills, exactly as a till prints them
+  ops/
+    feed.py        a trading day arriving live, one bill at a time
+    journal.py     what it did and when, so the autonomy is evidence not a claim
+    paths.py       one shop id, every store under it, one process per bakery
+    shift.py       the shop's day, running or not
+    state.py       loaded once, cached on the data file's timestamp
+    team.py        whose job is what, whether it is done, who confirms sell-outs
+  agent/
+    agent.py       the agent, and the limits it cannot argue with
+    model.py       which provider answers, and what to do when none can
+    runs.py        what happens when the clock goes off
+    tools.py       the thirteen things the agent can do
+  simulation/
+    backtest.py    would it actually have done better
+    generate.py    a year of trade, sell-outs on purpose, truth kept aside
+  cli.py         command-line entry points
 ui/
   app.py         the demo server
   index.html     five pages, one file, no build step

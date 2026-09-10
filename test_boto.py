@@ -1,0 +1,23 @@
+import os
+import boto3
+import botocore
+from botocore.config import Config
+
+os.environ["AWS_BEARER_TOKEN_BEDROCK"] = "secret-token"
+bearer = os.getenv("AWS_BEARER_TOKEN_BEDROCK")
+
+session = boto3.Session()
+if bearer:
+    def inject_bearer(request, **kwargs):
+        request.headers.add_header('Authorization', f'Bearer {bearer}')
+    
+    session.events.register('request-created.bedrock-runtime', inject_bearer)
+    config = Config(signature_version=botocore.UNSIGNED)
+else:
+    config = None
+
+client = session.client('bedrock-runtime', region_name="us-east-1", config=config)
+try:
+    print(client.list_foundation_models())
+except Exception as e:
+    print("Error:", type(e), str(e))

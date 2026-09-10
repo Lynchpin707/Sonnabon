@@ -210,7 +210,7 @@ def adopt(products):
 
 
 def _costs_path():
-    from . import paths
+    from ..ops import paths
     return paths.of("costs")
 
 

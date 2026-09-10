@@ -15,8 +15,11 @@ import os
 import pickle
 from datetime import date
 
-from . import paths, analytics, catalogue, plan
-from .receipts import load
+from ..ops import paths
+from ..core import analytics
+from ..core import catalogue
+from ..core import plan
+from ..core.receipts import load
 
 BILLS = paths.of("bills")
 CACHE = paths.of("cache")
@@ -58,11 +61,11 @@ class Shop:
 
     @property
     def first_day(self):
-        return self.days[0]
+        return self.days[0] if self.days else date.today()
 
     @property
     def last_day(self):
-        return self.days[-1]
+        return self.days[-1] if self.days else date.today()
 
     def summary(self):
         return {
@@ -102,7 +105,11 @@ def _learn_menu_if_new(bills):
     seen = {line.item for bill in bills for line in bill.lines}
     if not seen or seen <= set(catalogue.BY_NAME):
         return []
-    learned = catalogue.learn(bills, food_cost=float(os.getenv("FOOD_COST", "0.30")))
+    learned = catalogue.learn(
+        bills,
+        food_cost=float(os.getenv("FOOD_COST", "0.30")),
+        no_waste=[p.name for p in catalogue.PRODUCTS if p.bake_minutes <= 0]
+    )
     catalogue.adopt(learned)
     catalogue.load_confirmed()          # any costs this shop already answered
     return [product.name for product in learned]
@@ -110,20 +117,20 @@ def _learn_menu_if_new(bills):
 
 def ensure(path=None):
     """Make sure there is a shop to read.
-
-    A fresh clone has no data, because a year of receipts does not belong in
-    version control. Generating it here means the first thing somebody runs
-    works, instead of failing with a stack trace at whoever just cloned this.
+    
+    A fresh clone has no data. If the user wants the demonstration data, they can 
+    run 'sonnabon-generate'. Otherwise, the application starts with a blank slate.
     """
     path = path or BILLS
     if os.path.exists(path):
         return path
-    from datetime import date, timedelta
-    from . import generate
-    print(f"No trading data at {path}. Generating a year, about 30 seconds.",
-          flush=True)
-    end = date.today()
-    generate.write(end - timedelta(days=370), end, bills_path=path)
+    
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        pass
+        
+    print(f"No trading data at {path}. Starting blank. "
+          f"Run 'sonnabon-generate' to create the demonstration dataset.", flush=True)
     return path
 
 
@@ -165,6 +172,7 @@ def get(path=None, refresh=False):
             if cached.get("source") == path and cached.get("stamp") == stamp:
                 _state = Shop(cached["bills"], cached["index"], cached["history"],
                               cached["corrected"], path, stamp)
+                _learn_menu_if_new(_state.bills)
                 return _state
         except Exception:
             # A corrupt cache must cost one rebuild, never the run. Falling

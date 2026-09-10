@@ -13,7 +13,9 @@ from datetime import date, timedelta
 
 import pytest
 
-from src.bakery import analytics, calendar, catalogue, generate, plan, receipts
+from src.bakery.core import analytics, calendar, catalogue, plan, receipts
+
+from src.bakery.simulation import generate
 
 NEWLINE = chr(10)
 
@@ -226,7 +228,8 @@ def test_no_module_references_a_product_that_does_not_exist():
     quietly stopped lifting anything, and the generator quietly stopped making
     it. A silent wrong answer, which is the kind this project exists to avoid.
     """
-    from src.bakery import calendar as occasions, generate
+    from src.bakery.core import calendar as occasions
+    from src.bakery.simulation import generate
 
     menu = {product.name for product in catalogue.PRODUCTS}
 
@@ -248,7 +251,7 @@ def test_no_module_references_a_product_that_does_not_exist():
 def test_journal_survives_an_empty_file_and_a_torn_line(tmp_path):
     """It is written to at the end of every run, so it must never be the thing
     that breaks one."""
-    from src.bakery import journal
+    from src.bakery.ops import journal
 
     path = str(tmp_path / "j.jsonl")
     assert journal.read(path) == [] and journal.summary(path)["runs"] == 0
@@ -268,7 +271,7 @@ def test_journal_counts_back_from_the_last_run_not_the_wall_clock(tmp_path):
     """Runs are stamped in the shop's time. A dataset a few days behind must
     still show its week, or the page reports silence that never happened."""
     from datetime import datetime, timedelta
-    from src.bakery import journal
+    from src.bakery.ops import journal
 
     path = str(tmp_path / "j.jsonl")
     old = datetime.now() - timedelta(days=90)
@@ -281,7 +284,8 @@ def test_journal_counts_back_from_the_last_run_not_the_wall_clock(tmp_path):
 def test_it_stays_quiet_on_an_ordinary_day(shop, tmp_path, monkeypatch):
     """The product claims it writes only when something needs a person. If it
     speaks every night that claim is false, and it is the central one."""
-    from src.bakery import runs, state
+    from src.bakery.agent import runs
+    from src.bakery.ops import state
 
     monkeypatch.setattr(journal_module(), "PATH", str(tmp_path / "j.jsonl"))
     monkeypatch.setattr(state, "get", lambda *a, **k: _Shop(shop))
@@ -295,7 +299,7 @@ def test_it_stays_quiet_on_an_ordinary_day(shop, tmp_path, monkeypatch):
 
 
 def journal_module():
-    from src.bakery import journal
+    from src.bakery.ops import journal
     return journal
 
 
@@ -328,7 +332,8 @@ def test_noticed_says_nothing_when_nothing_is_unusual(shop, tmp_path, monkeypatc
     it must not reach for the owner unless the move is big enough to be a
     decision rather than news.
     """
-    from src.bakery import journal, runs, state
+    from src.bakery.ops import journal, state
+    from src.bakery.agent import runs
 
     monkeypatch.setattr(journal, "PATH", str(tmp_path / "j.jsonl"))
     monkeypatch.setattr(state, "get", lambda *a, **k: _Shop(shop))
@@ -351,7 +356,7 @@ def test_noticed_says_nothing_when_nothing_is_unusual(shop, tmp_path, monkeypatc
 def test_confirming_a_cost_changes_what_gets_baked(tmp_path):
     """The point of asking. If a confirmed cost did not move the plan there
     would be no reason to trouble the owner for it."""
-    from src.bakery import plan
+    from src.bakery.core import plan
 
     product = catalogue.get("Croissant")
     before = plan.quantity(product, 100, 20)
@@ -378,7 +383,7 @@ def test_every_store_lands_under_one_root(monkeypatch):
     """Six variables and two hard coded paths is not a configuration, it is a
     trap. One shop id has to move all of them together."""
     import importlib
-    from src.bakery import paths
+    from src.bakery.ops import paths
 
     monkeypatch.setenv("SHOP_ID", "rue-des-lilas")
     monkeypatch.setenv("DATA_ROOT", "/srv/shops")
@@ -405,7 +410,7 @@ def test_a_second_shop_in_one_process_is_refused():
     """The catalogue is a module global. A second bakery here would read the
     first one's menu and plan against it, and nothing about that looks wrong."""
     import importlib
-    from src.bakery import paths
+    from src.bakery.ops import paths
     importlib.reload(paths)
 
     assert paths.only("first") == "first"
@@ -460,7 +465,7 @@ def test_a_shop_it_has_never_seen_still_loads(tmp_path):
     """
     import json
     import random
-    from src.bakery import state
+    from src.bakery.ops import state
 
     menu = {"Pain au chocolat": 1.40, "Kouign amann": 3.60, "Flat white": 3.20}
     random.seed(3)
@@ -501,12 +506,55 @@ def test_a_menu_it_already_knows_is_not_relearned(shop):
     """Relearning would flatten oven times, shelf lives and salvage values that
     no receipt can carry, so it only happens when the bills are genuinely from
     somewhere else."""
-    from src.bakery import state
+    from src.bakery.ops import state
 
     held = {p.name: p for p in catalogue.PRODUCTS}
     changed = state._learn_menu_if_new(shop["bills"])
     assert changed == [], "the demo menu was replaced by a derived one"
     assert {p.name: p for p in catalogue.PRODUCTS} == held
+
+
+def test_a_cached_shop_still_learns_new_menu(tmp_path, monkeypatch):
+    """When state is restored from a pickle cache, the menu must be adopted so
+    downstream catalogue.get() calls don't crash with KeyError."""
+    import json
+    import pickle
+    from src.bakery.ops import state
+
+    menu = {"Focaccia": 3.50, "Espresso": 2.00}
+    rows = [
+        {"number": 1, "at": "2026-08-01T08:00:00",
+         "lines": [{"item": "Focaccia", "qty": 1, "unit_price": 3.50}]},
+        {"number": 2, "at": "2026-08-01T08:30:00",
+         "lines": [{"item": "Espresso", "qty": 1, "unit_price": 2.00}]},
+    ]
+    bills_file = tmp_path / "bills.jsonl"
+    bills_file.write_text(NEWLINE.join(json.dumps(r) for r in rows), encoding="utf-8")
+    cache_file = tmp_path / "cache.pkl"
+
+    bills = receipts.load(bills_file, validate=False)
+    index = analytics.Index(bills)
+    history = {"Focaccia": {date(2026, 8, 1): 1}, "Espresso": {date(2026, 8, 1): 1}}
+    stamp = bills_file.stat().st_mtime
+
+    with open(cache_file, "wb") as h:
+        pickle.dump({"source": str(bills_file), "stamp": stamp, "bills": bills,
+                     "index": index, "history": history, "corrected": {}}, h)
+
+    monkeypatch.setattr(state, "BILLS", str(bills_file))
+    monkeypatch.setattr(state, "CACHE", str(cache_file))
+    monkeypatch.setattr(state, "_state", None)
+
+    held = list(catalogue.PRODUCTS)
+    try:
+        loaded = state.get(str(bills_file))
+        assert "Focaccia" in catalogue.BY_NAME
+        assert "Espresso" in catalogue.BY_NAME
+        assert catalogue.get("Focaccia").price == 3.50
+    finally:
+        catalogue.adopt(held)
+        state._state = None
+
 
 
 # ── the gate on irreversible actions ────────────────────────────────────────
@@ -527,7 +575,7 @@ def test_the_agent_can_actually_send_the_one_thing_it_exists_to_send():
     is that it emails the owner when a decision is needed, and it could not.
     It stayed invisible because no model had ever run.
     """
-    from src.bakery import agent
+    from src.bakery.agent import agent
 
     ledger = agent.Ledger()
     first = _Call("notify_owner")
@@ -538,7 +586,7 @@ def test_the_agent_can_actually_send_the_one_thing_it_exists_to_send():
 
 def test_the_same_decision_is_not_sent_twice():
     """The second send is the dangerous one. One is the point, not zero."""
-    from src.bakery import agent
+    from src.bakery.agent import agent
 
     ledger = agent.Ledger()
     calls = [_Call("notify_owner") for _ in range(3)]
@@ -554,7 +602,7 @@ def test_the_same_decision_is_not_sent_twice():
 
 
 def test_a_run_that_needs_two_messages_can_be_allowed_two():
-    from src.bakery import agent
+    from src.bakery.agent import agent
 
     ledger = agent.Ledger(approvals={"notify_owner": 2})
     calls = [_Call("notify_owner") for _ in range(3)]
@@ -568,7 +616,7 @@ def test_a_run_that_needs_two_messages_can_be_allowed_two():
 def test_reading_tools_are_never_gated():
     """Only irreversible things are gated. Reading the shop twenty times is
     wasteful, which the call ceiling handles, not dangerous."""
-    from src.bakery import agent
+    from src.bakery.agent import agent
 
     ledger = agent.Ledger()
     for _ in range(5):

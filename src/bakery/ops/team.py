@@ -18,7 +18,10 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 from datetime import timedelta
 
-from . import paths, calendar as occasions, catalogue, state
+from ..ops import paths
+from ..core import calendar as occasions
+from ..core import catalogue
+from ..ops import state
 
 TEAM_FILE = paths.of("team")
 
@@ -75,7 +78,7 @@ def _split_bake(rows, bakers):
 
 def today(plan=None):
     """Every person's list for the coming shift."""
-    from . import tools
+    from ..agent import tools
 
     people = roster()
     plan = plan or tools.bake_plan()

@@ -20,8 +20,9 @@ from urllib.parse import urlparse, parse_qs
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.bakery import (analytics, catalogue, feed, journal, model,  # noqa: E402
-                        paths, runs, shift, state, team, tools)
+from src.bakery.core import analytics, catalogue  # noqa: E402
+from src.bakery.ops import feed, journal, paths, shift, state, team  # noqa: E402
+from src.bakery.agent import model, runs, tools  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PORT = int(os.getenv("PORT", "8000"))
@@ -352,7 +353,23 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         url = urlparse(self.path)
         length = int(self.headers.get("Content-Length", 0))
+
+        if url.path == "/api/upload_bills":
+            text = self.rfile.read(length).decode("utf-8")
+            with open(state.BILLS, "w", encoding="utf-8") as f:
+                f.write(text)
+            state._state = None
+            state.get() # trigger rebuild
+            return self._send(200, '{"status": "ok"}')
+
         payload = json.loads(self.rfile.read(length) or b"{}")
+
+        if url.path == "/api/generate":
+            from src.bakery.simulation import generate
+            end = date.today()
+            generate.write(end - timedelta(days=370), end, bills_path=state.BILLS)
+            state._state = None
+            return self._api(state.get().summary())
 
         if url.path == "/api/feed":
             stream = feed.get(state.BILLS)
@@ -441,7 +458,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             emit({"kind": "started", "run": kind})
             result = runs.with_agent(kind, watch=emit, prompt=prompt)
-            emit({"kind": "done", **result})
+            emit({**result, "kind": "done"})
         except Exception as error:
             # No scripted stand-in here on purpose. A templated sentence dressed
             # up as the agent's answer is the one thing that would make the

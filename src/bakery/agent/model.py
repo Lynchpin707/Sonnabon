@@ -17,10 +17,6 @@ import urllib.error
 import urllib.request
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-
-# Ollama serves whatever has been pulled, so nothing is hard coded. These are
-# only the order of preference among models that can hold a tool loop; anything
-# already present is better than refusing to run.
 PREFERRED_LOCAL = ("qwen3", "qwen2.5", "llama3.2", "llama3.1", "mistral")
 
 _cached = None
@@ -36,9 +32,6 @@ def _bedrock_ready():
         return None
     has_key = os.getenv("AWS_ACCESS_KEY_ID") or os.getenv("AWS_PROFILE")
     if not has_key:
-        # An instance role leaves nothing in the environment, so on AWS this is
-        # still the right answer. Locally it will fail loudly at first call,
-        # which is better than silently picking a laptop model in production.
         if not os.getenv("AWS_EXECUTION_ENV") and not os.getenv("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"):
             return None
     return region
@@ -65,12 +58,14 @@ def _pick_local(available):
 
 def describe():
     """What would answer right now, without building anything."""
-    choice = os.getenv("MODEL_PROVIDER", "").strip().lower()
-    region = _bedrock_ready()
-    if choice == "bedrock" or (not choice and region):
-        return {"provider": "bedrock", "region": region or "unset",
+    # Force bedrock as the default provider as requested
+    choice = os.getenv("MODEL_PROVIDER", "bedrock").strip().lower()
+    region = _bedrock_ready() or os.getenv("AWS_REGION", "us-east-1")
+    
+    if choice == "bedrock":
+        return {"provider": "bedrock", "region": region,
                 "model": os.getenv("BEDROCK_MODEL_ID",
-                                   "global.anthropic.claude-sonnet-4-5-20250929-v1:0")}
+                                   "qwen.qwen3-32b-v1:0")}
     available = local_models()
     if choice == "ollama" or (not choice and available):
         return {"provider": "ollama", "host": OLLAMA_HOST,
@@ -88,10 +83,29 @@ def resolve(refresh=False):
     found = describe()
 
     if found["provider"] == "bedrock":
+        import boto3
+        import botocore
+        from botocore.config import Config
         from strands.models.bedrock import BedrockModel
-        _cached = BedrockModel(model_id=found["model"],
-                               region_name=found["region"],
-                               temperature=0.3)
+        
+        bearer = os.getenv("AWS_BEARER_TOKEN_BEDROCK")
+        if bearer:
+            session = boto3.Session(region_name=found["region"])
+            def inject_bearer(request, **kwargs):
+                request.headers.add_header('Authorization', f'Bearer {bearer}')
+            session.events.register('request-created.bedrock-runtime', inject_bearer)
+            client_config = Config(signature_version=botocore.UNSIGNED)
+            
+            _cached = BedrockModel(model_id=found["model"],
+                                   temperature=0.3,
+                                   boto_session=session,
+                                   boto_client_config=client_config)
+            print(f"Using AWS Bedrock via Bearer Token (Model: {found['model']}, Region: {found['region']})")
+        else:
+            _cached = BedrockModel(model_id=found["model"],
+                                   region_name=found["region"],
+                                   temperature=0.3)
+            print(f"Using AWS Bedrock via IAM Credentials (Model: {found['model']}, Region: {found['region']})")
         return _cached
 
     if found["provider"] == "ollama":

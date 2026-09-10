@@ -9,11 +9,23 @@ import argparse
 import sys
 from datetime import date, timedelta
 
-from . import paths
+from dotenv import load_dotenv
+load_dotenv()
+
+from .ops import paths
 
 
 def serve(argv=None):
     """Start the site."""
+    parser = argparse.ArgumentParser(prog="sonnabon")
+    parser.add_argument("--provider", choices=["bedrock", "ollama"],
+                        help="Which AI provider to use (overrides MODEL_PROVIDER)")
+    args, _ = parser.parse_known_args(argv)
+
+    if args.provider:
+        import os
+        os.environ["MODEL_PROVIDER"] = args.provider
+
     from ui import app
     app.serve()
 
@@ -30,7 +42,7 @@ def generate(argv=None):
                         help="fix the shop, so a rerun is identical")
     args = parser.parse_args(argv)
 
-    from . import generate as maker
+    from .simulation import generate as maker
     paths.ensure()
     end = date.today()
     bills = paths.of("bills")
@@ -43,12 +55,28 @@ def generate(argv=None):
 
 def backtest(argv=None):
     """Replay the year and price both plans against demand we know."""
-    from . import backtest as run
+    parser = argparse.ArgumentParser(prog="sonnabon-backtest")
+    parser.add_argument("--provider", choices=["bedrock", "ollama"],
+                        help="Which AI provider to use (overrides MODEL_PROVIDER)")
+    args, _ = parser.parse_known_args(argv)
+
+    if args.provider:
+        import os
+        os.environ["MODEL_PROVIDER"] = args.provider
+
+    from .simulation import backtest as run
     run.main()
 
 
 def reset(argv=None):
     """Put the demo back to a known state: fresh trade, no ticks, no diary."""
+    clear(argv)
+    generate([])
+    print("reset. Start the server and it will build the corrected history.")
+
+
+def clear(argv=None):
+    """Remove all data to return the shop to an empty state."""
     import os
 
     for store in ("bills", "truth", "cache", "journal", "tickets", "outbox",
@@ -57,13 +85,12 @@ def reset(argv=None):
         if os.path.exists(target):
             os.remove(target)
             print(f"removed {target}")
-    generate([])
-    print("reset. Start the server and it will build the corrected history.")
+    print("All data cleared. The shop is now in an empty state.")
 
 
 if __name__ == "__main__":            # python -m src.bakery.cli generate
     which = {"serve": serve, "generate": generate, "backtest": backtest,
-             "reset": reset}
+             "reset": reset, "clear": clear}
     if len(sys.argv) < 2 or sys.argv[1] not in which:
         sys.exit(f"usage: python -m src.bakery.cli {{{'|'.join(which)}}}")
     which[sys.argv[1]](sys.argv[2:])

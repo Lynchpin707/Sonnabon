@@ -15,7 +15,7 @@ import json
 from dataclasses import dataclass, asdict
 from datetime import datetime, date
 
-from . import catalogue
+from ..core import catalogue
 
 
 @dataclass(frozen=True)
