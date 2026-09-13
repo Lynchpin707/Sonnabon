@@ -28,3 +28,10 @@ sonnabon_architecture.drawio
 sonnabon_architecture2.png
 
 docs/create_diagram.py
+uv.lock
+
+.pytest_cache
+
+docs/DEMO.md
+
+PITCH.md
