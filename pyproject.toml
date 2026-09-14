@@ -1,7 +1,7 @@
 [project]
-name = "tbi"
+name = "sonnabon"
 version = "0.1.0"
-description = "Token routing gateway with measured cost accounting"
+description = "An autonomous operations and planning agent for small bakeries, built on Strands Agents"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -19,11 +19,14 @@ sonnabon-generate = "src.bakery.cli:generate"
 sonnabon-backtest = "src.bakery.cli:backtest"
 sonnabon-reset = "src.bakery.cli:reset"
 sonnabon-clear = "src.bakery.cli:clear"
+sonnabon-schedule = "src.bakery.cloud.schedule:main"
 
 [project.optional-dependencies]
 # Only needed if you give it a TAVILY_API_KEY. Without one it says web search
 # is not configured rather than inventing an event, so this stays optional.
 search = ["strands-agents-tools>=0.2.0"]
+# Deploying the agent to Amazon Bedrock AgentCore Runtime.
+aws = ["bedrock-agentcore"]
 
 [dependency-groups]
 dev = ["pytest>=8.0"]

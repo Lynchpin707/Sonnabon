@@ -122,6 +122,11 @@ def ensure(path=None):
     run 'sonnabon-generate'. Otherwise, the application starts with a blank slate.
     """
     path = path or BILLS
+    # On AWS the till export lives in S3. Keep a local copy current and read
+    # that, so the cache and everything downstream work unchanged.
+    from ..cloud import storage
+    if storage.is_s3(path):
+        return storage.local_copy(path, paths.home())
     if os.path.exists(path):
         return path
     

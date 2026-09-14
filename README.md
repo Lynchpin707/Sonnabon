@@ -191,14 +191,33 @@ ollama pull qwen3                 # local, no account, works
 # in .env and enable Claude in Bedrock
 ```
 
+### Running it on AWS
+
+The AWS code is in `src/bakery/cloud/`. Each piece stays dormant on a laptop and
+switches on once its AWS setting exists:
+
+| Service | What the code does | Turned on by |
+|---|---|---|
+| Amazon Bedrock | The agent's model, a Strands `BedrockModel` | `--provider bedrock` and AWS credentials |
+| Amazon Bedrock AgentCore Runtime | `agentcore_app.py` wraps the same agent as an AgentCore entrypoint | `agentcore configure` then `agentcore launch` |
+| Amazon EventBridge Scheduler | `schedule.py` wakes the agent five minutes after closing, Tuesday to Sunday, plus a weekly review | `sonnabon-schedule --runtime-arn ... --role-arn ...` |
+| Amazon S3 | `storage.py` reads the till export from a bucket and keeps a local copy current | `BILLS_FILE=s3://bucket/bills.jsonl` |
+| Amazon SES | `notify_owner` sends the one email. Without SES it writes to a local outbox | `SES_FROM` and `OWNER_EMAIL` |
+
+```bash
+pip install "sonnabon[aws]"
+agentcore configure --entrypoint src/bakery/cloud/agentcore_app.py
+agentcore launch
+sonnabon-schedule --runtime-arn <runtime ARN> --role-arn <scheduler role ARN>
+```
+
 ### About Bedrock
 
-The Bedrock provider is implemented: `model.py` builds a Strands `BedrockModel`
-from `AWS_REGION` and credentials, and `--provider bedrock` selects it. During
-the hackathon neither of our AWS accounts could get model access. The Bedrock
-console sent us back to a plan upgrade and registration step we could not
+During the hackathon neither of our AWS accounts could get Bedrock model access.
+The console sent us back to a plan upgrade and registration step we could not
 complete, so no Bedrock call ever reached a model. That was an account access
-problem, not a code problem.
+problem, not a code problem, and since AgentCore runs the agent on Bedrock, it
+also blocked the deployment above.
 
 The demo video therefore runs on a local model through Ollama. It is the same
 Strands agent with the same eighteen tools and the same hooks; only the provider
@@ -240,6 +259,7 @@ src/bakery/
     feed.py        a trading day arriving live, one bill at a time
     journal.py     what it did and when, so the autonomy is evidence not a claim
     paths.py       one shop id, every store under it, one process per bakery
+  cloud/         AgentCore entrypoint, EventBridge schedule, S3 till export
     shift.py       the shop's day, running or not
     state.py       loaded once, cached on the data file's timestamp
     team.py        whose job is what, whether it is done, who confirms sell-outs
