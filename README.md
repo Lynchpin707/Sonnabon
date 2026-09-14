@@ -17,7 +17,7 @@ a person.
 
 Point it at the till once. It does not need setting up again.
 
-Built on the [Strands Agents SDK](https://strandsagents.com). One agent, thirteen
+Built on the [Strands Agents SDK](https://strandsagents.com). One agent, eighteen
 tools, and its limits enforced as SDK hooks rather than as prompt text. Runs on
 Amazon Bedrock, or on a local model, whichever is configured.
 
@@ -191,6 +191,23 @@ ollama pull qwen3                 # local, no account, works
 # in .env and enable Claude in Bedrock
 ```
 
+### About Bedrock
+
+The Bedrock provider is implemented: `model.py` builds a Strands `BedrockModel`
+from `AWS_REGION` and credentials, and `--provider bedrock` selects it. During
+the hackathon neither of our AWS accounts could get model access. The Bedrock
+console sent us back to a plan upgrade and registration step we could not
+complete, so no Bedrock call ever reached a model. That was an account access
+problem, not a code problem.
+
+The demo video therefore runs on a local model through Ollama. It is the same
+Strands agent with the same eighteen tools and the same hooks; only the provider
+changes, with one flag:
+
+```bash
+uv run sonnabon --provider ollama
+```
+
 There is deliberately no scripted stand-in. A templated sentence presented as
 the agent's answer would make the whole product a lie, so when there is no model
 it says so. Every page keeps working; only the agent needs one.
@@ -230,7 +247,7 @@ src/bakery/
     agent.py       the agent, and the limits it cannot argue with
     model.py       which provider answers, and what to do when none can
     runs.py        what happens when the clock goes off
-    tools.py       the thirteen things the agent can do
+    tools.py       the eighteen things the agent can do
   simulation/
     backtest.py    would it actually have done better
     generate.py    a year of trade, sell-outs on purpose, truth kept aside
@@ -258,7 +275,7 @@ is raised once rather than nightly.
 
 ### How Strands is used
 
-One `Agent`, built in `agent.py`, with thirteen `@tool` functions and a single
+One `Agent`, built in `agent.py`, with eighteen `@tool` functions and a single
 `HookProvider` attached. Nothing is orchestrated by hand: the SDK runs the loop
 and the hook decides when it stops.
 
